@@ -9,6 +9,7 @@ import {
   Text,
   MD3LightTheme as DefaultTheme,
 } from "react-native-paper";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 
