@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "FernandoApp",
-    "slug": "FernandoApp",
+    "name": "Celebra",
+    "slug": "celebra",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#080E21",
     "ios": {
       "supportsTablet": true
     },
