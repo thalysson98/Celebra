@@ -135,11 +135,11 @@ export default function LoginScreen({ onLoginSuccess }) {
         </View>
 
         {/* Dica para teste rápido de credenciais */}
-        <View style={styles.credentialsTip}>
+        {/* <View style={styles.credentialsTip}>
           <Text style={styles.tipText}>
             💡 Conta padrão no banco: <Text style={styles.tipBold}>admin</Text> | Senha: <Text style={styles.tipBold}>admin123</Text>
           </Text>
-        </View>
+        </View> */}
       </View>
     </KeyboardAvoidingView>
   );
