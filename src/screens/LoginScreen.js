@@ -130,7 +130,6 @@ export default function LoginScreen({ onLoginSuccess }) {
           {/* Campo: Usuário */}
           <Text style={styles.fieldLabel}>Usuário</Text>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLeftIcon}>👤</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Seu e-mail ou usuário"
@@ -145,7 +144,6 @@ export default function LoginScreen({ onLoginSuccess }) {
           {/* Campo: Senha */}
           <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Senha</Text>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLeftIcon}>🔒</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Digite sua senha"
