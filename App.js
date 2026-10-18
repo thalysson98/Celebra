@@ -1,46 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  View,
-  useWindowDimensions,
-  ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 
-import { COLORS } from './src/theme/colors';
+import { AUTH_COLORS } from './src/styles/authStyles';
 import { initUserDb } from './src/database/userDb';
+import { logoutUser } from './src/services/authService';
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import EmptyScreen from './src/screens/EmptyScreen';
+
+const Stack = createStackNavigator();
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [dbReady, setDbReady] = useState(false);
-  const { width } = useWindowDimensions();
+  const [ready, setReady] = useState(false);
 
-  // Inicializa o banco de dados com a tabela de usuários e contas padrão
   useEffect(() => {
-    async function setupDb() {
+    async function setup() {
       await initUserDb();
-      setDbReady(true);
+      setReady(true);
     }
-    setupDb();
+    setup();
   }, []);
 
-  const handleLoginSuccess = (user) => {
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
   };
 
-  const isLargeScreen = width > 768;
-
-  if (!dbReady) {
+  if (!ready) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.buttonGold} />
+        <ActivityIndicator size="large" color={AUTH_COLORS.buttonYellow} />
       </View>
     );
   }
@@ -48,17 +42,39 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-        <StatusBar style="light" backgroundColor={COLORS.bgHeaderDark} />
+        <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark} />
 
-        <View style={[styles.mainWrapper, isLargeScreen && styles.largeScreenWrapper]}>
-          {/* Se estiver autenticado: leva para a Tela Vazia solicitada */}
-          {currentUser ? (
-            <EmptyScreen user={currentUser} onLogout={handleLogout} />
-          ) : (
-            /* Tela de Login idêntica à imagem com suporte a Cadastro e Banco de Dados */
-            <LoginScreen onLoginSuccess={handleLoginSuccess} />
-          )}
-        </View>
+        {currentUser ? (
+          <EmptyScreen user={currentUser} onLogout={handleLogout} />
+        ) : (
+          <NavigationContainer>
+            <Stack.Navigator
+              initialRouteName="Login"
+              screenOptions={{
+                headerShown: false,
+                cardStyle: { backgroundColor: AUTH_COLORS.backgroundDark },
+              }}
+            >
+              <Stack.Screen name="Login">
+                {(props) => (
+                  <LoginScreen
+                    {...props}
+                    onLoginSuccess={(user) => setCurrentUser(user)}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="Register">
+                {(props) => (
+                  <RegisterScreen
+                    {...props}
+                    onRegisterSuccess={(user) => setCurrentUser(user)}
+                  />
+                )}
+              </Stack.Screen>
+            </Stack.Navigator>
+          </NavigationContainer>
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -67,28 +83,12 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.bgHeaderDark,
+    backgroundColor: AUTH_COLORS.backgroundDark,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: COLORS.bgHeaderDark,
+    backgroundColor: AUTH_COLORS.backgroundDark,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  mainWrapper: {
-    flex: 1,
-    backgroundColor: COLORS.bgHeaderDark,
-    width: '100%',
-  },
-  largeScreenWrapper: {
-    maxWidth: 480,
-    alignSelf: 'center',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
   },
 });
