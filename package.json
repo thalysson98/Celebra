@@ -12,7 +12,6 @@
     "expo": "~57.0.15",
     "expo-camera": "~57.0.5",
     "expo-location": "~57.0.18",
-    "expo-sqlite": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "firebase": "^13.0.0",
     "react": "19.2.3",

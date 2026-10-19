@@ -4,9 +4,10 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
+import { onAuthStateChanged } from 'firebase/auth';
 
+import { auth } from './src/config/firebaseConfig';
 import { AUTH_COLORS } from './src/styles/authStyles';
-import { initUserDb } from './src/database/userDb';
 import { logoutUser } from './src/services/authService';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -19,11 +20,21 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    async function setup() {
-      await initUserDb();
+    // Escuta automaticamente se o usuário logou ou deslogou no Firebase
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser({
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || user.email,
+        });
+      } else {
+        setCurrentUser(null);
+      }
       setReady(true);
-    }
-    setup();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = async () => {
