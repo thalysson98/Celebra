@@ -13,23 +13,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from '../config/firebaseConfig';
-import { createUser as createLocalUser, authenticateUser as authLocalUser } from '../database/userDb';
 
-/**
- * ARQUITETURA PRONTA PARA BACKEND FUTURO:
- * As telas (LoginScreen e RegisterScreen) NÃO chamam o Firebase diretamente.
- * Elas chamam apenas as funções deste arquivo (`loginUser` e `registerUser`).
- *
- * - Hoje: deixe AUTH_MODE = 'FIREBASE'
- * - No futuro (quando criar a API Node/Java/Python): mude para AUTH_MODE = 'BACKEND_API'
- *   e ajuste a URL da sua API em API_BASE_URL, sem precisar mexer nas telas!
- */
-const AUTH_MODE = 'FIREBASE'; // Opções: 'FIREBASE' | 'BACKEND_API'
-const API_BASE_URL = 'https://seu-backend-futuro.com/api';
-
-/**
- * Traduz códigos de erro do Firebase para mensagens amigáveis em português
- */
 function parseFirebaseError(error) {
   const code = error?.code || '';
   switch (code) {
@@ -50,38 +34,14 @@ function parseFirebaseError(error) {
   }
 }
 
-/**
- * Cadastra um novo usuário (Tela "Criar conta")
- */
 export async function registerUser({ username, email, password }) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Configure as chaves do Firebase no arquivo src/config/firebaseConfig.js.');
+  }
+
   const cleanUsername = username.trim().toLowerCase();
   const cleanEmail = email.trim().toLowerCase();
 
-  // 1. MODO FUTURO: API Backend Própria (REST)
-  if (AUTH_MODE === 'BACKEND_API') {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: cleanUsername,
-        email: cleanEmail,
-        password,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Erro ao cadastrar usuário no servidor.');
-    }
-    return data.user;
-  }
-
-  // Fallback automático para banco local caso as chaves do Firebase ainda não tenham sido coladas
-  if (!isFirebaseConfigured) {
-    console.warn('Firebase ainda não configurado em firebaseConfig.js. Usando banco local para demonstração.');
-    return await createLocalUser(username.trim(), cleanUsername, password);
-  }
-
-  // 2. MODO ATUAL: Firebase Authentication + Cloud Firestore
   try {
     // Verifica se o nome de usuário já existe na coleção "users" do Firestore
     const usersRef = collection(db, 'users');
@@ -99,7 +59,7 @@ export async function registerUser({ username, email, password }) {
     // Salva o nome de usuário no perfil do Firebase Auth
     await updateProfile(firebaseUser, { displayName: username.trim() });
 
-    // Salva os dados complementares no Firestore (permite login por username ou e-mail)
+    // Salva os dados complementares no Firestore
     await setDoc(doc(db, 'users', firebaseUser.uid), {
       uid: firebaseUser.uid,
       username: cleanUsername,
@@ -119,45 +79,17 @@ export async function registerUser({ username, email, password }) {
   }
 }
 
-/**
- * Autentica o usuário (Tela "Bem-vindo!")
- * Aceita tanto o e-mail quanto o nome de usuário no campo "Usuário"
- */
 export async function loginUser({ identifier, password }) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Configure as chaves do Firebase no arquivo src/config/firebaseConfig.js.');
+  }
+
   const cleanIdentifier = identifier.trim().toLowerCase();
 
-  // 1. MODO FUTURO: API Backend Própria (REST)
-  if (AUTH_MODE === 'BACKEND_API') {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        identifier: cleanIdentifier,
-        password,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Credenciais inválidas.');
-    }
-    return data.user;
-  }
-
-  // Fallback automático caso as chaves do Firebase ainda não tenham sido coladas
-  if (!isFirebaseConfigured) {
-    console.warn('Firebase ainda não configurado em firebaseConfig.js. Usando banco local para demonstração.');
-    const localUser = await authLocalUser(cleanIdentifier, password);
-    if (!localUser) {
-      throw new Error('Usuário ou senha incorretos.');
-    }
-    return localUser;
-  }
-
-  // 2. MODO ATUAL: Firebase Authentication + Cloud Firestore
   try {
     let emailToLogin = cleanIdentifier;
 
-    // Se o usuário digitou o "username" (sem @) em vez do e-mail, busca o e-mail correspondente no Firestore
+    // Se digitou o username (sem @), busca o e-mail correspondente no Firestore
     if (!cleanIdentifier.includes('@')) {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('username', '==', cleanIdentifier));
@@ -185,11 +117,8 @@ export async function loginUser({ identifier, password }) {
   }
 }
 
-/**
- * Encerra a sessão do usuário
- */
 export async function logoutUser() {
-  if (AUTH_MODE === 'FIREBASE' && isFirebaseConfigured) {
+  if (isFirebaseConfigured) {
     await signOut(auth);
   }
 }
