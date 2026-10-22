@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -67,6 +68,13 @@ export async function registerUser({ username, email, password }) {
       username: cleanUsername,
       displayName: username.trim(),
       email: cleanEmail,
+      cpf: '',
+      phone: '',
+      city: '',
+      notificationPreferences: {
+        eventsAndTeam: true,
+        clientPayments: true,
+      },
       // O cadastro existente cria a conta organizadora do MVP.
       // Vínculos de técnicos devem ser criados pelo fluxo de convite da empresa.
       role: 'organizer',
@@ -82,6 +90,13 @@ export async function registerUser({ username, email, password }) {
       name: username.trim(),
       username: cleanUsername,
       email: cleanEmail,
+      cpf: '',
+      phone: '',
+      city: '',
+      notificationPreferences: {
+        eventsAndTeam: true,
+        clientPayments: true,
+      },
       role: 'organizer',
       companyId: null,
       active: true,
@@ -127,5 +142,18 @@ export async function loginUser({ identifier, password }) {
 export async function logoutUser() {
   if (isFirebaseConfigured) {
     await signOut(auth);
+  }
+}
+
+export async function requestPasswordReset(email) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Configure as chaves do Firebase no arquivo src/config/firebaseConfig.js.');
+  }
+  if (!email?.trim()) throw new Error('Não há um e-mail associado a esta conta.');
+
+  try {
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+  } catch (error) {
+    throw new Error(parseFirebaseError(error));
   }
 }

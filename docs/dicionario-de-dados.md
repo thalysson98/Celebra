@@ -24,6 +24,10 @@ Campos marcados como **propostos** precisam ser confirmados com o cliente e com 
 | `username` | string | sim | Nome de usuário normalizado para minúsculas. |
 | `displayName` | string | sim | Nome para exibição. |
 | `email` | string | sim | E-mail autenticado. |
+| `cpf` | string | não | CPF do usuário, armazenado somente com números; campo pessoal opcional do perfil. Restringir leitura e escrita ao próprio usuário e aos administradores autorizados. |
+| `phone` | string | não | Telefone com DDD, armazenado somente com números. |
+| `city` | string | não | Cidade informada no perfil. |
+| `notificationPreferences` | map | recomendado | Preferências pessoais; `eventsAndTeam` e `clientPayments` são booleanos. O padrão inicial do app é `true`. |
 | `role` | string | sim | `organizer`, `technician` ou `pending`. Não aceitar papel enviado livremente sem validação. |
 | `companyId` | string \| null | sim | Empresa ativa; `null` enquanto o vínculo não estiver concluído. |
 | `active` | boolean | sim | Indica se o acesso está ativo. |

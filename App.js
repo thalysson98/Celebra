@@ -18,13 +18,54 @@ import TechnicianDashboardScreen from './src/screens/TechnicianDashboardScreen';
 
 const Stack = createStackNavigator();
 
+function demoEventDate(daysFromNow, hour) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  date.setHours(hour, 0, 0, 0);
+  return date;
+}
+
 const demoTechnicianAssignments = [
+  {
+    id: 'demo-accepted-1',
+    eventTitle: 'Pedro & Albino',
+    clientName: 'Pedro e Albino',
+    eventDate: demoEventDate(5, 16),
+    eventAddress: 'Sítio Romagna',
+    eventTypeName: 'Casamento',
+    professionalTypeName: 'Fotógrafo',
+    roleName: 'Fotografia do casamento',
+    status: 'accepted',
+  },
+  {
+    id: 'demo-accepted-2',
+    eventTitle: '15 anos da Luiza',
+    clientName: 'Luiza Martins',
+    eventDate: demoEventDate(6, 19),
+    eventAddress: 'Villa Toscana',
+    eventTypeName: 'Aniversário',
+    professionalTypeName: 'Fotógrafo',
+    roleName: 'Cobertura do evento',
+    status: 'accepted',
+  },
+  {
+    id: 'demo-accepted-3',
+    eventTitle: 'Formatura Medicina',
+    clientName: 'Turma de Medicina',
+    eventDate: demoEventDate(7, 20),
+    eventAddress: 'Espaço Aurora',
+    eventTypeName: 'Formatura',
+    professionalTypeName: 'Videomaker',
+    roleName: 'Captação do evento',
+    status: 'accepted',
+  },
   {
     id: 'demo-pending-1',
     eventTitle: 'Ana & Pedro',
     clientName: 'Ana Costa & Pedro Almeida',
-    eventDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    eventDate: demoEventDate(3, 18),
     eventAddress: 'Jundiaí, SP · 2 locais',
+    eventTypeName: 'Casamento',
     professionalTypeName: 'Videomaker',
     roleName: 'Filmagem da cerimônia',
     status: 'pending',
@@ -33,21 +74,34 @@ const demoTechnicianAssignments = [
     id: 'demo-pending-2',
     eventTitle: '15 Anos da Mariana',
     clientName: 'Mariana Oliveira',
-    eventDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
+    eventDate: demoEventDate(8, 19),
     eventAddress: 'Campinas, SP',
+    eventTypeName: 'Aniversário',
     professionalTypeName: 'Câmera',
     roleName: 'Captação do evento',
     status: 'pending',
   },
   {
-    id: 'demo-accepted-1',
-    eventTitle: 'Ensaio de Família',
+    id: 'demo-pending-3',
+    eventTitle: 'Casamento Vitória & Lucas',
+    clientName: 'Vitória Almeida e Lucas Reis',
+    eventDate: demoEventDate(10, 17),
+    eventAddress: 'Espaço Jardim',
+    eventTypeName: 'Casamento',
+    professionalTypeName: 'Fotógrafo',
+    roleName: 'Fotografia da cerimônia',
+    status: 'pending',
+  },
+  {
+    id: 'demo-pending-4',
+    eventTitle: 'Ensaio da Família Souza',
     clientName: 'Família Souza',
-    eventDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000),
-    eventAddress: 'Jundiaí, SP',
+    eventDate: demoEventDate(12, 9),
+    eventAddress: 'Parque da Cidade',
+    eventTypeName: 'Ensaio',
     professionalTypeName: 'Fotógrafo',
     roleName: 'Ensaio externo',
-    status: 'accepted',
+    status: 'pending',
   },
 ];
 
