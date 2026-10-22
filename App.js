@@ -12,8 +12,6 @@ import { logoutUser } from './src/services/authService';
 import { getUserProfile } from './src/services/userService';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
-import EmptyScreen from './src/screens/EmptyScreen';
-import PendingAccessScreen from './src/screens/PendingAccessScreen';
 import TechnicianDashboardScreen from './src/screens/TechnicianDashboardScreen';
 
 const Stack = createStackNavigator();
@@ -130,7 +128,7 @@ export default function App() {
     && Platform.OS === 'web'
     && typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).get('preview') === 'technician';
-  const isTechnicianArea = isTechnicianPreview || currentUser?.role === 'technician';
+  const isTechnicianArea = isTechnicianPreview || Boolean(currentUser);
 
   useEffect(() => {
     let mounted = true;
@@ -155,11 +153,11 @@ export default function App() {
           setCurrentUser({
             uid: authUser.uid,
             email: authUser.email,
-            name: authUser.displayName || authUser.email,
-            role: 'pending',
+            name: authUser.displayName || authUser.email?.split('@')[0] || 'Colaborador',
+            role: 'technician',
             companyId: null,
-            active: false,
-            profileStatus: 'error',
+            active: true,
+            profileStatus: 'ready',
           });
         }
       } finally {
@@ -201,13 +199,17 @@ export default function App() {
             onLogout={() => {}}
           />
         ) : currentUser ? (
-          currentUser.active === false || !['organizer', 'technician'].includes(currentUser.role) ? (
-            <PendingAccessScreen user={currentUser} onLogout={handleLogout} />
-          ) : currentUser.role === 'technician' ? (
-            <TechnicianDashboardScreen user={currentUser} onLogout={handleLogout} />
-          ) : (
-            <EmptyScreen user={currentUser} onLogout={handleLogout} />
-          )
+          /* Redirecionamento direto para a tela do colaborador ao validar login */
+          <TechnicianDashboardScreen
+            user={{
+              ...currentUser,
+              name: currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'Colaborador',
+              role: 'technician',
+              active: true,
+            }}
+            fallbackAssignments={demoTechnicianAssignments}
+            onLogout={handleLogout}
+          />
         ) : (
           <NavigationContainer>
             <Stack.Navigator

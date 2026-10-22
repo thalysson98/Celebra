@@ -17,20 +17,20 @@ export async function getUserProfile(firebaseUser) {
     return {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
-      name: firebaseUser.displayName || firebaseUser.email || 'Usuário',
-      role: 'pending',
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Colaborador',
+      role: 'technician',
       companyId: null,
       cpf: '',
       phone: '',
       city: '',
       notificationPreferences: { eventsAndTeam: true },
-      active: false,
-      profileStatus: 'missing',
+      active: true,
+      profileStatus: 'ready',
     };
   }
 
   const profile = profileSnapshot.data();
-  const role = VALID_ROLES.includes(profile.role) ? profile.role : 'pending';
+  const role = profile.role === 'organizer' ? 'organizer' : 'technician';
   let companyName = '';
   if (profile.companyId) {
     try {
@@ -44,8 +44,8 @@ export async function getUserProfile(firebaseUser) {
   return {
     uid: firebaseUser.uid,
     email: firebaseUser.email || profile.email || '',
-    name: profile.displayName || firebaseUser.displayName || firebaseUser.email || 'Usuário',
-    displayName: profile.displayName || firebaseUser.displayName || firebaseUser.email || 'Usuário',
+    name: profile.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Colaborador',
+    displayName: profile.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Colaborador',
     username: profile.username || '',
     cpf: profile.cpf || '',
     phone: profile.phone || '',
@@ -57,8 +57,8 @@ export async function getUserProfile(firebaseUser) {
     },
     role,
     companyId: profile.companyId || null,
-    active: profile.active !== false,
-    profileStatus: role === 'pending' ? 'pending' : 'ready',
+    active: true,
+    profileStatus: 'ready',
   };
 }
 

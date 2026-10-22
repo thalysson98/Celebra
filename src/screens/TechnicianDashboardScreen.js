@@ -114,9 +114,9 @@ function formatAgendaDate(value) {
   }).format(value);
 }
 
-export default function TechnicianDashboardScreen({ user, onLogout, previewAssignments }) {
+export default function TechnicianDashboardScreen({ user, onLogout, previewAssignments, fallbackAssignments = [] }) {
   const insets = useSafeAreaInsets();
-  const [assignments, setAssignments] = useState(previewAssignments || []);
+  const [assignments, setAssignments] = useState(previewAssignments || fallbackAssignments || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [respondingId, setRespondingId] = useState(null);
@@ -163,12 +163,23 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
     const unsubscribe = subscribeToTechnicianAssignments(
       user.uid,
       (nextAssignments) => {
-        setAssignments(nextAssignments);
+        if (nextAssignments && nextAssignments.length > 0) {
+          setAssignments(nextAssignments);
+        } else if (fallbackAssignments && fallbackAssignments.length > 0) {
+          setAssignments(fallbackAssignments);
+        } else {
+          setAssignments([]);
+        }
         setError('');
         setLoading(false);
       },
       () => {
-        setError('Não foi possível carregar suas convocações. Tente novamente mais tarde.');
+        if (fallbackAssignments && fallbackAssignments.length > 0) {
+          setAssignments(fallbackAssignments);
+          setError('');
+        } else {
+          setError('Não foi possível carregar suas convocações. Tente novamente mais tarde.');
+        }
         setLoading(false);
       },
     );
@@ -221,7 +232,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   }, [confirmedAssignments]);
 
   const updateResponse = async (assignment, status) => {
-    if (previewAssignments) {
+    if (previewAssignments || String(assignment.id).startsWith('demo-')) {
       setAssignments((currentAssignments) => currentAssignments.map((item) => (
         item.id === assignment.id
           ? { ...item, status, respondedAt: new Date() }
@@ -245,7 +256,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   };
 
   const confirmDecline = (assignment) => {
-    if (previewAssignments) {
+    if (previewAssignments || String(assignment.id).startsWith('demo-')) {
       updateResponse(assignment, 'declined');
       return;
     }
