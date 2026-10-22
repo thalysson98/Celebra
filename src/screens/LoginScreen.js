@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  Pressable,
   TouchableOpacity,
   KeyboardAvoidingView,
   ScrollView,
@@ -18,6 +19,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberPassword, setRememberPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -81,8 +83,11 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
                   placeholderTextColor={AUTH_COLORS.placeholder}
                   value={identifier}
                   onChangeText={setIdentifier}
+                  autoComplete="username"
+                  textContentType="username"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="next"
                 />
               </View>
             </View>
@@ -104,7 +109,11 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
+                  autoComplete="current-password"
+                  textContentType="password"
                   autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -120,15 +129,18 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
               </View>
             </View>
 
-            {/* Botão "Criar conta ->" que navega para a tela da direita (RegisterScreen) */}
-            <TouchableOpacity
-              style={styles.createAccountButton}
-              onPress={() => navigation.navigate('Register')}
-              activeOpacity={0.7}
+            <Pressable
+              style={styles.rememberRow}
+              onPress={() => setRememberPassword((current) => !current)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: rememberPassword }}
+              accessibilityLabel="Lembrar senha"
             >
-              <Text style={styles.createAccountText}>Criar conta</Text>
-              <Feather name="arrow-right" size={16} color={AUTH_COLORS.textDark} />
-            </TouchableOpacity>
+              <View style={[styles.rememberCheckbox, rememberPassword && styles.rememberCheckboxChecked]}>
+                {rememberPassword && <Feather name="check" size={12} color={AUTH_COLORS.textDark} />}
+              </View>
+              <Text style={styles.rememberText}>Lembrar senha</Text>
+            </Pressable>
 
             {/* Botão Principal Amarelo: Acessar minha conta */}
             <TouchableOpacity
@@ -142,6 +154,16 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
               ) : (
                 <Text style={styles.primaryButtonText}>Acessar minha conta</Text>
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.createAccountButton}
+              onPress={() => navigation.navigate('Register')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.createAccountText}>Criar conta</Text>
+              <Feather name="arrow-right" size={16} color={AUTH_COLORS.textDark} />
             </TouchableOpacity>
           </View>
         </View>

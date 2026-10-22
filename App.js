@@ -9,32 +9,57 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './src/config/firebaseConfig';
 import { AUTH_COLORS } from './src/styles/authStyles';
 import { logoutUser } from './src/services/authService';
+import { getUserProfile } from './src/services/userService';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
-import EmptyScreen from './src/screens/EmptyScreen';
+import TechnicianDashboardScreen from './src/screens/TechnicianDashboardScreen';
 
 const Stack = createStackNavigator();
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const isTechnicianArea = Boolean(currentUser);
 
   useEffect(() => {
-    // Escuta automaticamente se o usuário logou ou deslogou no Firebase
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser({
-          uid: user.uid,
-          email: user.email,
-          name: user.displayName || user.email,
-        });
-      } else {
-        setCurrentUser(null);
+    let mounted = true;
+    let authRevision = 0;
+
+    // Escuta a sessão ativa do usuário no Firebase
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      const revision = ++authRevision;
+      if (!authUser) {
+        if (mounted) {
+          setCurrentUser(null);
+          setReady(true);
+        }
+        return;
       }
-      setReady(true);
+
+      try {
+        const profile = await getUserProfile(authUser);
+        if (mounted && revision === authRevision) setCurrentUser(profile);
+      } catch (error) {
+        if (mounted && revision === authRevision) {
+          setCurrentUser({
+            uid: authUser.uid,
+            email: authUser.email,
+            name: authUser.displayName || authUser.email?.split('@')[0] || 'Colaborador',
+            role: 'technician',
+            companyId: null,
+            active: true,
+            profileStatus: 'ready',
+          });
+        }
+      } finally {
+        if (mounted && revision === authRevision) setReady(true);
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -52,12 +77,20 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <SafeAreaView
+        style={[styles.safeArea, isTechnicianArea && styles.technicianSafeArea]}
+        edges={isTechnicianArea ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
+      >
         <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark} />
 
         {currentUser ? (
-          <EmptyScreen user={currentUser} onLogout={handleLogout} />
+          /* Usuário autenticado: tela do colaborador conectada ao Firestore */
+          <TechnicianDashboardScreen
+            user={currentUser}
+            onLogout={handleLogout}
+          />
         ) : (
+          /* Usuário não autenticado: telas de login e cadastro */
           <NavigationContainer>
             <Stack.Navigator
               initialRouteName="Login"
@@ -95,6 +128,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: AUTH_COLORS.backgroundDark,
+  },
+  technicianSafeArea: {
+    backgroundColor: '#F8FAFF',
   },
   loadingContainer: {
     flex: 1,

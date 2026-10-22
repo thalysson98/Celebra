@@ -29,14 +29,14 @@ export const styles = StyleSheet.create({
   },
   contentWrapper: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 360,
     alignSelf: 'center',
   },
 
   // Cabeçalho da marca ("Celebra ✦")
   brandHeader: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   brandTitleRow: {
     flexDirection: 'row',
@@ -45,13 +45,13 @@ export const styles = StyleSheet.create({
   },
   brandTitle: {
     fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.4,
   },
   brandStar: {
-    fontSize: 28,
+    fontSize: 23,
     color: AUTH_COLORS.starGold,
     marginLeft: 6,
   },
@@ -68,8 +68,8 @@ export const styles = StyleSheet.create({
     backgroundColor: AUTH_COLORS.cardWhite,
     borderRadius: 24,
     paddingHorizontal: 22,
-    paddingTop: 28,
-    paddingBottom: 26,
+    paddingTop: 24,
+    paddingBottom: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
@@ -77,7 +77,7 @@ export const styles = StyleSheet.create({
     elevation: 6,
   },
   cardTitle: {
-    fontSize: 25,
+    fontSize: 23,
     fontWeight: '400',
     color: AUTH_COLORS.textDark,
     marginBottom: 22,
@@ -100,7 +100,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AUTH_COLORS.inputBorder,
     borderRadius: 12,
-    height: 50,
+    height: 48,
     paddingHorizontal: 14,
   },
   leftIcon: {
@@ -117,14 +117,42 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
 
-  // Link "Criar conta ->" alinhado à esquerda (Tela de Login)
-  createAccountButton: {
+  rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 4,
-    marginBottom: 20,
-    paddingVertical: 4,
+    marginTop: -2,
+    marginBottom: 16,
+    paddingVertical: 2,
+  },
+  rememberCheckbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: '#A8B5C0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 7,
+  },
+  rememberCheckboxChecked: {
+    borderColor: AUTH_COLORS.buttonYellow,
+    backgroundColor: AUTH_COLORS.buttonYellow,
+  },
+  rememberText: {
+    color: AUTH_COLORS.textDark,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Link "Criar conta ->" centralizado abaixo do botão principal.
+  createAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 3,
   },
   createAccountText: {
     fontSize: 13,

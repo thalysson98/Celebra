@@ -103,7 +103,7 @@ export default function RegisterScreen({ navigation, onRegisterSuccess }) {
               <Text style={styles.fieldLabel}>Email</Text>
               <View style={styles.inputContainer}>
                 <Feather
-                  name="user"
+                  name="mail"
                   size={18}
                   color={AUTH_COLORS.placeholder}
                   style={styles.leftIcon}
@@ -200,17 +200,17 @@ export default function RegisterScreen({ navigation, onRegisterSuccess }) {
                 <Text style={styles.primaryButtonText}>Cadastrar</Text>
               )}
             </TouchableOpacity>
-          </View>
 
-          {/* Link para voltar à tela de Login caso o usuário já tenha conta */}
-          <TouchableOpacity
-            style={styles.backToLoginButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Feather name="arrow-left" size={15} color={AUTH_COLORS.subtitleLight} />
-            <Text style={styles.backToLoginText}>Já tenho uma conta (Voltar ao login)</Text>
-          </TouchableOpacity>
+            {/* Link para voltar à tela de Login caso o usuário já tenha conta */}
+            <TouchableOpacity
+              style={styles.backToLoginButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Feather name="arrow-left" size={15} color={AUTH_COLORS.subtitleLight} />
+              <Text style={styles.backToLoginText}>Já tenho uma conta (Voltar ao login)</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

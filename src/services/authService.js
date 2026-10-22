@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -11,8 +12,10 @@ import {
   query,
   where,
   getDocs,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from '../config/firebaseConfig';
+import { getUserProfile } from './userService';
 
 function parseFirebaseError(error) {
   const code = error?.code || '';
@@ -65,14 +68,38 @@ export async function registerUser({ username, email, password }) {
       username: cleanUsername,
       displayName: username.trim(),
       email: cleanEmail,
-      createdAt: new Date().toISOString(),
+      cpf: '',
+      phone: '',
+      city: '',
+      notificationPreferences: {
+        eventsAndTeam: true,
+        clientPayments: true,
+      },
+      // O cadastro existente cria a conta organizadora do MVP.
+      // Vínculos de técnicos devem ser criados pelo fluxo de convite da empresa.
+      role: 'organizer',
+      companyId: null,
+      active: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
     return {
+      uid: firebaseUser.uid,
       id: firebaseUser.uid,
       name: username.trim(),
       username: cleanUsername,
       email: cleanEmail,
+      cpf: '',
+      phone: '',
+      city: '',
+      notificationPreferences: {
+        eventsAndTeam: true,
+        clientPayments: true,
+      },
+      role: 'organizer',
+      companyId: null,
+      active: true,
     };
   } catch (error) {
     throw new Error(parseFirebaseError(error));
@@ -106,12 +133,7 @@ export async function loginUser({ identifier, password }) {
     const userCredential = await signInWithEmailAndPassword(auth, emailToLogin, password);
     const firebaseUser = userCredential.user;
 
-    return {
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName || cleanIdentifier,
-      username: cleanIdentifier,
-      email: firebaseUser.email,
-    };
+    return getUserProfile(firebaseUser);
   } catch (error) {
     throw new Error(parseFirebaseError(error));
   }
@@ -120,5 +142,18 @@ export async function loginUser({ identifier, password }) {
 export async function logoutUser() {
   if (isFirebaseConfigured) {
     await signOut(auth);
+  }
+}
+
+export async function requestPasswordReset(email) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Configure as chaves do Firebase no arquivo src/config/firebaseConfig.js.');
+  }
+  if (!email?.trim()) throw new Error('Não há um e-mail associado a esta conta.');
+
+  try {
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+  } catch (error) {
+    throw new Error(parseFirebaseError(error));
   }
 }
