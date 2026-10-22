@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Platform, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -16,125 +16,16 @@ import TechnicianDashboardScreen from './src/screens/TechnicianDashboardScreen';
 
 const Stack = createStackNavigator();
 
-function demoEventDate(daysFromNow, hour) {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  date.setHours(hour, 0, 0, 0);
-  return date;
-}
-
-const demoTechnicianAssignments = [
-  {
-    id: 'demo-accepted-1',
-    eventTitle: 'Pedro & Albino',
-    clientName: 'Pedro e Albino',
-    eventDate: demoEventDate(5, 16),
-    eventAddress: 'Sítio Romagna',
-    eventTypeName: 'Casamento',
-    professionalTypeName: 'Fotógrafo',
-    roleName: 'Fotografia do casamento',
-    clientEmail: 'pedro.albino@example.com',
-    clientPhone: '(11) 99999-0123',
-    productionNotes: 'Priorizar votos e entrada dos noivos. Drone antes da cerimônia, conforme clima e autorização do local.',
-    guestCount: 180,
-    eventLocations: [
-      {
-        name: 'Sítio Romagna',
-        address: 'Jundiaí, SP',
-        startAt: demoEventDate(5, 16),
-        notes: 'Cerimônia no jardim; confirmar acesso com a produção.',
-      },
-      {
-        name: 'Salão principal',
-        address: 'Sítio Romagna, Jundiaí, SP',
-        startAt: demoEventDate(5, 19),
-        notes: 'Cobertura da recepção.',
-      },
-    ],
-    status: 'accepted',
-  },
-  {
-    id: 'demo-accepted-2',
-    eventTitle: '15 anos da Luiza',
-    clientName: 'Luiza Martins',
-    eventDate: demoEventDate(6, 19),
-    eventAddress: 'Villa Toscana',
-    eventTypeName: 'Aniversário',
-    professionalTypeName: 'Fotógrafo',
-    roleName: 'Cobertura do evento',
-    status: 'accepted',
-  },
-  {
-    id: 'demo-accepted-3',
-    eventTitle: 'Formatura Medicina',
-    clientName: 'Turma de Medicina',
-    eventDate: demoEventDate(7, 20),
-    eventAddress: 'Espaço Aurora',
-    eventTypeName: 'Formatura',
-    professionalTypeName: 'Videomaker',
-    roleName: 'Captação do evento',
-    status: 'accepted',
-  },
-  {
-    id: 'demo-pending-1',
-    eventTitle: 'Ana & Pedro',
-    clientName: 'Ana Costa & Pedro Almeida',
-    eventDate: demoEventDate(3, 18),
-    eventAddress: 'Jundiaí, SP · 2 locais',
-    eventTypeName: 'Casamento',
-    professionalTypeName: 'Videomaker',
-    roleName: 'Filmagem da cerimônia',
-    status: 'pending',
-  },
-  {
-    id: 'demo-pending-2',
-    eventTitle: '15 Anos da Mariana',
-    clientName: 'Mariana Oliveira',
-    eventDate: demoEventDate(8, 19),
-    eventAddress: 'Campinas, SP',
-    eventTypeName: 'Aniversário',
-    professionalTypeName: 'Câmera',
-    roleName: 'Captação do evento',
-    status: 'pending',
-  },
-  {
-    id: 'demo-pending-3',
-    eventTitle: 'Casamento Vitória & Lucas',
-    clientName: 'Vitória Almeida e Lucas Reis',
-    eventDate: demoEventDate(10, 17),
-    eventAddress: 'Espaço Jardim',
-    eventTypeName: 'Casamento',
-    professionalTypeName: 'Fotógrafo',
-    roleName: 'Fotografia da cerimônia',
-    status: 'pending',
-  },
-  {
-    id: 'demo-pending-4',
-    eventTitle: 'Ensaio da Família Souza',
-    clientName: 'Família Souza',
-    eventDate: demoEventDate(12, 9),
-    eventAddress: 'Parque da Cidade',
-    eventTypeName: 'Ensaio',
-    professionalTypeName: 'Fotógrafo',
-    roleName: 'Ensaio externo',
-    status: 'pending',
-  },
-];
-
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ready, setReady] = useState(false);
-  const isTechnicianPreview = __DEV__
-    && Platform.OS === 'web'
-    && typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('preview') === 'technician';
-  const isTechnicianArea = isTechnicianPreview || Boolean(currentUser);
+  const isTechnicianArea = Boolean(currentUser);
 
   useEffect(() => {
     let mounted = true;
     let authRevision = 0;
 
-    // Escuta a sessão e carrega o perfil/papel persistido no Firestore.
+    // Escuta a sessão ativa do usuário no Firebase
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       const revision = ++authRevision;
       if (!authUser) {
@@ -176,7 +67,7 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  if (!ready && !isTechnicianPreview) {
+  if (!ready) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={AUTH_COLORS.buttonYellow} />
@@ -192,25 +83,14 @@ export default function App() {
       >
         <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark} />
 
-        {isTechnicianPreview ? (
+        {currentUser ? (
+          /* Usuário autenticado: tela do colaborador conectada ao Firestore */
           <TechnicianDashboardScreen
-            user={{ uid: 'local-preview-technician', name: 'Marina Costa' }}
-            previewAssignments={demoTechnicianAssignments}
-            onLogout={() => {}}
-          />
-        ) : currentUser ? (
-          /* Redirecionamento direto para a tela do colaborador ao validar login */
-          <TechnicianDashboardScreen
-            user={{
-              ...currentUser,
-              name: currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'Colaborador',
-              role: 'technician',
-              active: true,
-            }}
-            fallbackAssignments={demoTechnicianAssignments}
+            user={currentUser}
             onLogout={handleLogout}
           />
         ) : (
+          /* Usuário não autenticado: telas de login e cadastro */
           <NavigationContainer>
             <Stack.Navigator
               initialRouteName="Login"

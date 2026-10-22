@@ -114,9 +114,9 @@ function formatAgendaDate(value) {
   }).format(value);
 }
 
-export default function TechnicianDashboardScreen({ user, onLogout, previewAssignments, fallbackAssignments = [] }) {
+export default function TechnicianDashboardScreen({ user, onLogout }) {
   const insets = useSafeAreaInsets();
-  const [assignments, setAssignments] = useState(previewAssignments || fallbackAssignments || []);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [respondingId, setRespondingId] = useState(null);
@@ -153,52 +153,29 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   const [isAvailabilityDialogVisible, setAvailabilityDialogVisible] = useState(false);
 
   useEffect(() => {
-    if (previewAssignments) {
-      setAssignments(previewAssignments);
-      setLoading(false);
-      return undefined;
-    }
-
     setLoading(true);
     const unsubscribe = subscribeToTechnicianAssignments(
       user.uid,
       (nextAssignments) => {
-        if (nextAssignments && nextAssignments.length > 0) {
-          setAssignments(nextAssignments);
-        } else if (fallbackAssignments && fallbackAssignments.length > 0) {
-          setAssignments(fallbackAssignments);
-        } else {
-          setAssignments([]);
-        }
+        setAssignments(nextAssignments || []);
         setError('');
         setLoading(false);
       },
       () => {
-        if (fallbackAssignments && fallbackAssignments.length > 0) {
-          setAssignments(fallbackAssignments);
-          setError('');
-        } else {
-          setError('Não foi possível carregar suas convocações. Tente novamente mais tarde.');
-        }
+        setError('Não foi possível carregar suas convocações. Tente novamente mais tarde.');
         setLoading(false);
       },
     );
 
     return unsubscribe;
-  }, [user.uid, previewAssignments]);
+  }, [user.uid]);
 
   useEffect(() => {
-    if (previewAssignments) {
-      setUnavailableDates([]);
-      setAvailabilityLoading(false);
-      return undefined;
-    }
-
     setAvailabilityLoading(true);
     const unsubscribe = subscribeToTechnicianUnavailability(
       user.uid,
       (dates) => {
-        setUnavailableDates(dates);
+        setUnavailableDates(dates || []);
         setAvailabilityError('');
         setAvailabilityLoading(false);
       },
@@ -208,7 +185,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
       },
     );
     return unsubscribe;
-  }, [user.uid, previewAssignments]);
+  }, [user.uid]);
 
   const pendingAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === 'pending'),
@@ -232,15 +209,6 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   }, [confirmedAssignments]);
 
   const updateResponse = async (assignment, status) => {
-    if (previewAssignments || String(assignment.id).startsWith('demo-')) {
-      setAssignments((currentAssignments) => currentAssignments.map((item) => (
-        item.id === assignment.id
-          ? { ...item, status, respondedAt: new Date() }
-          : item
-      )));
-      return;
-    }
-
     setRespondingId(assignment.id);
     try {
       await respondToAssignment({
@@ -256,11 +224,6 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   };
 
   const confirmDecline = (assignment) => {
-    if (previewAssignments || String(assignment.id).startsWith('demo-')) {
-      updateResponse(assignment, 'declined');
-      return;
-    }
-
     Alert.alert('Recusar convocação', 'Deseja recusar este trabalho?', [
       { text: 'Voltar', style: 'cancel' },
       {
@@ -436,15 +399,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
 
     setSavingProfile(true);
     try {
-      const savedFields = previewAssignments
-        ? {
-          displayName: profileForm.displayName.trim(),
-          cpf: onlyDigits(profileForm.cpf),
-          phone: onlyDigits(profileForm.phone),
-          city: profileForm.city.trim(),
-        }
-        : await updateUserProfile(user.uid, profileForm);
-
+      const savedFields = await updateUserProfile(user.uid, profileForm);
       setProfile((current) => ({ ...current, ...savedFields, name: savedFields.displayName }));
       setProfileEditorVisible(false);
       Alert.alert('Perfil atualizado', 'Seus dados foram salvos com sucesso.');
@@ -458,8 +413,6 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   const changeEventsNotificationPreference = async (enabled) => {
     const previousValue = eventsNotificationsEnabled;
     setEventsNotificationsEnabled(enabled);
-    if (previewAssignments) return;
-
     setSavingNotificationPreference(true);
     try {
       await setUserEventsNotificationPreference(user.uid, enabled);
@@ -479,10 +432,6 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   };
 
   const sendPasswordReset = async () => {
-    if (previewAssignments) {
-      Alert.alert('Pré-visualização', 'A redefinição de senha fica disponível ao entrar com uma conta real.');
-      return;
-    }
     if (!profile.email) {
       Alert.alert('E-mail indisponível', 'Esta conta não possui um e-mail para redefinição.');
       return;
@@ -522,20 +471,10 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
     setUpdatingAvailability(true);
     try {
       if (selectedDateUnavailable) {
-        if (previewAssignments) {
-          setUnavailableDates((current) => current.filter((item) => item.dateKey !== selectedAgendaDateKey));
-        } else {
-          await removeTechnicianUnavailability(user.uid, selectedAgendaDay);
-        }
-      } else if (previewAssignments) {
-        setUnavailableDates((current) => [
-          ...current.filter((item) => item.dateKey !== selectedAgendaDateKey),
-          { id: `${user.uid}_${selectedAgendaDateKey}`, dateKey: selectedAgendaDateKey },
-        ]);
+        await removeTechnicianUnavailability(user.uid, selectedAgendaDay);
       } else {
         await markTechnicianUnavailable(user.uid, selectedAgendaDay);
       }
-
       setAvailabilityDialogVisible(false);
     } catch (changeError) {
       Alert.alert('Não foi possível atualizar a agenda', changeError.message);
