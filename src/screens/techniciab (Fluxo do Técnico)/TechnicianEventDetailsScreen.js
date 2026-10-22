@@ -7,8 +7,10 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { COLORS } from '../theme/colors';
-import { styles } from '../styles/technicianEventDetailsStyles';
+
+// Caminhos atualizados com ../../ (subindo de technician -> screens -> src):
+import { COLORS } from '../../theme/colors';
+import { styles } from '../../styles/technicianEventDetailsStyles';
 
 const SECTIONS = [
   { key: 'general', label: 'Geral' },

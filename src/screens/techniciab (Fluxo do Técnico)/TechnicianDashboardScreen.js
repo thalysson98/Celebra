@@ -14,16 +14,18 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../theme/colors';
-import { subscribeToTechnicianAssignments, respondToAssignment } from '../services/assignmentService';
-import { requestPasswordReset } from '../services/authService';
-import { setUserEventsNotificationPreference, updateUserProfile } from '../services/userService';
+import { COLORS } from '../../theme/colors';
+import { subscribeToTechnicianAssignments, respondToAssignment } from '../../services/assignmentService';
+import { requestPasswordReset } from '../../services/authService';
+import { setUserEventsNotificationPreference, updateUserProfile } from '../../services/userService';
 import {
   markTechnicianUnavailable,
   removeTechnicianUnavailability,
   subscribeToTechnicianUnavailability,
-} from '../services/technicianAvailabilityService';
-import { styles } from '../styles/technicianDashboardStyles';
+} from '../../services/technicianAvailabilityService';
+import { styles } from '../../styles/technicianDashboardStyles';
+
+// Caminho corrigido (mesma pasta technician):
 import TechnicianEventDetailsScreen from './TechnicianEventDetailsScreen';
 
 function formatDate(value) {

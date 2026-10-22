@@ -10,9 +10,11 @@ import { auth } from './src/config/firebaseConfig';
 import { AUTH_COLORS } from './src/styles/authStyles';
 import { logoutUser } from './src/services/authService';
 import { getUserProfile } from './src/services/userService';
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import TechnicianDashboardScreen from './src/screens/TechnicianDashboardScreen';
+
+// Caminhos atualizados para as novas subpastas de telas:
+import LoginScreen from './src/screens/auth/LoginScreen';
+import RegisterScreen from './src/screens/auth/RegisterScreen';
+import TechnicianDashboardScreen from './src/screens/technician/TechnicianDashboardScreen';
 
 const Stack = createStackNavigator();
 

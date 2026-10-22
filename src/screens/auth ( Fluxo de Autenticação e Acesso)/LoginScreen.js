@@ -12,8 +12,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { styles, AUTH_COLORS } from '../styles/authStyles';
-import { loginUser } from '../services/authService';
+import { styles, AUTH_COLORS } from '../../styles/authStyles';
+import { loginUser } from '../../services/authService';
 
 export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [identifier, setIdentifier] = useState('');

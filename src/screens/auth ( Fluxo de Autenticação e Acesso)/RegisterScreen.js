@@ -11,8 +11,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { styles, AUTH_COLORS } from '../styles/authStyles';
-import { registerUser } from '../services/authService';
+import { styles, AUTH_COLORS } from '../../styles/authStyles';
+import { registerUser } from '../../services/authService';
 
 export default function RegisterScreen({ navigation, onRegisterSuccess }) {
   const [username, setUsername] = useState('');

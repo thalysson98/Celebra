@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from '../styles/pendingAccessStyles';
+import { styles } from '../../styles/pendingAccessStyles';
 
 export default function PendingAccessScreen({ user, onLogout }) {
   return (
@@ -19,3 +19,4 @@ export default function PendingAccessScreen({ user, onLogout }) {
     </View>
   );
 }
+
