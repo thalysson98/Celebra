@@ -24,6 +24,7 @@ import {
   subscribeToTechnicianUnavailability,
 } from '../services/technicianAvailabilityService';
 import { styles } from '../styles/technicianDashboardStyles';
+import TechnicianEventDetailsScreen from './TechnicianEventDetailsScreen';
 
 function formatDate(value) {
   if (!value) return 'Data a confirmar';
@@ -120,6 +121,9 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   const [error, setError] = useState('');
   const [respondingId, setRespondingId] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [detailsSection, setDetailsSection] = useState('general');
+  const [detailsReturnTab, setDetailsReturnTab] = useState('events');
   const [eventFilter, setEventFilter] = useState('mine');
   const [eventSearch, setEventSearch] = useState('');
   const [profile, setProfile] = useState(() => ({
@@ -324,7 +328,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
                         styles.upcomingRow,
                         index < upcomingAssignments.length - 2 && styles.upcomingRowDivider,
                       ]}
-                      onPress={() => openAgendaForEvent(assignment)}
+                      onPress={() => openEventDetails(assignment)}
                       activeOpacity={0.8}
                     >
                       <View style={styles.upcomingIcon}>
@@ -358,10 +362,10 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   const renderFeaturedEvent = (assignment) => (
     <TouchableOpacity
       style={styles.featuredEvent}
-      onPress={() => openAgendaForEvent(assignment)}
+      onPress={() => openEventDetails(assignment)}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={`Ver evento ${assignment.eventTitle || ''} na agenda`}
+      accessibilityLabel={`Ver detalhes do evento ${assignment.eventTitle || ''}`}
     >
       <View style={styles.featuredCover}>
         <View style={styles.coverSun} />
@@ -529,14 +533,15 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
     }
   };
 
-  const openAgendaForEvent = (assignment) => {
-    const date = toDate(assignment.eventDate);
-    if (date) {
-      setSelectedAgendaDay(date);
-      setAgendaMonth(new Date(date.getFullYear(), date.getMonth(), 1));
-      setAgendaDaySelected(true);
-    }
-    setActiveTab('agenda');
+  const openEventDetails = (assignment) => {
+    setDetailsReturnTab(activeTab);
+    setDetailsSection('general');
+    setSelectedEvent(assignment);
+  };
+
+  const closeEventDetails = () => {
+    setSelectedEvent(null);
+    setActiveTab(detailsReturnTab);
   };
 
   const renderEvents = () => {
@@ -648,10 +653,10 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
       <TouchableOpacity
         key={assignment.id}
         style={styles.eventCard}
-        onPress={() => openAgendaForEvent(assignment)}
+        onPress={() => openEventDetails(assignment)}
         activeOpacity={0.9}
         accessibilityRole="button"
-        accessibilityLabel={`Ver ${assignment.eventTitle || 'evento'} na agenda`}
+        accessibilityLabel={`Ver detalhes do evento ${assignment.eventTitle || 'evento'}`}
       >
         <View style={[
           styles.eventCover,
@@ -861,13 +866,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
               <TouchableOpacity
                 key={assignment.id}
                 style={styles.agendaEventCard}
-                onPress={() => {
-                  const date = toDate(assignment.eventDate);
-                  if (date) {
-                    setSelectedAgendaDay(date);
-                    setAgendaDaySelected(true);
-                  }
-                }}
+                onPress={() => openEventDetails(assignment)}
                 activeOpacity={0.8}
               >
                 <View style={styles.agendaEventIcon}>
@@ -1009,6 +1008,18 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
       )}
     </View>
   );
+
+  if (selectedEvent) {
+    return (
+      <TechnicianEventDetailsScreen
+        assignment={selectedEvent}
+        profile={profile}
+        section={detailsSection}
+        onSectionChange={setDetailsSection}
+        onBack={closeEventDetails}
+      />
+    );
+  }
 
   return (
     <View style={styles.screen}>

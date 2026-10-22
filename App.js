@@ -35,6 +35,24 @@ const demoTechnicianAssignments = [
     eventTypeName: 'Casamento',
     professionalTypeName: 'Fotógrafo',
     roleName: 'Fotografia do casamento',
+    clientEmail: 'pedro.albino@example.com',
+    clientPhone: '(11) 99999-0123',
+    productionNotes: 'Priorizar votos e entrada dos noivos. Drone antes da cerimônia, conforme clima e autorização do local.',
+    guestCount: 180,
+    eventLocations: [
+      {
+        name: 'Sítio Romagna',
+        address: 'Jundiaí, SP',
+        startAt: demoEventDate(5, 16),
+        notes: 'Cerimônia no jardim; confirmar acesso com a produção.',
+      },
+      {
+        name: 'Salão principal',
+        address: 'Sítio Romagna, Jundiaí, SP',
+        startAt: demoEventDate(5, 19),
+        notes: 'Cobertura da recepção.',
+      },
+    ],
     status: 'accepted',
   },
   {

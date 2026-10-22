@@ -12,7 +12,7 @@ Registrar a implementação da aba **Eventos** do perfil de técnico e explicar 
 - Os três filtros da referência foram incluídos: **Seus eventos**, **Pendentes** e **Disponíveis**. O filtro selecionado tem destaque visual e estado acessível.
 - Os cartões exibem tipo do evento, título, cliente, data, horário, local, função do técnico e estado da convocação.
 - A lista é ordenada por data. O mês e o ano do primeiro evento visível são exibidos acima dos cartões.
-- Ao tocar em um cartão, a navegação abre a aba Agenda e seleciona o dia do evento.
+- Ao tocar em um cartão, a tela abre os detalhes do evento e mantém a aba de origem para o retorno.
 - Os estados sem resultados e de carregamento/erro também são tratados.
 - O ícone da aba Eventos foi aproximado do símbolo de ingresso do Figma usando o ícone `tag` disponível no conjunto Feather já instalado.
 
@@ -44,7 +44,7 @@ O serviço atual consulta somente convocações que já estão associadas ao té
 
 - O protótipo usa fotografias e mostra informações como quantidade de locais, convidados e equipe completa. O modelo consumido nesta tela atualmente não fornece imagem do evento, número de convidados, locais estruturados nem ocupação da equipe. A interface usa uma capa ilustrativa por categoria e exibe somente dados disponíveis.
 - A data é formatada dinamicamente com o locale `pt-BR`; o agrupamento mensal também acompanha as datas dos eventos em vez de fixar “Outubro de 2026”.
-- Tocar em um cartão abre a Agenda e seleciona a data correspondente; ainda não há uma tela individual de detalhes do evento neste fluxo.
+- Tocar em um cartão abre a tela individual de detalhes do evento. O botão de voltar retorna para a aba de origem.
 - **Disponíveis** permanece vazio até existir uma fonte de oportunidades autorizada para o técnico.
 
 ## Como visualizar
@@ -52,12 +52,12 @@ O serviço atual consulta somente convocações que já estão associadas ao té
 1. Inicie o app web com `npm run web`.
 2. Abra `http://localhost:8081/?preview=technician`.
 3. Toque em **Eventos** na navegação inferior.
-4. Alterne os filtros, digite parte do título ou cliente e abra um cartão para ir à Agenda.
+4. Alterne os filtros, digite parte do título ou cliente e abra um cartão para consultar os detalhes.
 
 ## Próximas etapas sugeridas
 
 1. Validar com a equipe quais dados do cartão são obrigatórios e adicionar ao modelo os campos aprovados (por exemplo, imagem, quantidade de convidados, locais e escala da equipe).
-2. Desenhar a tela de detalhes do evento e decidir quais ações pertencem ao técnico.
+2. Validar os campos de detalhe do evento e decidir quais ações pertencem ao técnico.
 3. Especificar como oportunidades ficam disponíveis e como um técnico demonstra interesse; depois implementar a consulta e as regras no backend.
 4. Revisar a tela em dispositivos móveis com as variações de conteúdo e estados vazios.
 

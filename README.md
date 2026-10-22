@@ -9,6 +9,7 @@ Repositorio Figma:https://www.figma.com/design/BokBynZmbgmAXZolGQj2Ig/Projeto-Mo
 - [Perfil do técnico](docs/perfil-tecnico.md): dados de perfil, preferências e integração com Firebase Authentication.
 - [Tela de eventos do técnico](docs/tela-eventos-tecnico.md): filtros, dados exibidos e limites do protótipo.
 - [Agenda do técnico](docs/tela-agenda-tecnico.md): calendário, compromissos e indisponibilidade.
+- [Detalhes do evento para técnico](docs/detalhes-evento-tecnico.md): informações gerais, locais e equipe associados à convocação.
 
 ## Pré-visualização do técnico
 

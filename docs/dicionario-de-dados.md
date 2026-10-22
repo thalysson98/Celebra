@@ -139,6 +139,11 @@ Coleção raiz para consultar diretamente as convocações de um técnico. O doc
 | `professionalTypeName` | string | recomendado | Snapshot do nome da especialidade para exibição. |
 | `roleName` | string | não | Atividade específica do técnico neste evento. |
 | `clientName` | string | não | Snapshot do nome do cliente para exibição na convocação. |
+| `clientEmail` / `clientPhone` | string | não | Contato do cliente para o detalhe do evento; disponibilizar apenas a usuários autorizados. |
+| `eventLocations` | array | não | Locais resumidos para a aba Locais; cada item pode conter `name`, `address`, `startAt` e `notes`. |
+| `productionNotes` | string | não | Orientações da produção exibidas na aba Geral. |
+| `guestCount` | number | não | Quantidade estimada de convidados, quando aplicável. |
+| `teamMembers` | array | não | Snapshot opcional da equipe, com `uid`, `name`, `role` e `status`. A tela não faz uma consulta adicional dessa lista. |
 | `status` | string | sim | `pending`, `accepted` ou `declined`. |
 | `invitedAt` | Timestamp | sim | Momento da convocação. |
 | `respondedAt` | Timestamp \| null | sim | Momento da resposta. |
