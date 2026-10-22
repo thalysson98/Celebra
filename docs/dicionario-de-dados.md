@@ -144,6 +144,17 @@ Coleção raiz para consultar diretamente as convocações de um técnico. O doc
 | `respondedAt` | Timestamp \| null | sim | Momento da resposta. |
 | `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
 
+### `technicianUnavailability/{availabilityId}` — indisponibilidade do técnico
+
+Um documento por técnico e dia. O ID determinístico usa `{uid}_{YYYY-MM-DD}`, evitando registros duplicados para a mesma data.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---:|---|
+| `technicianUid` | string | sim | UID do técnico autenticado. |
+| `dateKey` | string | sim | Dia local no formato `YYYY-MM-DD`, usado na comparação do calendário. |
+| `date` | Timestamp | sim | Data normalizada para meia-noite local. |
+| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+
 ### `companies/{companyId}/events/{eventId}/payments/{paymentId}` — financeiro
 
 | Campo | Tipo | Obrigatório | Descrição |
@@ -171,6 +182,7 @@ Coleção raiz para consultar diretamente as convocações de um técnico. O doc
 2. Convocações do técnico: `eventAssignments` filtrada por `technicianUid == uid`; ordenar em memória por `invitedAt` enquanto o volume for pequeno.
 3. Eventos da empresa: subcoleção `companies/{companyId}/events`, com filtros de `status` e `date`.
 4. Resumo mensal: contar/agregar eventos da empresa por período; pode ser calculado no cliente para o MVP e migrado para função/backend se a escala exigir.
+5. Agenda do técnico: convocações aceitas de `eventAssignments` e indisponibilidades de `technicianUnavailability` filtradas por `technicianUid == uid`.
 
 ## Dados mínimos para visualizar a etapa técnica
 
@@ -204,13 +216,14 @@ Para visualizar a interface localmente sem autenticação nem escrita no Firebas
 - Não confiar no papel guardado no estado do app: regras do Firestore devem validar empresa e papel antes de permitir escrita.
 - O cadastro atual atribui `organizer` a toda conta criada por ele para manter o fluxo de demonstração do MVP. Isso é apenas um roteamento de interface, não uma concessão de acesso segura. Antes de usar dados reais, o primeiro organizador deve ser provisionado de forma controlada, técnicos devem receber vínculo/convite e regras do Firestore devem bloquear autoatribuição de papel.
 - Aceitar/recusar deve atualizar somente uma atribuição cujo `technicianUid` seja o usuário autenticado e cujo status ainda seja `pending`.
+- Indisponibilidades devem ser consultadas e alteradas somente pelo técnico autenticado cujo UID consta em `technicianUid`; validar isso nas regras do Firestore.
 - Eventos e atribuições devem ser arquivados/cancelados, não apagados em cascata sem decisão explícita de retenção.
 - Criar regras e índices do Firestore no Firebase antes de disponibilizar dados reais. O app client-side faz roteamento e validações de interface, mas isso não substitui regras do servidor.
 
 ## Próximas telas por etapa
 
-1. **Perfil e papel**: carregar o documento `users/{uid}` após autenticar, derivar papel e empresa, direcionar o organizador ao espaço atual de gestão e o técnico ao painel. Perfil ausente/inválido deve ficar em acesso pendente, sem permissões de gerente.
-2. **Dashboard técnico**: resumo de convocações pendentes e próximas atividades.
-3. **Convocações**: listar `pending`; mostrar evento, data, local e função; aceitar ou recusar e refletir o status.
-4. **Eventos atribuídos**: exibir atribuições `accepted` e consultar detalhes do evento permitido ao técnico.
-5. **Gestão de equipe**: depois, permitir ao organizador convidar técnicos e criar documentos em `eventAssignments`.
+1. **Perfil técnico**: leitura e atualização dos dados pessoais, preferência de notificações, redefinição de senha e saída da conta.
+2. **Início técnico**: resumo de convocações e próximos eventos.
+3. **Eventos técnico**: busca e filtros entre aceitos e pendentes.
+4. **Agenda técnico**: calendário mensal, eventos aceitos e indisponibilidade diária.
+5. **Próximas frentes**: dashboard e CRUD do organizador, gestão de equipe, detalhes completos de eventos e publicação de oportunidades para técnicos.

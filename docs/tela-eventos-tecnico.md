@@ -12,7 +12,7 @@ Registrar a implementação da aba **Eventos** do perfil de técnico e explicar 
 - Os três filtros da referência foram incluídos: **Seus eventos**, **Pendentes** e **Disponíveis**. O filtro selecionado tem destaque visual e estado acessível.
 - Os cartões exibem tipo do evento, título, cliente, data, horário, local, função do técnico e estado da convocação.
 - A lista é ordenada por data. O mês e o ano do primeiro evento visível são exibidos acima dos cartões.
-- Ao tocar em um cartão, a navegação abre a aba Agenda, que já apresenta as convocações aceitas.
+- Ao tocar em um cartão, a navegação abre a aba Agenda e seleciona o dia do evento.
 - Os estados sem resultados e de carregamento/erro também são tratados.
 - O ícone da aba Eventos foi aproximado do símbolo de ingresso do Figma usando o ícone `tag` disponível no conjunto Feather já instalado.
 
@@ -44,7 +44,7 @@ O serviço atual consulta somente convocações que já estão associadas ao té
 
 - O protótipo usa fotografias e mostra informações como quantidade de locais, convidados e equipe completa. O modelo consumido nesta tela atualmente não fornece imagem do evento, número de convidados, locais estruturados nem ocupação da equipe. A interface usa uma capa ilustrativa por categoria e exibe somente dados disponíveis.
 - A data é formatada dinamicamente com o locale `pt-BR`; o agrupamento mensal também acompanha as datas dos eventos em vez de fixar “Outubro de 2026”.
-- Tocar em um cartão abre a Agenda existente; ainda não há uma tela individual de detalhes do evento neste fluxo.
+- Tocar em um cartão abre a Agenda e seleciona a data correspondente; ainda não há uma tela individual de detalhes do evento neste fluxo.
 - **Disponíveis** permanece vazio até existir uma fonte de oportunidades autorizada para o técnico.
 
 ## Como visualizar

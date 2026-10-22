@@ -18,6 +18,11 @@ import { COLORS } from '../theme/colors';
 import { subscribeToTechnicianAssignments, respondToAssignment } from '../services/assignmentService';
 import { requestPasswordReset } from '../services/authService';
 import { setUserEventsNotificationPreference, updateUserProfile } from '../services/userService';
+import {
+  markTechnicianUnavailable,
+  removeTechnicianUnavailability,
+  subscribeToTechnicianUnavailability,
+} from '../services/technicianAvailabilityService';
 import { styles } from '../styles/technicianDashboardStyles';
 
 function formatDate(value) {
@@ -93,6 +98,21 @@ function getInitials(value) {
     .toLocaleUpperCase('pt-BR');
 }
 
+function getLocalDateKey(value) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatAgendaDate(value) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(value);
+}
+
 export default function TechnicianDashboardScreen({ user, onLogout, previewAssignments }) {
   const insets = useSafeAreaInsets();
   const [assignments, setAssignments] = useState(previewAssignments || []);
@@ -113,6 +133,20 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
     user.notificationPreferences?.eventsAndTeam ?? true,
   );
   const [isSavingNotificationPreference, setSavingNotificationPreference] = useState(false);
+  const [agendaMonth, setAgendaMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedAgendaDay, setSelectedAgendaDay] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  });
+  const [isAgendaDaySelected, setAgendaDaySelected] = useState(false);
+  const [unavailableDates, setUnavailableDates] = useState([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [isUpdatingAvailability, setUpdatingAvailability] = useState(false);
+  const [isAvailabilityDialogVisible, setAvailabilityDialogVisible] = useState(false);
 
   useEffect(() => {
     if (previewAssignments) {
@@ -135,6 +169,29 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
       },
     );
 
+    return unsubscribe;
+  }, [user.uid, previewAssignments]);
+
+  useEffect(() => {
+    if (previewAssignments) {
+      setUnavailableDates([]);
+      setAvailabilityLoading(false);
+      return undefined;
+    }
+
+    setAvailabilityLoading(true);
+    const unsubscribe = subscribeToTechnicianUnavailability(
+      user.uid,
+      (dates) => {
+        setUnavailableDates(dates);
+        setAvailabilityError('');
+        setAvailabilityLoading(false);
+      },
+      () => {
+        setAvailabilityError('Não foi possível carregar suas indisponibilidades.');
+        setAvailabilityLoading(false);
+      },
+    );
     return unsubscribe;
   }, [user.uid, previewAssignments]);
 
@@ -267,7 +324,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
                         styles.upcomingRow,
                         index < upcomingAssignments.length - 2 && styles.upcomingRowDivider,
                       ]}
-                      onPress={() => setActiveTab('agenda')}
+                      onPress={() => openAgendaForEvent(assignment)}
                       activeOpacity={0.8}
                     >
                       <View style={styles.upcomingIcon}>
@@ -301,7 +358,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
   const renderFeaturedEvent = (assignment) => (
     <TouchableOpacity
       style={styles.featuredEvent}
-      onPress={() => setActiveTab('agenda')}
+      onPress={() => openAgendaForEvent(assignment)}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel={`Ver evento ${assignment.eventTitle || ''} na agenda`}
@@ -424,6 +481,64 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
     }
   };
 
+  const selectedAgendaDateKey = getLocalDateKey(selectedAgendaDay);
+  const selectedDayAssignments = confirmedAssignments.filter((assignment) => {
+    const date = toDate(assignment.eventDate);
+    return date && getLocalDateKey(date) === selectedAgendaDateKey;
+  });
+  const selectedDateUnavailable = unavailableDates.some((item) => item.dateKey === selectedAgendaDateKey);
+
+  const changeAgendaMonth = (amount) => {
+    const nextMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + amount, 1);
+    setAgendaMonth(nextMonth);
+    setSelectedAgendaDay(nextMonth);
+    setAgendaDaySelected(false);
+  };
+
+  const openAvailabilityDialog = () => {
+    if (!selectedDateUnavailable && selectedDayAssignments.length) {
+      Alert.alert('Data com compromisso', 'Você já tem um evento aceito neste dia.');
+      return;
+    }
+    setAvailabilityDialogVisible(true);
+  };
+
+  const confirmAvailabilityChange = async () => {
+    setUpdatingAvailability(true);
+    try {
+      if (selectedDateUnavailable) {
+        if (previewAssignments) {
+          setUnavailableDates((current) => current.filter((item) => item.dateKey !== selectedAgendaDateKey));
+        } else {
+          await removeTechnicianUnavailability(user.uid, selectedAgendaDay);
+        }
+      } else if (previewAssignments) {
+        setUnavailableDates((current) => [
+          ...current.filter((item) => item.dateKey !== selectedAgendaDateKey),
+          { id: `${user.uid}_${selectedAgendaDateKey}`, dateKey: selectedAgendaDateKey },
+        ]);
+      } else {
+        await markTechnicianUnavailable(user.uid, selectedAgendaDay);
+      }
+
+      setAvailabilityDialogVisible(false);
+    } catch (changeError) {
+      Alert.alert('Não foi possível atualizar a agenda', changeError.message);
+    } finally {
+      setUpdatingAvailability(false);
+    }
+  };
+
+  const openAgendaForEvent = (assignment) => {
+    const date = toDate(assignment.eventDate);
+    if (date) {
+      setSelectedAgendaDay(date);
+      setAgendaMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+      setAgendaDaySelected(true);
+    }
+    setActiveTab('agenda');
+  };
+
   const renderEvents = () => {
     const eventFilters = [
       { key: 'mine', label: 'Seus eventos' },
@@ -533,7 +648,7 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
       <TouchableOpacity
         key={assignment.id}
         style={styles.eventCard}
-        onPress={() => setActiveTab('agenda')}
+        onPress={() => openAgendaForEvent(assignment)}
         activeOpacity={0.9}
         accessibilityRole="button"
         accessibilityLabel={`Ver ${assignment.eventTitle || 'evento'} na agenda`}
@@ -596,18 +711,192 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
     );
   };
 
-  const renderAgenda = () => (
-    <>
-      <Text style={styles.sectionTitle}>Agenda</Text>
-      {confirmedAssignments.length ? (
-        confirmedAssignments.map((assignment) => renderAssignment(assignment, false))
-      ) : (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>Seus eventos aceitos aparecerão na agenda.</Text>
+  const renderAgenda = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monthEvents = confirmedAssignments
+      .filter((assignment) => {
+        const date = toDate(assignment.eventDate);
+        if (!date) return false;
+        const isCurrentMonth = agendaMonth.getFullYear() === today.getFullYear()
+          && agendaMonth.getMonth() === today.getMonth();
+        return date.getFullYear() === agendaMonth.getFullYear()
+          && date.getMonth() === agendaMonth.getMonth()
+          && (!isCurrentMonth || date >= today);
+      })
+      .sort((first, second) => toDate(first.eventDate) - toDate(second.eventDate));
+    const visibleAssignments = isAgendaDaySelected
+      ? selectedDayAssignments
+      : monthEvents;
+
+    const firstDayOfMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), 1);
+    const daysInMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 1, 0).getDate();
+    const leadingDays = firstDayOfMonth.getDay();
+    const totalCells = Math.ceil((leadingDays + daysInMonth) / 7) * 7;
+    const calendarDays = Array.from({ length: totalCells }, (_, index) => {
+      const date = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), index - leadingDays + 1);
+      const dateKey = getLocalDateKey(date);
+      return {
+        date,
+        dateKey,
+        inCurrentMonth: date.getMonth() === agendaMonth.getMonth(),
+        selected: dateKey === selectedAgendaDateKey,
+        isToday: dateKey === getLocalDateKey(today),
+        unavailable: unavailableDates.some((item) => item.dateKey === dateKey),
+        hasEvent: confirmedAssignments.some((assignment) => {
+          const eventDate = toDate(assignment.eventDate);
+          return eventDate && getLocalDateKey(eventDate) === dateKey;
+        }),
+      };
+    });
+    const monthTitle = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
+      .format(agendaMonth);
+    const monthTitleCapitalized = `${monthTitle.charAt(0).toLocaleUpperCase('pt-BR')}${monthTitle.slice(1)}`;
+
+    return (
+      <>
+        <View style={styles.agendaCalendarCard}>
+          <View style={styles.agendaCalendarHeader}>
+            <Text style={styles.agendaMonthTitle}>{monthTitleCapitalized}</Text>
+            <View style={styles.agendaMonthControls}>
+              <TouchableOpacity
+                style={styles.agendaMonthButton}
+                onPress={() => changeAgendaMonth(-1)}
+                accessibilityRole="button"
+                accessibilityLabel="Mês anterior"
+              >
+                <Feather name="chevron-left" size={18} color={COLORS.textNavy} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.agendaMonthButton}
+                onPress={() => changeAgendaMonth(1)}
+                accessibilityRole="button"
+                accessibilityLabel="Próximo mês"
+              >
+                <Feather name="chevron-right" size={18} color={COLORS.textNavy} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.agendaWeekdays}>
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((weekday) => (
+              <Text key={weekday} style={styles.agendaWeekday}>{weekday}</Text>
+            ))}
+          </View>
+
+          <View style={styles.agendaCalendarGrid}>
+            {calendarDays.map((day) => (
+              <TouchableOpacity
+                key={day.dateKey}
+                style={styles.agendaDayCell}
+                onPress={() => {
+                  setSelectedAgendaDay(day.date);
+                  setAgendaDaySelected(true);
+                  if (day.date.getMonth() !== agendaMonth.getMonth()) {
+                    setAgendaMonth(new Date(day.date.getFullYear(), day.date.getMonth(), 1));
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${formatAgendaDate(day.date)}${day.hasEvent ? ', com evento' : ''}${day.unavailable ? ', indisponível' : ''}`}
+                accessibilityState={{ selected: day.selected }}
+              >
+                <View style={[
+                  styles.agendaDayCircle,
+                  !day.inCurrentMonth && styles.agendaDayOutsideMonth,
+                  day.isToday && !day.selected && styles.agendaDayToday,
+                  day.unavailable && !day.selected && styles.agendaDayUnavailable,
+                  day.selected && styles.agendaDaySelected,
+                ]}>
+                  <Text style={[
+                    styles.agendaDayNumber,
+                    !day.inCurrentMonth && styles.agendaDayNumberOutside,
+                    day.selected && styles.agendaDayNumberSelected,
+                  ]}>{day.date.getDate()}</Text>
+                </View>
+                {day.hasEvent && <View style={[styles.agendaEventDot, day.selected && styles.agendaEventDotSelected]} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.agendaLegend}>
+            <View style={[styles.agendaLegendDot, styles.agendaLegendEvent]} />
+            <Text style={styles.agendaLegendText}>Evento</Text>
+            <View style={[styles.agendaLegendDot, styles.agendaLegendUnavailable]} />
+            <Text style={styles.agendaLegendText}>Indisponível</Text>
+          </View>
         </View>
-      )}
-    </>
-  );
+
+        <TouchableOpacity
+          style={[styles.agendaAvailabilityButton, selectedDayAssignments.length > 0 && !selectedDateUnavailable && styles.agendaAvailabilityDisabled]}
+          onPress={openAvailabilityDialog}
+          disabled={selectedDayAssignments.length > 0 && !selectedDateUnavailable}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Feather name={selectedDateUnavailable ? 'x-circle' : 'slash'} size={15} color={COLORS.textWhite} />
+          <Text style={styles.agendaAvailabilityButtonText}>
+            {selectedDateUnavailable ? 'Remover indisponibilidade' : 'Adicionar indisponibilidade'}
+          </Text>
+        </TouchableOpacity>
+        {availabilityError ? <Text style={styles.errorText}>{availabilityError}</Text> : null}
+        {selectedDayAssignments.length > 0 && !selectedDateUnavailable && (
+          <Text style={styles.agendaConflictHint}>Você já tem evento aceito nesta data.</Text>
+        )}
+
+        <View style={styles.agendaSectionHeading}>
+          <Text style={styles.agendaSectionTitle}>
+            {isAgendaDaySelected ? 'Eventos do dia' : 'Seus próximos eventos'}
+          </Text>
+          <Text style={styles.agendaCommitmentCount}>
+            {visibleAssignments.length} {visibleAssignments.length === 1 ? 'compromisso' : 'compromissos'}
+          </Text>
+        </View>
+
+        {(loading || availabilityLoading) ? (
+          <ActivityIndicator color={COLORS.buttonGold} style={styles.loader} />
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : visibleAssignments.length ? (
+          <View style={styles.agendaEventList}>
+            {visibleAssignments.map((assignment) => (
+              <TouchableOpacity
+                key={assignment.id}
+                style={styles.agendaEventCard}
+                onPress={() => {
+                  const date = toDate(assignment.eventDate);
+                  if (date) {
+                    setSelectedAgendaDay(date);
+                    setAgendaDaySelected(true);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.agendaEventIcon}>
+                  <Feather name="calendar" size={16} color={COLORS.textNavy} />
+                </View>
+                <View style={styles.agendaEventDetails}>
+                  <Text style={styles.agendaEventTitle} numberOfLines={1}>
+                    {formatShortDate(assignment.eventDate)} · {assignment.eventTitle || 'Evento'}
+                  </Text>
+                  <Text style={styles.agendaEventSubtitle} numberOfLines={1}>
+                    {formatEventTime(assignment.eventDate)} • {assignment.eventAddress || 'Local a confirmar'}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>
+              {isAgendaDaySelected
+                ? 'Nenhum evento aceito nesta data.'
+                : 'Seus próximos eventos aceitos aparecerão aqui.'}
+            </Text>
+          </View>
+        )}
+      </>
+    );
+  };
 
   const renderProfile = () => (
     <>
@@ -843,6 +1132,53 @@ export default function TechnicianDashboardScreen({ user, onLogout, previewAssig
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={isAvailabilityDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvailabilityDialogVisible(false)}
+      >
+        <View style={styles.profileModalOverlay}>
+          <View style={styles.availabilityDialogCard}>
+            <View style={styles.profileSecurityIcon}>
+              <Feather name={selectedDateUnavailable ? 'calendar' : 'slash'} size={19} color={COLORS.textNavy} />
+            </View>
+            <Text style={styles.availabilityDialogTitle}>
+              {selectedDateUnavailable ? 'Remover indisponibilidade?' : 'Adicionar indisponibilidade?'}
+            </Text>
+            <Text style={styles.availabilityDialogMessage}>
+              {selectedDateUnavailable
+                ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.`
+                : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
+            </Text>
+            <View style={styles.profileEditorActions}>
+              <TouchableOpacity
+                style={styles.profileCancelButton}
+                onPress={() => setAvailabilityDialogVisible(false)}
+                disabled={isUpdatingAvailability}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.profileCancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.profileSaveButton}
+                onPress={confirmAvailabilityChange}
+                disabled={isUpdatingAvailability}
+                activeOpacity={0.8}
+              >
+                {isUpdatingAvailability ? (
+                  <ActivityIndicator size="small" color={COLORS.textNavy} />
+                ) : (
+                  <Text style={styles.profileSaveButtonText}>
+                    {selectedDateUnavailable ? 'Remover' : 'Confirmar'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
