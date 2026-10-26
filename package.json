@@ -29,5 +29,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "exceljs": "^4.4.0"
+  }
 }
