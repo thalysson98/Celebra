@@ -1,41 +1,72 @@
-import { bancoMemoria } from './dadosMemoria';
+// src/servicos/repositorioEventos.js
+import dadosMemoria from './dadosMemoria';
 
-// 1. Buscar todos os eventos
-export const buscarEventos = async () => {
-  return [...bancoMemoria.eventos];
-};
+export const repositorioEventos = {
 
-// 2. Buscar evento por ID
-export const buscarEventoPorId = async (idEvento) => {
-  const evento = bancoMemoria.eventos.find((e) => e.id === idEvento);
-  return evento ? { ...evento } : null;
-};
+  // Listar todos os eventos da empresa
+  listarEventos: async () => {
+    return dadosMemoria.eventos;
+  },
 
-// 3. Criar um novo evento
-export const criarEvento = async (dadosEvento) => {
-  const novoId = String(Date.now());
-  const novoEvento = {
-    id: novoId,
-    ...dadosEvento,
-    fornecedores: [],
-    atracoes: [],
-    criadoEm: new Date().toISOString()
-  };
+  // Obter opções para alimentar os selects dinâmicos das telas de cadastro
+  obterOpcoesSelect: async (tipoEntidade) => {
+    switch (tipoEntidade) {
+      case 'tiposEvento':
+        return dadosMemoria.tiposEvento;
+      case 'tiposProfissional':
+        return dadosMemoria.tiposProfissional;
+      case 'tiposLocal':
+        return dadosMemoria.tiposLocal;
+      case 'locaisSalvos':
+        return dadosMemoria.locaisSalvos;
+      case 'clientes':
+        return dadosMemoria.clientes;
+      default:
+        return [];
+    }
+  },
 
-  bancoMemoria.eventos.push(novoEvento);
-  return novoId;
-};
+  // Select Inteligente: Adiciona um novo tipo/cadastro na hora (via modal) e retorna o item criado
+  adicionarNovoItemSelect: async (tipoEntidade, dadosNovoItem) => {
+    const novoId = String(Date.now());
+    const itemCriado = {
+      id: novoId,
+      empresaId: dadosMemoria.empresaId,
+      ...dadosNovoItem
+    };
 
-// 4. Adicionar fornecedor ao evento
-export const adicionarFornecedorAoEvento = async (idEvento, dadosFornecedor) => {
-  const evento = bancoMemoria.eventos.find((e) => e.id === idEvento);
-  if (!evento) throw new Error('Evento não encontrado');
+    switch (tipoEntidade) {
+      case 'tiposEvento':
+        dadosMemoria.tiposEvento.push(itemCriado);
+        break;
+      case 'tiposProfissional':
+        dadosMemoria.tiposProfissional.push(itemCriado);
+        break;
+      case 'tiposLocal':
+        dadosMemoria.tiposLocal.push(itemCriado);
+        break;
+      case 'locaisSalvos':
+        dadosMemoria.locaisSalvos.push(itemCriado);
+        break;
+      case 'clientes':
+        dadosMemoria.clientes.push(itemCriado);
+        break;
+      default:
+        throw new Error('Tipo de entidade desconhecido para cadastro rápido.');
+    }
 
-  const novoFornecedor = {
-    id: String(Date.now()),
-    ...dadosFornecedor
-  };
+    return itemCriado; // Retorna para preencher o select automaticamente no Front-end
+  },
 
-  evento.fornecedores.push(novoFornecedor);
-  return novoFornecedor.id;
+  // Criar um novo evento completo
+  adicionarEvento: async (dadosNovoEvento) => {
+    const eventoCompleto = {
+      id: String(Date.now()),
+      empresaId: dadosMemoria.empresaId,
+      ...dadosNovoEvento
+    };
+    
+    dadosMemoria.eventos.push(eventoCompleto);
+    return eventoCompleto;
+  }
 };

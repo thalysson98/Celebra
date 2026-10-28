@@ -1,48 +1,67 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Button, StyleSheet, TouchableOpacity } from 'react-native';
-import { buscarEventos } from '../servicos/repositorioEventos';
+import React, { useState, useCallback } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Button } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { repositorioEventos } from '../servicos/repositorioEventos';
 
-export default function TelaListaEventos({ navigation }) {
+export default function TelaListaEventos({ navigation, onLogout }) {
   const [eventos, setEventos] = useState([]);
 
-  useEffect(() => {
-    const desativarInscricao = navigation.addListener('focus', () => {
+  // useFocusEffect recarrega os eventos sempre que a tela entra em foco (ex: ao voltar da criação)
+  useFocusEffect(
+    useCallback(() => {
       carregarEventos();
-    });
-    return desativarInscricao;
-  }, [navigation]);
+    }, [])
+  );
 
   const carregarEventos = async () => {
-    const dados = await buscarEventos();
-    setEventos(dados);
+    const lista = await repositorioEventos.listarEventos();
+    setEventos(lista);
   };
 
   return (
     <View style={estilos.conteiner}>
-      <Button 
-        title="Novo Evento" 
-        onPress={() => navigation.navigate('CriarEvento')} 
-      />
+      <View style={estilos.cabecalho}>
+        <Text style={estilos.tituloTopo}>Meus Eventos</Text>
+        <Button 
+          title="+ Adicionar Evento" 
+          onPress={() => navigation.navigate('CriarEvento')} 
+          color="#fbc02d"
+        />
+      </View>
 
       <FlatList
         data={eventos}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity 
-            style={estilos.cartao}
+            style={estilos.cardEvento}
             onPress={() => navigation.navigate('DetalheEvento', { idEvento: item.id })}
           >
-            <Text style={estilos.titulo}>{item.titulo}</Text>
-            <Text>{item.local} - {item.data}</Text>
+            <Text style={estilos.tituloEvento}>{item.titulo}</Text>
+            <Text style={estilos.subtituloEvento}>📍 {item.local || 'Local não definido'}</Text>
+            <Text style={estilos.dataEvento}>📅 {item.dataInicio || 'Data não definida'}</Text>
           </TouchableOpacity>
         )}
+        ListEmptyComponent={
+          <Text style={estilos.vazio}>Nenhum evento cadastrado ainda.</Text>
+        }
       />
+
+      <View style={estilos.botaoSair}>
+        <Button title="Sair da Conta" onPress={onLogout} color="#d9534f" />
+      </View>
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
-  conteiner: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
-  cartao: { padding: 15, backgroundColor: '#fff', marginBottom: 10, borderRadius: 8 },
-  titulo: { fontSize: 18, fontWeight: 'bold' }
+  conteiner: { flex: 1, padding: 20, backgroundColor: '#f9f9f9' },
+  cabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  tituloTopo: { fontSize: 22, fontWeight: 'bold', color: '#1e1e1e' },
+  cardEvento: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#eee' },
+  tituloEvento: { fontSize: 18, fontWeight: 'bold', color: '#1e1e1e' },
+  subtituloEvento: { fontSize: 14, color: '#666', marginTop: 4 },
+  dataEvento: { fontSize: 12, color: '#888', marginTop: 2 },
+  vazio: { textAlign: 'center', color: '#888', marginTop: 40, fontSize: 16 },
+  botaoSair: { marginTop: 10 }
 });
