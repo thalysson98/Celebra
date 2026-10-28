@@ -11,17 +11,56 @@ import { AUTH_COLORS } from './src/styles/authStyles';
 import { logoutUser } from './src/services/authService';
 import { getUserProfile } from './src/services/userService';
 
-// Caminhos atualizados para as novas subpastas de telas:
+// Telas de Autenticação
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
-import TechnicianDashboardScreen from './src/screens/technician/TechnicianDashboardScreen';
 
-const Stack = createStackNavigator();
+// Novas telas de gestão de eventos (em português)
+import TelaListaEventos from './src/telas/TelaListaEventos';
+import TelaCriarEvento from './src/telas/TelaCriarEvento';
+import TelaDetalheEvento from './src/telas/TelaDetalheEvento';
+
+const AuthStack = createStackNavigator();
+const EventosStack = createStackNavigator();
+
+/**
+ * Pilha de navegação para as telas do Celebra após o login
+ */
+function NavegacaoEventos({ onLogout }) {
+  return (
+    <EventosStack.Navigator
+      initialRouteName="ListaEventos"
+      screenOptions={{
+        headerStyle: { backgroundColor: '#1e1e1e' },
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: 'bold' },
+      }}
+    >
+      <EventosStack.Screen 
+        name="ListaEventos" 
+        options={{ title: 'Meus Eventos' }}
+      >
+        {(props) => <TelaListaEventos {...props} onLogout={onLogout} />}
+      </EventosStack.Screen>
+
+      <EventosStack.Screen 
+        name="CriarEvento" 
+        component={TelaCriarEvento} 
+        options={{ title: 'Criar Novo Evento' }} 
+      />
+
+      <EventosStack.Screen 
+        name="DetalheEvento" 
+        component={TelaDetalheEvento} 
+        options={{ title: 'Detalhes do Evento' }} 
+      />
+    </EventosStack.Navigator>
+  );
+}
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ready, setReady] = useState(false);
-  const isTechnicianArea = Boolean(currentUser);
 
   useEffect(() => {
     let mounted = true;
@@ -46,10 +85,8 @@ export default function App() {
           setCurrentUser({
             uid: authUser.uid,
             email: authUser.email,
-            name: authUser.displayName || authUser.email?.split('@')[0] || 'Colaborador',
-            role: 'technician',
-            companyId: null,
-            active: true,
+            name: authUser.displayName || authUser.email?.split('@')[0] || 'Organizador',
+            role: 'organizer',
             profileStatus: 'ready',
           });
         }
@@ -72,55 +109,49 @@ export default function App() {
   if (!ready) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={AUTH_COLORS.buttonYellow} />
+        <ActivityIndicator size="large" color={AUTH_COLORS.buttonYellow || '#6200ee'} />
       </View>
     );
   }
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView
-        style={[styles.safeArea, isTechnicianArea && styles.technicianSafeArea]}
-        edges={isTechnicianArea ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
-      >
-        <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark} />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+        <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark || '#1e1e1e'} />
 
-        {currentUser ? (
-          /* Usuário autenticado: tela do colaborador conectada ao Firestore */
-          <TechnicianDashboardScreen
-            user={currentUser}
-            onLogout={handleLogout}
-          />
-        ) : (
-          /* Usuário não autenticado: telas de login e cadastro */
-          <NavigationContainer>
-            <Stack.Navigator
+        <NavigationContainer>
+          {currentUser ? (
+            /* Usuário autenticado: Abre as telas de eventos em português */
+            <NavegacaoEventos onLogout={handleLogout} />
+          ) : (
+            /* Utilizador NÃO autenticado: Telas de Login e Registo */
+            <AuthStack.Navigator
               initialRouteName="Login"
               screenOptions={{
                 headerShown: false,
-                cardStyle: { backgroundColor: AUTH_COLORS.backgroundDark },
+                cardStyle: { backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e' },
               }}
             >
-              <Stack.Screen name="Login">
+              <AuthStack.Screen name="Login">
                 {(props) => (
                   <LoginScreen
                     {...props}
                     onLoginSuccess={(user) => setCurrentUser(user)}
                   />
                 )}
-              </Stack.Screen>
+              </AuthStack.Screen>
 
-              <Stack.Screen name="Register">
+              <AuthStack.Screen name="Register">
                 {(props) => (
                   <RegisterScreen
                     {...props}
                     onRegisterSuccess={(user) => setCurrentUser(user)}
                   />
                 )}
-              </Stack.Screen>
-            </Stack.Navigator>
-          </NavigationContainer>
-        )}
+              </AuthStack.Screen>
+            </AuthStack.Navigator>
+          )}
+        </NavigationContainer>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -129,14 +160,11 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AUTH_COLORS.backgroundDark,
-  },
-  technicianSafeArea: {
-    backgroundColor: '#F8FAFF',
+    backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: AUTH_COLORS.backgroundDark,
+    backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e',
     justifyContent: 'center',
     alignItems: 'center',
   },
