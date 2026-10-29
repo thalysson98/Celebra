@@ -4,10 +4,12 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
+import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth } from './src/config/firebaseConfig';
 import { AUTH_COLORS } from './src/styles/authStyles';
+import { COLORS } from './src/theme/colors';
 import { logoutUser } from './src/services/authService';
 import { getUserProfile } from './src/services/userService';
 
@@ -15,48 +17,20 @@ import { getUserProfile } from './src/services/userService';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 
-// Novas telas de gestão de eventos (em português)
-import TelaListaEventos from './src/telas/TelaListaEventos';
-import TelaCriarEvento from './src/telas/TelaCriarEvento';
-import TelaDetalheEvento from './src/telas/TelaDetalheEvento';
+// Navegação do Organizador (Figma)
+import NavegacaoOrganizador from './src/screens/organizer/NavegacaoOrganizador';
 
 const AuthStack = createStackNavigator();
-const EventosStack = createStackNavigator();
 
-/**
- * Pilha de navegação para as telas do Celebra após o login
- */
-function NavegacaoEventos({ onLogout }) {
-  return (
-    <EventosStack.Navigator
-      initialRouteName="ListaEventos"
-      screenOptions={{
-        headerStyle: { backgroundColor: '#1e1e1e' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: 'bold' },
-      }}
-    >
-      <EventosStack.Screen 
-        name="ListaEventos" 
-        options={{ title: 'Meus Eventos' }}
-      >
-        {(props) => <TelaListaEventos {...props} onLogout={onLogout} />}
-      </EventosStack.Screen>
-
-      <EventosStack.Screen 
-        name="CriarEvento" 
-        component={TelaCriarEvento} 
-        options={{ title: 'Criar Novo Evento' }} 
-      />
-
-      <EventosStack.Screen 
-        name="DetalheEvento" 
-        component={TelaDetalheEvento} 
-        options={{ title: 'Detalhes do Evento' }} 
-      />
-    </EventosStack.Navigator>
-  );
-}
+const paperTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: COLORS.buttonGold,
+    background: COLORS.sheetBg,
+    surface: COLORS.cardWhite,
+  },
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -109,50 +83,52 @@ export default function App() {
   if (!ready) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={AUTH_COLORS.buttonYellow || '#6200ee'} />
+        <ActivityIndicator size="large" color={COLORS.buttonGold} />
       </View>
     );
   }
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-        <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark || '#1e1e1e'} />
+      <PaperProvider theme={paperTheme}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+          <StatusBar style="light" backgroundColor={COLORS.bgHeaderDark} />
 
-        <NavigationContainer>
-          {currentUser ? (
-            /* Usuário autenticado: Abre as telas de eventos em português */
-            <NavegacaoEventos onLogout={handleLogout} />
-          ) : (
-            /* Utilizador NÃO autenticado: Telas de Login e Registo */
-            <AuthStack.Navigator
-              initialRouteName="Login"
-              screenOptions={{
-                headerShown: false,
-                cardStyle: { backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e' },
-              }}
-            >
-              <AuthStack.Screen name="Login">
-                {(props) => (
-                  <LoginScreen
-                    {...props}
-                    onLoginSuccess={(user) => setCurrentUser(user)}
-                  />
-                )}
-              </AuthStack.Screen>
+          <NavigationContainer>
+            {currentUser ? (
+              /* Usuário autenticado: Abre a interface do Organizador (Figma) */
+              <NavegacaoOrganizador onLogout={handleLogout} usuario={currentUser} />
+            ) : (
+              /* Usuário NÃO autenticado: Telas de Login e Cadastro */
+              <AuthStack.Navigator
+                initialRouteName="Login"
+                screenOptions={{
+                  headerShown: false,
+                  cardStyle: { backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e' },
+                }}
+              >
+                <AuthStack.Screen name="Login">
+                  {(props) => (
+                    <LoginScreen
+                      {...props}
+                      onLoginSuccess={(user) => setCurrentUser(user)}
+                    />
+                  )}
+                </AuthStack.Screen>
 
-              <AuthStack.Screen name="Register">
-                {(props) => (
-                  <RegisterScreen
-                    {...props}
-                    onRegisterSuccess={(user) => setCurrentUser(user)}
-                  />
-                )}
-              </AuthStack.Screen>
-            </AuthStack.Navigator>
-          )}
-        </NavigationContainer>
-      </SafeAreaView>
+                <AuthStack.Screen name="Register">
+                  {(props) => (
+                    <RegisterScreen
+                      {...props}
+                      onRegisterSuccess={(user) => setCurrentUser(user)}
+                    />
+                  )}
+                </AuthStack.Screen>
+              </AuthStack.Navigator>
+            )}
+          </NavigationContainer>
+        </SafeAreaView>
+      </PaperProvider>
     </SafeAreaProvider>
   );
 }
@@ -160,11 +136,11 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e',
+    backgroundColor: COLORS.bgHeaderDark,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e',
+    backgroundColor: COLORS.bgHeaderDark,
     justifyContent: 'center',
     alignItems: 'center',
   },
