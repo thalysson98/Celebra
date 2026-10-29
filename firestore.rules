@@ -1,0 +1,274 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function usuarioAtual() {
+      return autenticado() && request.auth.uid == resource.data.id_usuario;
+    }
+
+    function membroDaEmpresa(empresaId) {
+      return autenticado()
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa == empresaId
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.ativo == true;
+    }
+
+    function organizadorDaEmpresa(empresaId) {
+      return autenticado()
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa == empresaId
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == true
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.ativo == true;
+    }
+
+    function vinculoFuncionarioValido() {
+      let empresaId = request.resource.data.id_empresa;
+      let membroId = empresaId + '_' + request.auth.uid;
+      return autenticado()
+        && resource.data.id_usuario == request.auth.uid
+        && resource.data.ativo == true
+        && resource.data.papel == false
+        && resource.data.id_empresa == null
+        && empresaId is string
+        && request.resource.data.papel == false
+        && request.resource.data.ativo == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id_empresa'])
+        && exists(/databases/$(database)/documents/empresas/$(empresaId))
+        && getAfter(/databases/$(database)/documents/membros/$(membroId)).data.id_membro == membroId
+        && getAfter(/databases/$(database)/documents/membros/$(membroId)).data.id_empresa == empresaId
+        && getAfter(/databases/$(database)/documents/membros/$(membroId)).data.id_usuario == request.auth.uid
+        && getAfter(/databases/$(database)/documents/membros/$(membroId)).data.tipo_acesso == 'funcionario';
+    }
+
+    function tipoLocalDaEmpresa(tipoLocalId, empresaId) {
+      return tipoLocalId is string
+        && get(/databases/$(database)/documents/tipos_local/$(tipoLocalId)).data.id_empresa == empresaId;
+    }
+
+    function tipoEventoDaEmpresa(tipoEventoId, empresaId) {
+      return tipoEventoId is string
+        && get(/databases/$(database)/documents/tipos_evento/$(tipoEventoId)).data.id_empresa == empresaId;
+    }
+
+    function clienteDaEmpresa(clienteId, empresaId) {
+      return clienteId is string
+        && get(/databases/$(database)/documents/clientes/$(clienteId)).data.id_empresa == empresaId;
+    }
+
+    function localDaEmpresa(localId, empresaId) {
+      return localId is string
+        && get(/databases/$(database)/documents/locais/$(localId)).data.id_empresa == empresaId;
+    }
+
+    match /usuarios/{userId} {
+      allow create: if autenticado() && request.auth.uid == userId
+        && request.resource.data.id_usuario == userId
+        && request.resource.data.papel == false
+        && request.resource.data.id_empresa == null
+        && request.resource.data.ativo == true
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.nome_completo is string;
+      allow read: if autenticado() && request.auth.uid == userId;
+      allow update: if autenticado() && request.auth.uid == userId
+        && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone'])
+            && request.resource.data.id_usuario == resource.data.id_usuario
+            && request.resource.data.papel == resource.data.papel
+            && request.resource.data.id_empresa == resource.data.id_empresa
+            && request.resource.data.ativo == resource.data.ativo)
+          || vinculoFuncionarioValido()
+        );
+      allow delete: if false;
+    }
+
+    match /empresas/{empresaId} {
+      allow read: if membroDaEmpresa(empresaId) || (autenticado() && resource.data.id_dono == request.auth.uid);
+      allow update: if organizadorDaEmpresa(empresaId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'nome_fantasia', 'razao_social', 'cnpj', 'email', 'telefone', 'endereco'
+        ])
+        && request.resource.data.nome_fantasia is string
+        && request.resource.data.nome_fantasia.size() >= 2
+        && request.resource.data.razao_social is string
+        && request.resource.data.cnpj is string
+        && request.resource.data.email is string
+        && request.resource.data.telefone is string
+        && request.resource.data.endereco is map;
+      allow create, delete: if false;
+    }
+
+    match /membros/{membroId} {
+      allow read: if autenticado() && (
+        resource.data.id_usuario == request.auth.uid || membroDaEmpresa(resource.data.id_empresa)
+      );
+      allow create: if autenticado()
+        && request.resource.data.keys().hasOnly([
+          'id_membro', 'id_empresa', 'id_usuario', 'tipo_acesso', 'situacao', 'data_vinculo'
+        ])
+        && request.resource.data.id_membro == membroId
+        && request.resource.data.id_empresa is string
+        && membroId == request.resource.data.id_empresa + '_' + request.auth.uid
+        && request.resource.data.id_usuario == request.auth.uid
+        && request.resource.data.tipo_acesso == 'funcionario'
+        && request.resource.data.situacao == 'ativo'
+        && request.resource.data.data_vinculo is timestamp
+        && exists(/databases/$(database)/documents/empresas/$(request.resource.data.id_empresa))
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa == null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == false
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.ativo == true
+        && getAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa == request.resource.data.id_empresa;
+      allow update, delete: if false;
+    }
+
+    match /codigos_vinculo/{codigo} {
+      allow read, write: if false;
+    }
+
+    match /indisponibilidade/{availabilityId} {
+      allow read: if autenticado() && resource.data.id_usuario == request.auth.uid;
+      allow create: if autenticado()
+        && request.resource.data.id_indisponibilidade == availabilityId
+        && request.resource.data.id_usuario == request.auth.uid
+        && request.resource.data.chave_data is string
+        && request.resource.data.data is timestamp;
+      allow delete: if autenticado() && resource.data.id_usuario == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /convites/{inviteId} {
+      allow read: if autenticado() && (
+        resource.data.id_usuario == request.auth.uid || membroDaEmpresa(resource.data.id_empresa)
+      );
+      allow update: if autenticado() && resource.data.id_usuario == request.auth.uid
+        && request.resource.data.id_usuario == resource.data.id_usuario
+        && request.resource.data.id_evento == resource.data.id_evento
+        && resource.data.situacao == 'pendente'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'respondido_em'])
+        && request.resource.data.situacao in ['aceito', 'recusado']
+        && request.resource.data.respondido_em is timestamp;
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_convite == inviteId
+        && inviteId == request.resource.data.id_evento + '_' + request.resource.data.id_usuario
+        && request.resource.data.id_evento is string
+        && get(/databases/$(database)/documents/eventos/$(request.resource.data.id_evento)).data.id_empresa == request.resource.data.id_empresa
+        && get(/databases/$(database)/documents/usuarios/$(request.resource.data.id_usuario)).data.id_empresa == request.resource.data.id_empresa
+        && get(/databases/$(database)/documents/usuarios/$(request.resource.data.id_usuario)).data.ativo == true
+        && get(/databases/$(database)/documents/usuarios/$(request.resource.data.id_usuario)).data.papel == false
+        && request.resource.data.situacao == 'pendente'
+        && request.resource.data.enviado_em is timestamp;
+      allow delete: if organizadorDaEmpresa(resource.data.id_empresa);
+    }
+
+    match /eventos/{eventId} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_evento == eventId
+        && request.resource.data.id_tipo_evento is string
+        && tipoEventoDaEmpresa(request.resource.data.id_tipo_evento, request.resource.data.id_empresa)
+        && clienteDaEmpresa(request.resource.data.id_cliente, request.resource.data.id_empresa)
+        && localDaEmpresa(request.resource.data.id_local, request.resource.data.id_empresa)
+        && request.resource.data.data_inicio is timestamp
+        && (!('quantidade_convidados' in request.resource.data)
+          || request.resource.data.quantidade_convidados is number)
+        && request.resource.data.membros_escalados is list
+        && request.resource.data.situacao in ['aberto', 'em_andamento', 'concluido', 'cancelado'];
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+          && request.resource.data.id_empresa == resource.data.id_empresa
+          && request.resource.data.id_evento == resource.data.id_evento
+        || (autenticado()
+          && membroDaEmpresa(resource.data.id_empresa)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membros_escalados'])
+          && request.resource.data.membros_escalados.hasAll(resource.data.membros_escalados)
+          && request.resource.data.membros_escalados.hasAny([request.auth.uid])
+          && request.resource.data.membros_escalados.size() == resource.data.membros_escalados.size() + 1
+          && getAfter(/databases/$(database)/documents/convites/$(eventId + '_' + request.auth.uid)).data.situacao == 'aceito'
+          && getAfter(/databases/$(database)/documents/convites/$(eventId + '_' + request.auth.uid)).data.id_evento == eventId
+          && getAfter(/databases/$(database)/documents/convites/$(eventId + '_' + request.auth.uid)).data.id_usuario == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /tipos_evento/{id} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_empresa == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa
+        && request.resource.data.id_tipo_evento == id
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        && request.resource.data.id_empresa == resource.data.id_empresa
+        && request.resource.data.id_tipo_evento == resource.data.id_tipo_evento
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /tipos_profissional/{id} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_empresa == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa
+        && request.resource.data.id_tipo_profissional == id
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        && request.resource.data.id_empresa == resource.data.id_empresa
+        && request.resource.data.id_tipo_profissional == resource.data.id_tipo_profissional
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /tipos_local/{id} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_empresa == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa
+        && request.resource.data.id_tipo_local == id
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        && request.resource.data.id_empresa == resource.data.id_empresa
+        && request.resource.data.id_tipo_local == resource.data.id_tipo_local
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /clientes/{id} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_empresa == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa
+        && request.resource.data.id_cliente == id
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        && request.resource.data.id_empresa == resource.data.id_empresa
+        && request.resource.data.id_cliente == resource.data.id_cliente
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /locais/{id} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_empresa == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa
+        && request.resource.data.id_local == id
+        && request.resource.data.nome is string
+        && request.resource.data.endereco_completo is string
+        && tipoLocalDaEmpresa(request.resource.data.id_tipo_local, request.resource.data.id_empresa)
+        && request.resource.data.ativo is bool;
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        && request.resource.data.id_empresa == resource.data.id_empresa
+        && request.resource.data.id_local == resource.data.id_local
+        && request.resource.data.nome is string
+        && request.resource.data.endereco_completo is string
+        && tipoLocalDaEmpresa(request.resource.data.id_tipo_local, request.resource.data.id_empresa)
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /{collectionName}/{documentId} {
+      allow read, write: if false;
+    }
+  }
+}

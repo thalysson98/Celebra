@@ -16,7 +16,7 @@ Registrar a tela de detalhe baseada no frame **Detalhes do evento** do Figma. O 
 
 ## Origem e disponibilidade dos dados
 
-A tela reutiliza o objeto da convocação já carregado pela assinatura `subscribeToTechnicianAssignments`, na coleção raiz `eventAssignments`. Não faz uma segunda consulta nem altera documentos. Endereços, clientes e metadados são mostrados apenas quando presentes; conteúdo ausente recebe um estado explicativo.
+A tela deverá reutilizar o convite de `convites` e carregar os dados relacionados de `eventos`, `clientes` e `locais` pelos respectivos IDs. Não altera documentos. Endereços, clientes e metadados são mostrados apenas quando presentes; conteúdo ausente recebe um estado explicativo.
 
 Campos opcionais que a interface reconhece: `clientEmail`, `clientPhone`, `eventLocations`, `productionNotes` (ou `notes`), `guestCount`, `teamMembers` e `coverImageUrl`. Sua inclusão na tela não significa que esses dados já estejam sendo preenchidos no Firestore. Consulte o [dicionário de dados](dicionario-de-dados.md) para a descrição e os cuidados de acesso.
 
@@ -34,5 +34,5 @@ Inicie a aplicação web com `npm run web` e acesse `http://localhost:8081/?prev
 ## Limites e próximos passos
 
 - Os dados atuais não incluem imagem, contatos do cliente, notas, locais detalhados, quantidade de convidados ou a equipe completa. Esses blocos só ficam completos quando a convocação os disponibilizar.
-- A lista atual de atribuições não oferece uma consulta da equipe por `eventId`; por isso o fallback não inventa nem busca nomes de outros profissionais.
+- A lista atual de convites não oferece uma consulta da equipe por `id_evento`; por isso o fallback não inventa nem busca nomes de outros profissionais.
 - Esta etapa é somente leitura. Edição do evento, contato direto com o cliente, mapas e mudanças em convocações não foram adicionados.

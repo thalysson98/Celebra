@@ -42,17 +42,25 @@ export default function App() {
       }
 
       try {
-        const profile = await obterPerfilUsuario(authUser);
+        let profile = await obterPerfilUsuario(authUser);
+        // No cadastro, o evento do Auth pode chegar antes de o documento
+        // usuarios terminar de ser gravado no Firestore. Aguarda essa gravação
+        // antes de tratar a conta como inválida e desconectá-la.
+        for (let tentativa = 0; profile.profileStatus === 'perfil_nao_cadastrado' && tentativa < 5; tentativa += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          if (!mounted || revision !== authRevision || autenticacao.currentUser?.uid !== authUser.uid) return;
+          profile = await obterPerfilUsuario(authUser);
+        }
+        if (['perfil_nao_cadastrado', 'bloqueado'].includes(profile.profileStatus) || profile.ativo !== true) {
+          await desconectarUsuario();
+          if (mounted && revision === authRevision) setCurrentUser(null);
+          return;
+        }
         if (mounted && revision === authRevision) setCurrentUser(profile);
       } catch (error) {
+        await desconectarUsuario();
         if (mounted && revision === authRevision) {
-          setCurrentUser({
-            uid: authUser.uid,
-            email: authUser.email,
-            name: authUser.displayName || authUser.email?.split('@')[0] || 'Organizador',
-            role: 'organizer',
-            profileStatus: 'ready',
-          });
+          setCurrentUser(null);
         }
       } finally {
         if (mounted && revision === authRevision) setReady(true);
@@ -78,7 +86,7 @@ export default function App() {
     );
   }
 
-  const isTechnician = currentUser?.role === 'technician';
+  const isTechnician = currentUser?.papel === false;
 
   return (
     <SafeAreaProvider>

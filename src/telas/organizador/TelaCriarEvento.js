@@ -1,334 +1,399 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  StyleSheet, 
-  Alert,
-  Modal,
-  FlatList 
-} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Button, Card } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { CORES } from '../../tema/cores';
+import { styles } from '../../estilos/estilosCriarEventoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 
-export default function TelaCriarEvento({ navigation }) {
-  // Campos do Evento
-  const [titulo, setTitulo] = useState('');
-  const [tipoEvento, setTipoEvento] = useState('');
-  const [clienteSelecionado, setClienteSelecionado] = useState('');
-  
-  // Estados de Data e Hora reais (Objetos Date do JavaScript)
-  const [dataObj, setDataObj] = useState(new Date());
-  const [horaObj, setHoraObj] = useState(new Date());
-  
-  // Controladores de visibilidade para os pickers nativos
-  const [mostrarCalendario, setMostrarCalendario] = useState(false);
-  const [mostrarRelogio, setMostrarRelogio] = useState(false);
+const SECOES = ['Geral', 'Locais', 'Equipe', 'Financeiro'];
 
-  const [numConvidados, setNumConvidados] = useState('');
-  const [notasProducao, setNotasProducao] = useState('');
-  const [valorTotal, setValorTotal] = useState('');
+const DateTimePickerNativo = Platform.OS === 'web'
+  ? null
+  : require('@react-native-community/datetimepicker').default;
 
-  // Listas vindas da memória (Aba Administrando)
-  const [opcoesTiposEvento, setOpcoesTiposEvento] = useState([]);
-  const [opcoesClientes, setOpcoesClientes] = useState([]);
+function formatarData(data) {
+  if (!data) return '';
+  const [ano, mes, dia] = data.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
 
-  // Estados dos Modais do Smart Select
-  const [modalSelecaoVisivel, setModalSelecaoVisivel] = useState(false);
-  const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
-  const [tipoAtivo, setTipoAtivo] = useState(''); // 'tiposEvento' ou 'clientes'
-  const [nomeNovoItem, setNomeNovoItem] = useState('');
+function dataParaPicker(valor, modo) {
+  if (modo === 'date' && valor) return new Date(`${valor}T12:00:00`);
+  if (modo === 'time' && valor) {
+    const [horas, minutos] = valor.split(':').map(Number);
+    const data = new Date();
+    data.setHours(horas || 0, minutos || 0, 0, 0);
+    return data;
+  }
+  return new Date();
+}
 
-  useEffect(() => {
-    carregarOpcoes();
-  }, []);
+function SeletorDataHora({ modo, valor, aoMudar, styles }) {
+  const [visivel, setVisivel] = useState(false);
+  const texto = modo === 'date' ? formatarData(valor) : valor;
 
-  const carregarOpcoes = async () => {
-    const tipos = await repositorioEventos.obterOpcoesSelect('tiposEvento');
-    const clientesList = await repositorioEventos.obterOpcoesSelect('clientes');
-    setOpcoesTiposEvento(tipos);
-    setOpcoesClientes(clientesList);
-  };
-
-  const abrirModalSelecao = (tipo) => {
-    setTipoAtivo(tipo);
-    setModalSelecaoVisivel(true);
-  };
-
-  const abrirModalCriacao = () => {
-    setModalSelecaoVisivel(false);
-    setNomeNovoItem('');
-    setModalCriacaoVisivel(true);
-  };
-
-  const salvarNovoItemMemoria = async () => {
-    if (!nomeNovoItem.trim()) {
-      Alert.alert('Atenção', 'O nome não pode estar vazio.');
-      return;
-    }
-
-    try {
-      const itemCriado = await repositorioEventos.adicionarNovoItemSelect(tipoAtivo, { nome: nomeNovoItem });
-      await carregarOpcoes();
-
-      if (tipoAtivo === 'tiposEvento') setTipoEvento(itemCriado.nome);
-      if (tipoAtivo === 'clientes') setClienteSelecionado(itemCriado.nome);
-
-      setModalCriacaoVisivel(false);
-      Alert.alert('Sucesso', `"${itemCriado.nome}" criado e selecionado!`);
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível criar o item.');
-    }
-  };
-
-  // Formatadores visuais para exibir na interface
-  const formatarDataVisual = (date) => {
-    const opcoes = { day: '2-digit', month: 'short', year: 'numeric' };
-    return date.toLocaleDateString('pt-BR', opcoes).replace('.', ''); // Ex: "17 out 2026"
-  };
-
-  const formatarHoraVisual = (date) => {
-    const horas = date.getHours().toString().padStart(2, '0');
-    return `${horas}h`; // Ex: "16h"
-  };
-
-  const aoMudarData = (event, selectedDate) => {
-    setMostrarCalendario(false);
-    if (selectedDate) {
-      setDataObj(selectedDate);
-    }
-  };
-
-  const aoMudarHora = (event, selectedTime) => {
-    setMostrarRelogio(false);
-    if (selectedTime) {
-      setHoraObj(selectedTime);
-    }
-  };
-
-  const salvarEventoCompleto = async () => {
-    if (!titulo || !tipoEvento || !clienteSelecionado) {
-      Alert.alert('Atenção', 'Preencha os campos obrigatórios (Título, Tipo de Evento e Cliente)!');
-      return;
-    }
-
-    const novoEvento = {
-      titulo,
-      tipoEvento,
-      local: 'Local principal',
-      dataInicio: formatarDataVisual(dataObj),
-      horaInicio: formatarHoraVisual(horaObj),
-      numConvidados: Number(numConvidados) || 0,
-      statusTempo: 'futuros',
-      statusEquipa: 'Equipa Pendente',
-      notasProducao: notasProducao || 'Nenhuma nota informada.',
-      cliente: {
-        nome: clienteSelecionado,
-        email: 'contato@cliente.com',
-        telefone: '(00) 00000-0000',
-        status: 'Cadastro completo'
+  if (Platform.OS === 'web') {
+    return React.createElement('input', {
+      type: modo,
+      value: valor,
+      onChange: (evento) => aoMudar(evento.target.value),
+      'aria-label': modo === 'date' ? 'Selecionar data' : 'Selecionar horário',
+      'aria-required': modo === 'date',
+      style: {
+        width: '100%',
+        boxSizing: 'border-box',
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #D8E2EB',
+        borderRadius: 11,
+        padding: '12px 13px',
+        minHeight: 46,
+        color: '#102B46',
+        fontSize: 14,
+        fontFamily: 'inherit',
       },
-      financeiro: {
-        valorTotal: Number(valorTotal) || 0,
-        valorPago: 0,
-        saldoAReceber: Number(valorTotal) || 0,
-        parcelas: []
-      },
-      locaisDoEvento: [],
-      equipaDeCampo: []
-    };
-
-    const eventoCriado = await repositorioEventos.adicionarEvento(novoEvento);
-    Alert.alert('Sucesso', 'Evento criado com sucesso!');
-    navigation.navigate('DetalheEvento', { idEvento: eventoCriado.id });
-  };
+    });
+  }
 
   return (
-    <ScrollView style={estilos.container}>
-      <Text style={estilos.secaoTitulo}>Dados Gerais do Evento</Text>
-
-      {/* Select de Clientes */}
-      <Text style={estilos.rotulo}>Cliente *</Text>
-      <TouchableOpacity style={estilos.selectBox} onPress={() => abrirModalSelecao('clientes')}>
-        <Text style={clienteSelecionado ? estilos.textoSelecionado : estilos.textoPlaceholder}>
-          {clienteSelecionado || 'Selecione ou adicione um cliente...'}
-        </Text>
+    <>
+      <TouchableOpacity accessibilityRole="button" onPress={() => setVisivel(true)} style={styles.datePickerButton}>
+        <Text style={[styles.datePickerText, !texto && styles.placeholder]}>{texto || (modo === 'date' ? 'DD/MM/AAAA' : '16:00')}</Text>
+        <MaterialCommunityIcons name={modo === 'date' ? 'calendar-month-outline' : 'clock-outline'} size={19} color="#71859A" />
       </TouchableOpacity>
-
-      {/* Select de Tipo de Evento */}
-      <Text style={estilos.rotulo}>Tipo de Evento *</Text>
-      <TouchableOpacity style={estilos.selectBox} onPress={() => abrirModalSelecao('tiposEvento')}>
-        <Text style={tipoEvento ? estilos.textoSelecionado : estilos.textoPlaceholder}>
-          {tipoEvento || 'Selecione ou adicione um tipo de evento...'}
-        </Text>
-      </TouchableOpacity>
-
-      <Text style={estilos.rotulo}>Título do Evento *</Text>
-      <TextInput
-        style={estilos.input}
-        placeholder="Ex: Ana & Pedro"
-        value={titulo}
-        onChangeText={setTitulo}
-      />
-
-      {/* Linha com Seletores Nativos de Data e Hora */}
-      <View style={estilos.linhaDupla}>
-        <View style={estilos.coluna}>
-          <Text style={estilos.rotulo}>Data</Text>
-          <TouchableOpacity style={estilos.selectBox} onPress={() => setMostrarCalendario(true)}>
-            <Text style={estilos.textoSelecionado}>📅 {formatarDataVisual(dataObj)}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={estilos.coluna}>
-          <Text style={estilos.rotulo}>Hora</Text>
-          <TouchableOpacity style={estilos.selectBox} onPress={() => setMostrarRelogio(true)}>
-            <Text style={estilos.textoSelecionado}>⏰ {formatarHoraVisual(horaObj)}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Componentes nativos do DateTimePicker */}
-      {mostrarCalendario && (
-        <DateTimePicker
-          value={dataObj}
-          mode="date"
+      {visivel && DateTimePickerNativo && (
+        <DateTimePickerNativo
+          value={dataParaPicker(valor, modo)}
+          mode={modo}
           display="default"
-          onChange={aoMudarData}
+          onChange={(evento, selecionada) => {
+            setVisivel(false);
+            if (!selecionada || evento.type === 'dismissed') return;
+            if (modo === 'date') {
+              const ano = selecionada.getFullYear();
+              const mes = String(selecionada.getMonth() + 1).padStart(2, '0');
+              const dia = String(selecionada.getDate()).padStart(2, '0');
+              aoMudar(`${ano}-${mes}-${dia}`);
+            } else {
+              aoMudar(`${String(selecionada.getHours()).padStart(2, '0')}:${String(selecionada.getMinutes()).padStart(2, '0')}`);
+            }
+          }}
         />
       )}
-
-      {mostrarRelogio && (
-        <DateTimePicker
-          value={horaObj}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={aoMudarHora}
-        />
-      )}
-
-      <Text style={estilos.rotulo}>Número de Convidados</Text>
-      <TextInput
-        style={estilos.input}
-        placeholder="Ex: 180"
-        keyboardType="numeric"
-        value={numConvidados}
-        onChangeText={setNumConvidados}
-      />
-
-      <Text style={estilos.rotulo}>Notas da Produção</Text>
-      <TextInput
-        style={[estilos.input, { height: 80, textAlignVertical: 'top' }]}
-        placeholder="Escreva notas e observações..."
-        multiline
-        value={notasProducao}
-        onChangeText={setNotasProducao}
-      />
-
-      <Text style={estilos.secaoTitulo}>Financeiro</Text>
-      <Text style={estilos.rotulo}>Valor Total (R$)</Text>
-      <TextInput
-        style={estilos.input}
-        placeholder="Ex: 6000.00"
-        keyboardType="numeric"
-        value={valorTotal}
-        onChangeText={setValorTotal}
-      />
-
-      <TouchableOpacity style={estilos.botaoSalvar} onPress={salvarEventoCompleto}>
-        <Text style={estilos.textoBotaoSalvar}>Salvar Evento</Text>
-      </TouchableOpacity>
-
-      {/* MODAL 1: Lista de Opções (Smart Select) */}
-      <Modal visible={modalSelecaoVisivel} animationType="slide" transparent={true}>
-        <View style={estilos.modalOverlay}>
-          <View style={estilos.modalContent}>
-            <Text style={estilos.modalTitulo}>
-              Selecionar {tipoAtivo === 'tiposEvento' ? 'Tipo de Evento' : 'Cliente'}
-            </Text>
-
-            <FlatList
-              data={tipoAtivo === 'tiposEvento' ? opcoesTiposEvento : opcoesClientes}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={estilos.itemListaModal}
-                  onPress={() => {
-                    if (tipoAtivo === 'tiposEvento') setTipoEvento(item.nome);
-                    if (tipoAtivo === 'clientes') setClienteSelecionado(item.nome);
-                    setModalSelecaoVisivel(false);
-                  }}
-                >
-                  <Text style={estilos.textoItemModal}>{item.nome}</Text>
-                </TouchableOpacity>
-              )}
-            />
-
-            <TouchableOpacity style={estilos.botaoAdicionarNovo} onPress={abrirModalCriacao}>
-              <Text style={estilos.textoBotaoAdicionarNovo}>+ Adicionar Novo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={estilos.botaoCancelarModal} onPress={() => setModalSelecaoVisivel(false)}>
-              <Text style={estilos.textoCancelarModal}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL 2: Criação Rápida de Novo Item */}
-      <Modal visible={modalCriacaoVisivel} animationType="fade" transparent={true}>
-        <View style={estilos.modalOverlay}>
-          <View style={estilos.modalContent}>
-            <Text style={estilos.modalTitulo}>
-              Cadastrar Novo {tipoAtivo === 'tiposEvento' ? 'Tipo de Evento' : 'Cliente'}
-            </Text>
-
-            <TextInput
-              style={estilos.input}
-              placeholder="Digite o nome..."
-              value={nomeNovoItem}
-              onChangeText={setNomeNovoItem}
-            />
-
-            <TouchableOpacity style={estilos.botaoSalvarModal} onPress={salvarNovoItemMemoria}>
-              <Text style={estilos.textoBotaoSalvar}>Salvar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={estilos.botaoCancelarModal} onPress={() => setModalCriacaoVisivel(false)}>
-              <Text style={estilos.textoCancelarModal}>Voltar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-    </ScrollView>
+    </>
   );
 }
 
-const estilos = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f9f9f9' },
-  secaoTitulo: { fontSize: 18, fontWeight: 'bold', color: '#1e1e1e', marginTop: 15, marginBottom: 10 },
-  rotulo: { fontSize: 14, color: '#444', fontWeight: '600', marginTop: 8 },
-  input: { borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', padding: 12, borderRadius: 8, marginTop: 4, fontSize: 16 },
-  selectBox: { borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', padding: 14, borderRadius: 8, marginTop: 4, justifyContent: 'center' },
-  textoPlaceholder: { color: '#888', fontSize: 16 },
-  textoSelecionado: { color: '#1e1e1e', fontSize: 16, fontWeight: '500' },
-  linhaDupla: { flexDirection: 'row', justifyContent: 'space-between' },
-  coluna: { flex: 0.48 },
-  botaoSalvar: { backgroundColor: '#fbc02d', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 25, marginBottom: 40 },
-  textoBotaoSalvar: { color: '#1e1e1e', fontSize: 16, fontWeight: 'bold' },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 20, maxHeight: '80%' },
-  modalTitulo: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#1e1e1e', textAlign: 'center' },
-  itemListaModal: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  textoItemModal: { fontSize: 16, color: '#333' },
-  botaoAdicionarNovo: { backgroundColor: '#e0e0e0', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
-  textoBotaoAdicionarNovo: { color: '#1e1e1e', fontWeight: 'bold', fontSize: 15 },
-  botaoSalvarModal: { backgroundColor: '#fbc02d', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
-  botaoCancelarModal: { padding: 10, alignItems: 'center', marginTop: 5 },
-  textoCancelarModal: { color: '#666', fontSize: 14 }
-});
+export default function TelaCriarEvento({ navigation, usuario }) {
+  const [secao, setSecao] = useState('Geral');
+  const [formulario, setFormulario] = useState({ titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '', local: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', nomeProfissional: '', funcaoProfissional: '', valorContrato: '', parcelas: '' });
+  const [equipe, setEquipe] = useState([]);
+  const [selecaoVisivel, setSelecaoVisivel] = useState(false);
+  const [tipoSelecao, setTipoSelecao] = useState('');
+  const [opcoesSelecao, setOpcoesSelecao] = useState([]);
+  const [buscaSelecao, setBuscaSelecao] = useState('');
+  const [carregandoOpcoes, setCarregandoOpcoes] = useState(false);
+  const [erroSelecao, setErroSelecao] = useState('');
+  const [mensagemFormulario, setMensagemFormulario] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [posicoesSecao, setPosicoesSecao] = useState({});
+  const scrollConteudo = useRef(null);
+
+  const atualizar = (campo, valor) => {
+    setMensagemFormulario('');
+    setFormulario((anterior) => ({ ...anterior, [campo]: valor }));
+  };
+
+  const abrirSelecao = async (campo) => {
+    setTipoSelecao(campo);
+    setBuscaSelecao('');
+    setErroSelecao('');
+    setSelecaoVisivel(true);
+    setCarregandoOpcoes(true);
+    try {
+      const tipoLista = {
+        tipoEvento: 'tiposEvento',
+        cliente: 'clientes',
+        local: 'locaisSalvos',
+        tipoLocal: 'tiposLocal',
+        funcaoProfissional: 'tiposProfissional',
+      }[campo];
+      const opcoes = await repositorioEventos.obterOpcoesSelect(tipoLista, usuario?.idEmpresa);
+      setOpcoesSelecao(opcoes);
+    } catch (erro) {
+      setErroSelecao(erro?.message || 'Não foi possível carregar a lista.');
+    } finally {
+      setCarregandoOpcoes(false);
+    }
+  };
+
+  const escolherOpcao = async (item) => {
+    setMensagemFormulario('');
+    if (tipoSelecao === 'local') {
+      const tiposLocais = await repositorioEventos.obterOpcoesSelect('tiposLocal', usuario?.idEmpresa);
+      const tipoLocal = tiposLocais.find((tipo) => tipo.id === item.id_tipo_local);
+      setFormulario((atual) => ({
+        ...atual,
+        local: item.nome || '',
+        enderecoLocal: item.endereco_completo || '',
+        tipoLocal: tipoLocal?.nome || '',
+      }));
+    } else {
+      atualizar(tipoSelecao, item.nome || '');
+    }
+    setSelecaoVisivel(false);
+  };
+  const adicionarProfissional = () => {
+    if (!formulario.nomeProfissional.trim() || !formulario.funcaoProfissional.trim()) {
+      setMensagemFormulario('Para adicionar à equipe, informe o nome e a função do profissional.');
+      return;
+    }
+    setMensagemFormulario('');
+    setEquipe((anterior) => [...anterior, { id: String(Date.now()), nomeProfissional: formulario.nomeProfissional.trim(), funcao: formulario.funcaoProfissional.trim(), statusConfirmacao: 'Pendente' }]);
+    atualizar('nomeProfissional', '');
+    atualizar('funcaoProfissional', '');
+  };
+
+  const irParaSecao = (nomeSecao) => {
+    setSecao(nomeSecao);
+    const posicao = posicoesSecao[nomeSecao];
+    if (typeof posicao === 'number') {
+      requestAnimationFrame(() => scrollConteudo.current?.scrollTo({ y: Math.max(posicao - 8, 0), animated: true }));
+    }
+  };
+
+  const salvarEvento = async () => {
+    if (salvando) return;
+    setMensagemFormulario('');
+    if (!formulario.titulo.trim() || !formulario.tipoEvento.trim() || !formulario.cliente.trim() || !formulario.dataInicio.trim()) {
+      setMensagemFormulario('Preencha título, tipo de evento, cliente e data obrigatória na seção Geral.');
+      irParaSecao('Geral');
+      return;
+    }
+    if (!formulario.local.trim() || !formulario.enderecoLocal.trim() || !formulario.tipoLocal.trim()) {
+      setMensagemFormulario('Selecione o local do evento e confirme o tipo de local na seção Locais.');
+      irParaSecao('Locais');
+      return;
+    }
+    const novoEvento = {
+      titulo: formulario.titulo.trim(),
+      tipoEvento: formulario.tipoEvento.trim(),
+      dataInicio: formulario.dataInicio.trim(),
+      horaInicio: formulario.horaInicio.trim(),
+      numConvidados: Number(formulario.numConvidados) || 0,
+      statusTempo: 'futuros',
+      statusEquipa: 'Equipa Pendente',
+      notasProducao: formulario.notasProducao.trim(),
+      cliente: { nome: formulario.cliente.trim() },
+      local: {
+        nomeDoLocal: formulario.local.trim(),
+        endereco: formulario.enderecoLocal.trim(),
+        tipoLocal: formulario.tipoLocal.trim(),
+      },
+      equipa: equipe,
+      financeiro: { valorContrato: formulario.valorContrato.trim(), parcelas: Number(formulario.parcelas) || 0 },
+    };
+    setSalvando(true);
+    try {
+      const eventoCriado = await repositorioEventos.adicionarEvento(novoEvento);
+      navigation.replace('DetalheEvento', { idEvento: eventoCriado.id });
+    } catch (erro) {
+      setMensagemFormulario(erro?.code === 'permission-denied'
+        ? 'O Firebase bloqueou o cadastro. Publique as regras atualizadas do Firestore e tente novamente.'
+        : erro?.message || 'Não foi possível salvar o evento. Verifique sua conexão e tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const Campo = ({ label, valor, aoMudar, placeholder, teclado = 'default', multilinha = false, obrigatorio = false }) => (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}{obrigatorio ? ' *' : ''}</Text>
+      <TextInput value={valor} onChangeText={aoMudar} placeholder={placeholder} placeholderTextColor={CORES.textSubtle} keyboardType={teclado} multiline={multilinha} style={[styles.input, multilinha && styles.multiline]} />
+    </View>
+  );
+
+  const CampoSelecao = ({ label, campo, placeholder, icone }) => (
+    <View style={styles.selectionCard}>
+      <Text style={styles.selectionLabel}>{label}</Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${formulario[campo] || placeholder}`}
+        onPress={() => abrirSelecao(campo)}
+        style={styles.selectionButton}
+      >
+        {!!icone && <MaterialCommunityIcons name={icone} size={19} color={CORES.textMuted} />}
+        <Text style={[styles.selectionText, !formulario[campo] && styles.selectionPlaceholder]} numberOfLines={1}>
+          {formulario[campo] || placeholder}
+        </Text>
+        <MaterialCommunityIcons name="chevron-down" size={20} color={CORES.textMuted} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const CampoDataHora = ({ label, campo, modo, placeholder }) => (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <SeletorDataHora
+        modo={modo}
+        valor={formulario[campo]}
+        aoMudar={(valor) => atualizar(campo, valor)}
+        styles={{ ...styles, placeholder: styles.datePickerPlaceholder }}
+      />
+    </View>
+  );
+
+  const conteudoSecao = (nomeSecao) => {
+    if (nomeSecao === 'Geral') return (
+      <>
+        <Text style={styles.sectionHeading}>Informações do evento</Text>
+        <Text style={styles.sectionHint}>Os campos com * são obrigatórios.</Text>
+        <Campo label="Título do evento" valor={formulario.titulo} aoMudar={(v) => atualizar('titulo', v)} placeholder="Ex.: Ana & Pedro" obrigatorio />
+        <CampoSelecao label="Tipo de evento *" campo="tipoEvento" placeholder="Selecionar" />
+        <CampoSelecao label="Cliente *" campo="cliente" placeholder="Selecionar" icone="account-outline" />
+        <View style={styles.row}>
+          <View style={styles.column}><CampoDataHora label="Data *" campo="dataInicio" modo="date" placeholder="DD/MM/AAAA" /></View>
+          <View style={styles.column}><CampoDataHora label="Horário" campo="horaInicio" modo="time" placeholder="16:00" /></View>
+        </View>
+        <Campo label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizar('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" />
+      </>
+    );
+    if (nomeSecao === 'Locais') return (
+      <>
+        <Text style={styles.sectionHeading}>Locais do evento</Text>
+        <Text style={styles.sectionHint}>Informe o espaço e os detalhes de chegada da equipe.</Text>
+        <CampoSelecao label="Local *" campo="local" placeholder="Selecionar o endereço" icone="map-marker-outline" />
+        <View style={styles.row}>
+          <View style={styles.column}><CampoSelecao label="Tipo de local *" campo="tipoLocal" placeholder="Selecionar o tipo do local" /></View>
+          <View style={styles.column}><CampoDataHora label="Horário" campo="horaLocal" modo="time" /></View>
+        </View>
+      </>
+    );
+    if (nomeSecao === 'Equipe') return (
+      <>
+        <Text style={styles.sectionHeading}>Equipe de campo</Text>
+        <Text style={styles.sectionHint}>Adicione as funções e os profissionais previstos para o evento.</Text>
+        {equipe.map((pessoa) => <View key={pessoa.id} style={styles.personRow}><View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={20} color={CORES.textNavy} /></View><View style={styles.personInfo}><Text style={styles.personName}>{pessoa.nomeProfissional}</Text><Text style={styles.personMeta}>{pessoa.funcao} · Pendente</Text></View><TouchableOpacity accessibilityLabel={`Remover ${pessoa.nomeProfissional}`} onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))}><MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} /></TouchableOpacity></View>)}
+        <View style={styles.inlineForm}>
+          <Campo label="Profissional" valor={formulario.nomeProfissional} aoMudar={(v) => atualizar('nomeProfissional', v)} placeholder="Nome" />
+          <CampoSelecao label="Tipo de profissional" campo="funcaoProfissional" placeholder="Selecionar tipo" />
+          <Button mode="outlined" icon="plus" onPress={adicionarProfissional} textColor={CORES.textNavy} style={styles.outlineButton}>Adicionar profissional</Button>
+        </View>
+      </>
+    );
+    return (
+      <>
+        <View style={styles.noteCard}>
+          <Text style={styles.sectionHeading}>Notas da produção</Text>
+          <Text style={styles.sectionHint}>Observações importantes para a equipe.</Text>
+          <TextInput
+            value={formulario.notasProducao}
+            onChangeText={(valor) => atualizar('notasProducao', valor)}
+            placeholder="Escrever notas..."
+            placeholderTextColor={CORES.textSubtle}
+            multiline
+            style={[styles.input, styles.multiline]}
+          />
+        </View>
+        <Text style={styles.sectionHeading}>Financeiro</Text>
+        <Text style={styles.sectionHint}>Registre os valores combinados para acompanhar o evento.</Text>
+        <Campo label="Valor do contrato" valor={formulario.valorContrato} aoMudar={(v) => atualizar('valorContrato', v)} placeholder="R$ 0,00" teclado="decimal-pad" />
+        <Campo label="Quantidade de parcelas" valor={formulario.parcelas} aoMudar={(v) => atualizar('parcelas', v)} placeholder="Ex.: 3" teclado="numeric" />
+        <Card style={styles.infoCard}><Card.Content style={styles.infoContent}><MaterialCommunityIcons name="information-outline" size={19} color={CORES.textMuted} /><Text style={styles.infoText}>Os dados financeiros ficarão disponíveis nos detalhes do evento.</Text></Card.Content></Card>
+      </>
+    );
+  };
+
+  const opcoesFiltradas = opcoesSelecao.filter((item) =>
+    String(item.nome || '').toLocaleLowerCase('pt-BR').includes(buscaSelecao.trim().toLocaleLowerCase('pt-BR')),
+  );
+  const tituloSelecao = {
+    tipoEvento: 'Selecionar tipo de evento',
+    cliente: 'Selecionar cliente',
+    local: 'Selecionar local',
+    tipoLocal: 'Selecionar tipo de local',
+    funcaoProfissional: 'Selecionar tipo de profissional',
+  }[tipoSelecao] || 'Selecionar';
+  return (
+    <View style={styles.container}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
+        {SECOES.map((nomeSecao) => <TouchableOpacity key={nomeSecao} onPress={() => irParaSecao(nomeSecao)} style={[styles.tab, secao === nomeSecao && styles.activeTab]}><Text style={[styles.tabText, secao === nomeSecao && styles.activeTabText]}>{nomeSecao}</Text></TouchableOpacity>)}
+      </ScrollView>
+      {!!mensagemFormulario && (
+        <View accessibilityRole="alert" style={styles.formError}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#B42318" />
+          <Text style={styles.formErrorText}>{mensagemFormulario}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar aviso" onPress={() => setMensagemFormulario('')}>
+            <MaterialCommunityIcons name="close" size={19} color="#B42318" />
+          </TouchableOpacity>
+        </View>
+      )}
+      <ScrollView
+        ref={scrollConteudo}
+        style={styles.sheet}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onScroll={(evento) => {
+          const topoVisivel = evento.nativeEvent.contentOffset.y + 90;
+          const secaoVisivel = [...SECOES].reverse().find((nomeSecao) =>
+            typeof posicoesSecao[nomeSecao] === 'number' && posicoesSecao[nomeSecao] <= topoVisivel,
+          );
+          if (secaoVisivel && secaoVisivel !== secao) setSecao(secaoVisivel);
+        }}
+        scrollEventThrottle={16}
+      >
+        {SECOES.map((nomeSecao) => (
+          <View
+            key={nomeSecao}
+            onLayout={(evento) => setPosicoesSecao((atual) => ({ ...atual, [nomeSecao]: evento.nativeEvent.layout.y }))}
+          >
+            {conteudoSecao(nomeSecao)}
+          </View>
+        ))}
+        <View style={styles.actions}>
+          <Button mode="contained" icon={salvando ? undefined : 'check'} onPress={salvarEvento} disabled={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.actionButton}>
+            {salvando ? 'Salvando evento...' : 'Salvar evento'}
+          </Button>
+        </View>
+      </ScrollView>
+
+      <Modal visible={selecaoVisivel} transparent animationType="fade" onRequestClose={() => setSelecaoVisivel(false)}>
+        <View style={styles.selectionOverlay}>
+          <View style={styles.selectionModal}>
+            <View style={styles.selectionModalHeader}>
+              <Text style={styles.selectionModalTitle}>{tituloSelecao}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar lista" onPress={() => setSelecaoVisivel(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              value={buscaSelecao}
+              onChangeText={setBuscaSelecao}
+              placeholder="Buscar"
+              placeholderTextColor={CORES.textSubtle}
+              style={styles.selectionSearch}
+            />
+            {carregandoOpcoes ? (
+              <ActivityIndicator size="large" color={CORES.buttonGold} style={styles.selectionLoading} />
+            ) : erroSelecao ? (
+              <Text style={styles.selectionEmpty}>{erroSelecao}</Text>
+            ) : opcoesFiltradas.length ? (
+              <ScrollView style={styles.selectionList} keyboardShouldPersistTaps="handled">
+                {opcoesFiltradas.map((item) => (
+                  <TouchableOpacity key={item.id} accessibilityRole="button" onPress={() => escolherOpcao(item)} style={styles.selectionRow}>
+                    <Text style={styles.selectionItemName}>{item.nome}</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={CORES.textMuted} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.selectionEmpty}>
+                {buscaSelecao ? 'Nenhum resultado para essa busca.' : `Nenhum ${tituloSelecao.replace('Selecionar ', '').toLocaleLowerCase('pt-BR')} cadastrado. Adicione em Administrando.`}
+              </Text>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}

@@ -6,11 +6,11 @@ A aba Perfil segue o quadro do Figma e usa os serviços existentes de Firebase A
 
 ## Dados exibidos e persistidos
 
-O perfil vem de `users/{uid}`. São lidos `displayName`, `email`, `cpf`, `phone`, `city`, `companyId` e `notificationPreferences`. Se houver `companyId`, o app tenta ler `companies/{companyId}.name` para mostrar a empresa; uma falha nessa leitura opcional não bloqueia o perfil. Campos ainda não preenchidos são apresentados como não informados.
+O perfil vem de `usuarios/{id_usuario}`. São lidos `nome_completo`, `email`, `telefone`, `id_empresa`, `papel` e `ativo`; em `papel`, `true` significa administrador e `false` significa funcionário. Se houver `id_empresa`, o app tenta ler `empresas/{id_empresa}.nome_fantasia` para mostrar a empresa; uma falha nessa leitura opcional não bloqueia o perfil.
 
-O formulário edita somente nome para exibição, CPF, telefone e cidade. O e-mail é mostrado como leitura e não pode ser alterado por esta tela. CPF e telefone são enviados ao Firestore somente com dígitos; CPF deve ter 11 dígitos e telefone deve ter DDD (10 ou 11 dígitos). O nome é obrigatório e limitado a 100 caracteres. O serviço confere que o UID informado corresponde à conta autenticada antes de escrever. A escrita também atualiza `updatedAt`.
+O formulário pode editar nome completo e telefone. O e-mail, papel, empresa e ativo são somente leitura. O telefone é enviado ao Firestore somente com dígitos; o nome é obrigatório e limitado a 120 caracteres. O serviço confere que o UID informado corresponde à conta autenticada antes de escrever.
 
-O botão **Eventos e equipe** grava `notificationPreferences.eventsAndTeam` no documento do usuário. Se a preferência não existir, a interface considera o padrão `true`, compatível com o protótipo. A opção registra uma preferência; o envio de push notifications não faz parte desta implementação.
+Preferências de notificação ainda não fazem parte da tabela oficial `usuarios`; o controle visual existente deve ser tratado como pendência de interface até que um campo seja incluído no modelo.
 
 O item **Segurança da conta** solicita ao Firebase Authentication o envio de um link de redefinição para o e-mail da conta. A senha não é lida nem armazenada pelo app. **Sair da conta** continua usando a rotina de logout que já existia.
 
@@ -18,9 +18,9 @@ O item **Segurança da conta** solicita ao Firebase Authentication o envio de um
 
 - `src/screens/TechnicianDashboardScreen.js`: estado do perfil, formulário, validação de apresentação, alteração da preferência, pedido de redefinição e layout da aba.
 - `src/styles/technicianDashboardStyles.js`: estilos alinhados à tela do Figma.
-- `src/services/userService.js`: leitura dos campos pessoais e da preferência, atualização segura por lista permitida e leitura opcional do nome da empresa.
-- `src/services/authService.js`: envio de e-mail de redefinição de senha pelo Firebase Authentication e inicialização dos novos campos no cadastro.
-- `docs/dicionario-de-dados.md`: inclusão dos campos pessoais e de preferência em `users/{uid}`.
+- `src/servicos/servicoUsuario.js`: leitura e atualização segura de `usuarios/{id_usuario}` e leitura opcional do nome da empresa.
+- `src/servicos/servicoAutenticacao.js`: login por e-mail, redefinição de senha e criação do perfil inicial em `usuarios/{id_usuario}`.
+- `docs/dicionario-de-dados.md`: contrato oficial de `usuarios`, `empresas` e demais coleções.
 
 ## Limites entre prévia e conta real
 
@@ -28,6 +28,6 @@ Em `http://localhost:8081/?preview=technician`, editar o perfil e alternar a pre
 
 ## Segurança e configuração do Firebase
 
-CPF é dado pessoal. O repositório não contém `firestore.rules`, nem há configuração de deploy do Firebase versionada aqui. Portanto, a autorização final das leituras e gravações depende das regras configuradas no projeto remoto. Antes de usar com dados reais, confirme que as regras permitem ao usuário autenticado ler e atualizar somente os campos de perfil do próprio `users/{uid}`, impedem alteração de `role`, `companyId`, `active` e outros campos de acesso, e restringem o acesso aos dados pessoais. A leitura de `companies/{companyId}` deve ser autorizada apenas aos membros pertinentes.
+O arquivo [`firestore.rules`](../firestore.rules) restringe o perfil ao próprio UID e impede alteração client-side de `papel`, `id_empresa` e `ativo`. A leitura de `empresas/{id_empresa}` deve ser autorizada somente a membros da empresa.
 
 O app usa Firebase diretamente do cliente; esta implementação não cria uma Cloud Function ou um servidor próprio. O link de redefinição depende do provedor de e-mail e das configurações do Firebase Authentication.

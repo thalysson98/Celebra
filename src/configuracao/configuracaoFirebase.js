@@ -24,5 +24,4 @@ export const auth = autenticacao;
 
 export const bancoDados = getFirestore(app);
 export const db = bancoDados;
-
 export default app;

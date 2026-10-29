@@ -6,6 +6,8 @@ Repositorio Figma:https://www.figma.com/design/BokBynZmbgmAXZolGQj2Ig/Projeto-Mo
 ## Documentação
 
 - [Dicionário de dados](docs/dicionario-de-dados.md): coleções, campos, relações e consultas do Firestore.
+- [Modelo de banco e regras](docs/modelo-banco-e-regras-celebra.md): fonte de verdade das coleções e regras de negócio.
+- [Guia do Firebase](docs/guia-firebase-e-dicionario-ptbr.md): configuração, cadastro e login.
 - [Perfil do técnico](docs/perfil-tecnico.md): dados de perfil, preferências e integração com Firebase Authentication.
 - [Tela de eventos do técnico](docs/tela-eventos-tecnico.md): filtros, dados exibidos e limites do protótipo.
 - [Agenda do técnico](docs/tela-agenda-tecnico.md): calendário, compromissos e indisponibilidade.

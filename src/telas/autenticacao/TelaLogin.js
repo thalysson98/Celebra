@@ -24,7 +24,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
 
   const lidarComLogin = async () => {
     if (!identificador.trim() || !senha.trim()) {
-      Alert.alert('Atenção', 'Preencha seu usuário/e-mail e sua senha.');
+      Alert.alert('Atenção', 'Preencha seu e-mail e sua senha.');
       return;
     }
 
@@ -71,9 +71,9 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
           <View style={estilosAutenticacao.card}>
             <Text style={estilosAutenticacao.cardTitle}>Acesse sua conta</Text>
 
-            {/* Campo Usuário / E-mail */}
+            {/* Campo E-mail */}
             <View style={estilosAutenticacao.fieldGroup}>
-              <Text style={estilosAutenticacao.inputLabel}>Usuário ou e-mail</Text>
+              <Text style={estilosAutenticacao.inputLabel}>E-mail</Text>
               <View style={estilosAutenticacao.inputWrapper}>
                 <Feather
                   name="user"
@@ -83,7 +83,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
                 />
                 <TextInput
                   style={estilosAutenticacao.textInput}
-                  placeholder="Seu usuário ou e-mail"
+                  placeholder="seu@email.com"
                   placeholderTextColor={CORES_AUTENTICACAO.placeholder}
                   value={identificador}
                   onChangeText={setIdentificador}

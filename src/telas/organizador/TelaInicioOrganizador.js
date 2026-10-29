@@ -3,18 +3,18 @@ import {
   View,
   Text,
   ScrollView,
-  StyleSheet,
   TouchableOpacity,
   Image,
   RefreshControl,
 } from 'react-native';
-import { Card, IconButton } from 'react-native-paper';
+import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import CartaoMetrica from '../../componentes/CartaoMetrica';
 
 import { COLORS, FONTS } from '../../tema/cores';
+import { styles } from '../../estilos/estilosInicioOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
-import dadosMemoria from '../../servicos/dadosMemoria';
 
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
@@ -51,8 +51,8 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
   );
 
   // Evento destaque (primeiro da lista de próximos ou fallback)
-  const eventoDestaque = eventos[0] || null;
-  const outrosEventos = eventos.slice(1, 3);
+  const eventoDestaque = eventosProximos[0] || null;
+  const outrosEventos = eventosProximos.slice(1, 3);
 
   // Formatação de data amigável no topo (ex: "Seg, 12 out")
   const obterDataFormatada = () => {
@@ -75,7 +75,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
             Olá, {usuario?.name ? usuario.name.split(' ')[0] : 'Organizador'}!
           </Text>
           <Text style={styles.headerCompany}>
-            Bella Produzione Vídeos • {obterDataFormatada()}
+            {usuario?.companyName || 'Sua produtora'} • {obterDataFormatada()}
           </Text>
         </View>
 
@@ -101,28 +101,17 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       >
         {/* Cards de Métricas Principais (Lado a Lado) */}
         <View style={styles.metricRow}>
-          {/* Card 1: Eventos Cadastrados */}
-          <Card style={[styles.metricCard, styles.metricCardLeft]}>
-            <Card.Content style={styles.metricContent}>
-              <View style={styles.metricTopRow}>
-                <Text style={styles.metricNumber}>{totalEventos > 0 ? totalEventos : 12}</Text>
-                <View style={styles.greenIndicatorDot} />
-              </View>
-              <Text style={styles.metricLabel}>Eventos cadastrados</Text>
-            </Card.Content>
-          </Card>
-
-          {/* Card 2: Próximos 15 dias */}
-          <Card style={[styles.metricCard, styles.metricCardRight]}>
-            <Card.Content style={styles.metricContent}>
-              <View style={styles.metricTopRow}>
-                <Text style={styles.metricNumber}>
-                  {eventosProximos.length > 0 ? eventosProximos.length : 3}
-                </Text>
-              </View>
-              <Text style={styles.metricLabel}>Nos próximos 15 dias</Text>
-            </Card.Content>
-          </Card>
+          <CartaoMetrica
+            valor={totalEventos}
+            rotulo="Eventos cadastrados"
+            mostrarIndicador
+            estilo={{ marginRight: 8 }}
+          />
+          <CartaoMetrica
+            valor={eventosProximos.length}
+            rotulo="Nos próximos 15 dias"
+            estilo={{ marginLeft: 8 }}
+          />
         </View>
 
         {/* Seção: Precisam da sua atenção */}
@@ -153,7 +142,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                 </Text>
               </View>
               <Text style={styles.attentionCount}>
-                {eventosPendentes.length > 0 ? eventosPendentes.length : 3}
+                {eventosPendentes.length}
               </Text>
             </View>
 
@@ -192,23 +181,23 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                   </Text>
                 </View>
                 <View style={styles.chipDays}>
-                  <Text style={styles.chipDaysText}>Em 5 dias</Text>
+                  <Text style={styles.chipDaysText}>Próximo</Text>
                 </View>
               </View>
 
-              <Text style={styles.featuredTitle}>{eventoDestaque.titulo || 'Ana & Pedro'}</Text>
+              <Text style={styles.featuredTitle}>{eventoDestaque.titulo}</Text>
               <Text style={styles.featuredMeta} numberOfLines={1}>
-                {eventoDestaque.dataInicio || '17 out'} • {eventoDestaque.horaInicio || '16h'} •{' '}
-                {eventoDestaque.locaisDoEvento?.[0]?.nomeEstabelecimento || 'Sítio Romagna'}
+                {eventoDestaque.dataInicio || 'Data a definir'} • {eventoDestaque.horaInicio || 'Horário a definir'} •{' '}
+                {eventoDestaque.locais?.[0]?.nomeDoLocal || eventoDestaque.locaisDoEvento?.[0]?.nomeEstabelecimento || eventoDestaque.local || 'Local a definir'}
               </Text>
             </View>
           </TouchableOpacity>
         )}
 
         {/* Lista de Outros Eventos Subsequentes */}
-        <View style={styles.subsequentEventsBox}>
-          {outrosEventos.length > 0 ? (
-            outrosEventos.map((ev, index) => (
+        {outrosEventos.length > 0 ? (
+          <View style={styles.subsequentEventsBox}>
+            {outrosEventos.map((ev, index) => (
               <React.Fragment key={ev.id || index}>
                 <TouchableOpacity
                   style={styles.eventListItem}
@@ -224,345 +213,30 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                   </View>
                   <View style={styles.eventListTextContainer}>
                     <Text style={styles.eventListTitle} numberOfLines={1}>
-                      {ev.dataInicio ? ev.dataInicio.split(' ')[0] : '18'} out · {ev.titulo}
+                      {ev.dataInicio || 'Data a definir'} · {ev.titulo}
                     </Text>
                     <Text style={styles.eventListSubtitle} numberOfLines={1}>
-                      {ev.horaInicio || '19h'} • {ev.locaisDoEvento?.[0]?.nomeEstabelecimento || 'Local a definir'}
+                      {ev.horaInicio || 'Horário a definir'} • {ev.locais?.[0]?.nomeDoLocal || ev.locaisDoEvento?.[0]?.nomeEstabelecimento || ev.local || 'Local a definir'}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
                 </TouchableOpacity>
                 {index < outrosEventos.length - 1 && <View style={styles.eventListDivider} />}
               </React.Fragment>
-            ))
-          ) : (
-            <>
-              {/* Exemplos idênticos ao Figma caso a lista esteja vazia */}
-              <TouchableOpacity
-                style={styles.eventListItem}
-                onPress={() => navigation.navigate('Eventos')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.eventListIconBox}>
-                  <MaterialCommunityIcons
-                    name="calendar-blank-outline"
-                    size={20}
-                    color={COLORS.textNavy}
-                  />
-                </View>
-                <View style={styles.eventListTextContainer}>
-                  <Text style={styles.eventListTitle}>18 out · 15 anos da Luiza</Text>
-                  <Text style={styles.eventListSubtitle}>19h • Villa Toscana</Text>
-                </View>
-                <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
-              </TouchableOpacity>
-
-              <View style={styles.eventListDivider} />
-
-              <TouchableOpacity
-                style={styles.eventListItem}
-                onPress={() => navigation.navigate('Eventos')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.eventListIconBox}>
-                  <MaterialCommunityIcons
-                    name="calendar-blank-outline"
-                    size={20}
-                    color={COLORS.textNavy}
-                  />
-                </View>
-                <View style={styles.eventListTextContainer}>
-                  <Text style={styles.eventListTitle}>19 out · Formatura Medicina</Text>
-                  <Text style={styles.eventListSubtitle}>20h • Espaço Aurora</Text>
-                </View>
-                <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.noUpcomingBox}>
+            <Text style={styles.noUpcomingText}>Nenhum outro evento programado para os próximos dias.</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Eventos')} activeOpacity={0.7}>
+              <Text style={styles.noUpcomingAction}>Ver todos os eventos</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Espaçamento final */}
-        <View style={{ height: 28 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bgHeaderDark,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 22,
-    backgroundColor: COLORS.bgHeaderDark,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerGreeting: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.textWhite,
-    fontFamily: FONTS.heading,
-  },
-  headerCompany: {
-    fontSize: 14,
-    color: COLORS.headerSubtitle,
-    marginTop: 4,
-  },
-  bellButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  bellBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.buttonGold,
-  },
-  sheet: {
-    flex: 1,
-    backgroundColor: COLORS.sheetBg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-  },
-  sheetContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: COLORS.cardWhite,
-    borderRadius: 18,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  metricCardLeft: {
-    marginRight: 8,
-  },
-  metricCardRight: {
-    marginLeft: 8,
-  },
-  metricContent: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  metricTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  metricNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: COLORS.textNavy,
-  },
-  greenIndicatorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.statusConfirmed,
-  },
-  metricLabel: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  sectionHeader: {
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textNavy,
-    fontFamily: FONTS.heading,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  attentionCard: {
-    backgroundColor: COLORS.cardWhite,
-    borderRadius: 18,
-    marginBottom: 22,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  attentionContent: {
-    padding: 16,
-  },
-  attentionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  attentionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FEF3D6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  attentionTextWrap: {
-    flex: 1,
-  },
-  attentionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textNavy,
-    lineHeight: 20,
-  },
-  attentionCount: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLORS.textNavy,
-    marginLeft: 8,
-  },
-  attentionActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.cardDivider,
-  },
-  attentionActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textNavy,
-  },
-  featuredCard: {
-    backgroundColor: COLORS.cardWhite,
-    borderRadius: 18,
-    flexDirection: 'row',
-    padding: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  featuredImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 14,
-  },
-  featuredInfo: {
-    flex: 1,
-    marginLeft: 14,
-    justifyContent: 'center',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  chipType: {
-    backgroundColor: COLORS.cardLightBlue,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginRight: 6,
-  },
-  chipTypeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.textNavy,
-  },
-  chipDays: {
-    backgroundColor: '#FEF3D6',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  chipDaysText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#B45309',
-  },
-  featuredTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.textNavy,
-    marginBottom: 4,
-  },
-  featuredMeta: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  subsequentEventsBox: {
-    backgroundColor: COLORS.cardWhite,
-    borderRadius: 18,
-    paddingVertical: 6,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  eventListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  eventListIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: COLORS.cardLightBlue,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  eventListTextContainer: {
-    flex: 1,
-  },
-  eventListTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textNavy,
-  },
-  eventListSubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  eventListDivider: {
-    height: 1,
-    backgroundColor: COLORS.cardDivider,
-    marginHorizontal: 16,
-  },
-});

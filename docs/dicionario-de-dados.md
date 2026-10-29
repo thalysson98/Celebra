@@ -1,234 +1,100 @@
-# Dicionário de dados — Celebra
+# Dicionário de dados do Celebra
 
-## Escopo
-
-Este documento descreve o modelo inicial para a aplicação Celebra com Firebase Authentication e Cloud Firestore. Ele parte das telas identificadas no Figma: cadastro/login, empresa, eventos, clientes, locais, tipos de evento/local/profissional, equipe, financeiro, perfil, dashboard técnico e convocações.
-
-Campos marcados como **propostos** precisam ser confirmados com o cliente e com os formulários completos do protótipo. Datas devem ser gravadas como `Timestamp` do Firestore; valores monetários como inteiro em centavos (`amountCents`) para evitar erros de ponto flutuante.
+Este dicionário foi alinhado ao [modelo oficial de banco e regras](modelo-banco-e-regras-celebra.md). Os nomes persistidos abaixo são os nomes em português do contrato atual; os aliases em inglês existentes no estado React servem somente para compatibilidade da interface.
 
 ## Convenções
 
-- `uid`: identificador de usuário do Firebase Authentication.
-- `companyId`: identificador da empresa à qual o registro pertence.
-- IDs de documentos devem ser gerados pelo Firestore, exceto quando o ID de usuário for naturalmente o `uid`.
-- Registros operacionais devem incluir `createdAt` e `updatedAt` (Timestamp).
-- Papéis controlam a experiência de navegação. As regras do Firestore também devem validar permissões; esconder uma tela no app não é controle de segurança suficiente.
+- Firebase Authentication guarda a credencial de e-mail/senha; o Firestore guarda o perfil e os dados operacionais.
+- O ID de `usuarios` é o mesmo UID do Firebase Authentication.
+- Datas são `Timestamp` do Firestore. `chave_data` usa `AAAA-MM-DD`.
+- `papel` é booleano: `true` representa administrador e `false` representa funcionário. `tipo_acesso` em `membros` continua sendo texto para registrar o vínculo.
+- O cliente não pode escolher nem alterar o papel, a empresa ou o status de acesso.
+- Cadastros administrativos são arquivados com `ativo: false`; a exclusão física é bloqueada para preservar referências históricas. O organizador pode reativar um cadastro arquivado.
 
-## Coleções e documentos
-
-### `users/{uid}` — perfil de acesso
-
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `uid` | string | sim | Mesmo ID do Firebase Authentication. |
-| `username` | string | sim | Nome de usuário normalizado para minúsculas. |
-| `displayName` | string | sim | Nome para exibição. |
-| `email` | string | sim | E-mail autenticado. |
-| `cpf` | string | não | CPF do usuário, armazenado somente com números; campo pessoal opcional do perfil. Restringir leitura e escrita ao próprio usuário e aos administradores autorizados. |
-| `phone` | string | não | Telefone com DDD, armazenado somente com números. |
-| `city` | string | não | Cidade informada no perfil. |
-| `notificationPreferences` | map | recomendado | Preferências pessoais; `eventsAndTeam` e `clientPayments` são booleanos. O padrão inicial do app é `true`. |
-| `role` | string | sim | `organizer`, `technician` ou `pending`. Não aceitar papel enviado livremente sem validação. |
-| `companyId` | string \| null | sim | Empresa ativa; `null` enquanto o vínculo não estiver concluído. |
-| `active` | boolean | sim | Indica se o acesso está ativo. |
-| `createdAt` | Timestamp | sim | Criação do perfil. |
-| `updatedAt` | Timestamp | recomendado | Última atualização do perfil. |
-
-### `companies/{companyId}` — empresa
+## `usuarios/{id_usuario}`
 
 | Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `name` | string | sim | Nome da empresa mostrado em “Minha empresa”. |
-| `legalName` | string | não | Razão social, se diferente. |
-| `cnpj` | string | não | Documento da empresa. |
-| `email` | string | não | E-mail de contato. |
-| `phone` | string | não | Telefone de contato. |
-| `address` | map | não | Endereço: `street`, `number`, `complement`, `district`, `city`, `state`, `postalCode`. |
-| `ownerUid` | string | sim | Usuário organizador responsável. |
-| `notificationPreferences` | map | sim | Preferências como `eventsAndTeam` e `clientPayments` (boolean). |
-| `createdAt` | Timestamp | sim | Criação. |
-| `updatedAt` | Timestamp | recomendado | Última atualização. |
+|---|---|:---:|---|
+| `id_usuario` | string | sim | UID do Firebase Authentication e chave do documento. |
+| `nome_completo` | string | sim | Nome usado no perfil. |
+| `email` | string | sim | E-mail de login. |
+| `telefone` | string | não | Telefone/WhatsApp com DDD. |
+| `papel` | boolean | sim | `true` para administrador; `false` para funcionário. |
+| `id_empresa` | string/null | não | Empresa vinculada; fica nulo até o vínculo. |
+| `ativo` | boolean | sim | Libera ou bloqueia o acesso. |
+| `criado_em` | Timestamp | sim | Data de criação do perfil. |
 
-### `companies/{companyId}/members/{uid}` — vínculo com a empresa
+O serviço [`servicoAutenticacao.js`](../src/servicos/servicoAutenticacao.js) cria novos cadastros com `papel: false`, sem empresa. A sessão mantém o mesmo booleano; somente `true` abre a navegação do administrador e `false` abre a do funcionário.
 
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `uid` | string | sim | Usuário vinculado. |
-| `role` | string | sim | `organizer` ou `technician`. |
-| `professionalTypeId` | string \| null | não | Especialidade do técnico. |
-| `status` | string | sim | `active`, `invited` ou `inactive`. |
-| `joinedAt` | Timestamp | não | Data de entrada. |
-
-### `companies/{companyId}/clients/{clientId}` — clientes
+## `empresas/{id_empresa}`
 
 | Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `name` | string | sim | Nome da pessoa ou empresa cliente. |
-| `email` | string | não | E-mail de contato. |
-| `phone` | string | não | Telefone de contato. |
-| `document` | string | não | CPF/CNPJ, se necessário para o negócio. |
-| `notes` | string | não | Observações. |
-| `active` | boolean | sim | Exclusão lógica/arquivamento. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+|---|---|:---:|---|
+| `id_empresa` | string | sim | Chave da empresa. |
+| `codigo_vinculo` | string | não | Campo legado. No fluxo atual, o ID do documento de `empresas` é o código usado no vínculo. |
+| `nome_fantasia` | string | sim | Nome exibido no app. |
+| `razao_social` | string | não | Razão social. |
+| `cnpj` | string | não | CNPJ. |
+| `email` | string | não | E-mail comercial. |
+| `telefone` | string | não | Contato comercial. |
+| `endereco` | map | não | `rua`, `numero`, `complemento`, `bairro`, `cidade`, `estado`, `cep`. |
+| `id_dono` | string | sim | Usuário administrador dono. |
+| `criado_em` | Timestamp | sim | Auditoria. |
 
-### Catálogos da empresa
-
-Coleções: `companies/{companyId}/eventTypes/{typeId}`, `venueTypes/{typeId}` e `professionalTypes/{typeId}`.
-
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `name` | string | sim | Nome do tipo. |
-| `description` | string | não | Descrição opcional. |
-| `active` | boolean | sim | Permite desativar sem quebrar eventos antigos. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
-
-### `companies/{companyId}/venues/{venueId}` — locais
+## `membros/{id_membro}`
 
 | Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `name` | string | sim | Nome do local. |
-| `venueTypeId` | string | não | Referência ao tipo de local. |
-| `address` | map | não | Endereço estruturado. |
-| `capacity` | number | não | Capacidade informada do local. |
-| `notes` | string | não | Observações de acesso/uso. |
-| `active` | boolean | sim | Local disponível para novos eventos. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+|---|---|:---:|---|
+| `id_membro` | string | sim | Chave do vínculo. |
+| `id_empresa` | string | sim | Empresa do vínculo. |
+| `id_usuario` | string | sim | Usuário vinculado. |
+| `tipo_acesso` | string | sim | `administrador` ou `funcionario`. |
+| `id_tipo_profissional` | string | não | Especialidade do funcionário. |
+| `situacao` | string | sim | `ativo`, `pendente_aprovacao` ou `bloqueado`. |
+| `data_vinculo` | Timestamp | sim | Data do vínculo. |
 
-### `companies/{companyId}/events/{eventId}` — eventos
+## `clientes/{id_cliente}`
 
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `title` | string | sim | Título, por exemplo “Ana & Pedro”. |
-| `clientId` | string | sim | Referência a `clients/{clientId}`. |
-| `clientName` | string | recomendado | Cópia de exibição para listas; atualizar quando o cliente for editado, ou tratar como snapshot. |
-| `eventTypeId` | string | sim | Referência ao catálogo de tipos de evento. |
-| `date` | Timestamp | sim | Data/hora de início. |
-| `durationMinutes` | number | não | Duração planejada. |
-| `guestCount` | number | não | Quantidade de convidados (ex.: 180). |
-| `status` | string | sim | `draft`, `scheduled`, `inProgress`, `completed` ou `cancelled`. |
-| `notes` | string | não | Observações gerais. |
-| `createdBy` | string | sim | UID do organizador que criou o evento. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+`id_cliente`, `id_empresa`, `nome`, `documento`, `email`, `telefone`, `observacoes`, `ativo` e `criado_em`. O documento pertence à empresa indicada por `id_empresa`; o campo `id_cliente` repete o ID do documento.
 
-Locais, equipe e pagamentos ficam em subcoleções para permitir múltiplos itens e atualizações independentes.
+## `tipos_evento/{id_tipo_evento}`
 
-### `companies/{companyId}/events/{eventId}/locations/{locationId}` — locais do evento
+Contém `id_tipo_evento`, `id_empresa`, `nome`, `descricao` opcional, `ativo` e `criado_em`. O campo `id_tipo_evento` repete o ID do documento.
 
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `venueId` | string | sim | Referência a `venues/{venueId}`. |
-| `venueName` | string | recomendado | Snapshot para renderizar a lista. |
-| `sequence` | number | não | Ordem do local na programação. |
-| `startAt` / `endAt` | Timestamp | não | Janela de uso do local. |
-| `notes` | string | não | Instruções específicas. |
+## `tipos_profissional/{id_tipo_profissional}` e `tipos_local/{id_tipo_local}`
 
-### `eventAssignments/{assignmentId}` — convocações/atribuições
+Cada catálogo contém o campo identificador correspondente (`id_tipo_profissional` ou `id_tipo_local`), `id_empresa`, `nome`, `descricao` quando aplicável, `ativo` e `criado_em`. O identificador repete o ID do documento. Esses documentos são administrados pela empresa.
 
-Coleção raiz para consultar diretamente as convocações de um técnico. O documento também representa a alocação daquele profissional no evento.
+## `locais/{id_local}`
 
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `companyId` | string | sim | Empresa proprietária do evento. |
-| `eventId` | string | sim | ID do evento dentro da empresa. |
-| `technicianUid` | string | sim | Usuário convocado. |
-| `technicianName` | string | recomendado | Snapshot do nome para o painel do organizador. |
-| `eventTitle` | string | recomendado | Snapshot do título para a caixa de convocação. |
-| `eventDate` | Timestamp | recomendado | Snapshot de data/hora para ordenar/exibir. |
-| `eventAddress` | string | não | Endereço ou instrução de local resumida. |
-| `professionalTypeId` | string | não | Especialidade/função solicitada. |
-| `professionalTypeName` | string | recomendado | Snapshot do nome da especialidade para exibição. |
-| `roleName` | string | não | Atividade específica do técnico neste evento. |
-| `clientName` | string | não | Snapshot do nome do cliente para exibição na convocação. |
-| `clientEmail` / `clientPhone` | string | não | Contato do cliente para o detalhe do evento; disponibilizar apenas a usuários autorizados. |
-| `eventLocations` | array | não | Locais resumidos para a aba Locais; cada item pode conter `name`, `address`, `startAt` e `notes`. |
-| `productionNotes` | string | não | Orientações da produção exibidas na aba Geral. |
-| `guestCount` | number | não | Quantidade estimada de convidados, quando aplicável. |
-| `teamMembers` | array | não | Snapshot opcional da equipe, com `uid`, `name`, `role` e `status`. A tela não faz uma consulta adicional dessa lista. |
-| `status` | string | sim | `pending`, `accepted` ou `declined`. |
-| `invitedAt` | Timestamp | sim | Momento da convocação. |
-| `respondedAt` | Timestamp \| null | sim | Momento da resposta. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+Contém `id_local`, `id_empresa`, `nome`, `id_tipo_local`, `endereco_completo`, `coordenadas`, `capacidade`, `observacoes`, `ativo` e `criado_em`. `id_local` repete o ID do documento e `id_tipo_local` aponta para `tipos_local` da mesma empresa. Cadastros são arquivados com `ativo: false`, preservando referências históricas; o organizador pode reativá-los.
 
-### `technicianUnavailability/{availabilityId}` — indisponibilidade do técnico
+## `eventos/{id_evento}`
 
-Um documento por técnico e dia. O ID determinístico usa `{uid}_{YYYY-MM-DD}`, evitando registros duplicados para a mesma data.
+Contém `id_evento`, `id_empresa`, `titulo`, `id_tipo_evento`, `id_cliente`, `id_local`, `data_inicio`, `data_fim`, `quantidade_convidados`, `membros_escalados` (lista de `id_usuario`), `situacao` (`aberto`, `em_andamento`, `concluido` ou `cancelado`), `observacoes` e `criado_em`. `id_tipo_evento` vincula o evento ao catálogo da própria empresa; `quantidade_convidados` é opcional.
 
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `technicianUid` | string | sim | UID do técnico autenticado. |
-| `dateKey` | string | sim | Dia local no formato `YYYY-MM-DD`, usado na comparação do calendário. |
-| `date` | Timestamp | sim | Data normalizada para meia-noite local. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+## `convites/{id_convite}`
 
-### `companies/{companyId}/events/{eventId}/payments/{paymentId}` — financeiro
+Contém `id_convite`, `id_empresa`, `id_evento`, `id_usuario`, `id_tipo_profissional`, `situacao` (`pendente`, `aceito` ou `recusado`), `enviado_em` e `respondido_em`. O ID do documento de convite usa `{id_evento}_{id_usuario}` para permitir uma única convocação por pessoa/evento. Ao aceitar, o usuário também entra em `eventos.membros_escalados` na mesma transação.
 
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---:|---|
-| `description` | string | sim | Descrição do valor. |
-| `amountCents` | number | sim | Valor em centavos. |
-| `direction` | string | sim | `income` ou `expense`, confirmar com o cliente. |
-| `dueAt` | Timestamp | não | Vencimento. |
-| `paidAt` | Timestamp \| null | não | Data do pagamento/recebimento. |
-| `status` | string | sim | `pending`, `paid` ou `cancelled`. |
-| `createdAt` / `updatedAt` | Timestamp | sim | Auditoria básica. |
+## `indisponibilidade/{id_indisponibilidade}`
 
-## Relações principais
+Contém `id_usuario`, `data`, `chave_data`, `motivo` opcional e `criado_em`. O ID recomendado é `{id_usuario}_{chave_data}` para impedir duplicidade diária.
 
-- Uma empresa possui muitos clientes, locais, membros e eventos.
-- Um evento pertence a um cliente e a um tipo de evento.
-- Um evento pode usar vários locais.
-- Um evento pode ter várias atribuições; cada atribuição relaciona um técnico a um evento e registra a resposta à convocação.
-- Um evento pode ter vários lançamentos financeiros.
-- Um usuário técnico pode ter várias atribuições, consultadas por `technicianUid`.
+## Fluxo de autenticação
 
-## Consultas do MVP
+1. Authentication cria o usuário.
+2. Firestore cria `usuarios/{uid}` com `papel: false`, `id_empresa: null` e `ativo: true`.
+3. No login, o app lê o perfil pelo UID e roteia o funcionário ou administrador.
+4. Após criar a conta, o usuário informa o ID do documento da empresa (20 caracteres). O app cria `membros` e atualiza `usuarios.id_empresa` no mesmo lote; as regras do Firestore validam o usuário, a empresa e o vínculo. O cadastro da empresa acontece pelo fluxo administrativo.
+5. Usuário inexistente ou inativo não deve acessar dados operacionais.
 
-1. Perfil atual: `users/{uid}`.
-2. Convocações do técnico: `eventAssignments` filtrada por `technicianUid == uid`; ordenar em memória por `invitedAt` enquanto o volume for pequeno.
-3. Eventos da empresa: subcoleção `companies/{companyId}/events`, com filtros de `status` e `date`.
-4. Resumo mensal: contar/agregar eventos da empresa por período; pode ser calculado no cliente para o MVP e migrado para função/backend se a escala exigir.
-5. Agenda do técnico: convocações aceitas de `eventAssignments` e indisponibilidades de `technicianUnavailability` filtradas por `technicianUid == uid`.
+## Consultas por tela
 
-## Dados mínimos para visualizar a etapa técnica
+- Login: Firebase Authentication por e-mail; perfil em `usuarios/{uid}`.
+- Perfil: leitura e atualização limitada de `nome_completo` e `telefone` em `usuarios/{uid}`.
+- Convites: `convites` por `id_usuario`.
+- Agenda: `eventos` por `id_empresa` e `membros_escalados`, mais `indisponibilidade` por `id_usuario`.
+- Área administrativa: coleções filtradas por `id_empresa`.
 
-Para uma conta de demonstração técnica, primeiro crie a conta no Firebase Authentication e copie o UID. No documento `users/{uid}`, configure `role: "technician"`, `companyId` com o ID da empresa e `active: true`. Em seguida, crie um documento em `eventAssignments` com os campos mínimos:
-
-```json
-{
-  "companyId": "ID_DA_EMPRESA",
-  "eventId": "ID_DO_EVENTO",
-  "technicianUid": "UID_DO_TECNICO",
-  "eventTitle": "Ana & Pedro",
-  "clientName": "Ana Costa & Pedro Almeida",
-  "eventDate": "Timestamp do Firestore",
-  "eventAddress": "Jundiaí, SP",
-  "professionalTypeName": "Videomaker",
-  "roleName": "Filmagem da cerimônia",
-  "status": "pending",
-  "invitedAt": "Timestamp do Firestore",
-  "respondedAt": null,
-  "createdAt": "Timestamp do Firestore",
-  "updatedAt": "Timestamp do Firestore"
-}
-```
-
-O texto `Timestamp do Firestore` é descritivo: no console, selecione o tipo Timestamp em vez de salvar essa frase como string. A tela do técnico escuta `eventAssignments` pelo `technicianUid` e atualiza `status`, `respondedAt` e `updatedAt` ao responder.
-
-Para visualizar a interface localmente sem autenticação nem escrita no Firebase, inicie o Expo Web e abra `http://localhost:8081/?preview=technician`. Esse modo é exclusivo de desenvolvimento (`__DEV__`), usa dados fictícios mantidos no app e simula as respostas apenas em memória.
-
-## Decisões de segurança e integridade
-
-- Não confiar no papel guardado no estado do app: regras do Firestore devem validar empresa e papel antes de permitir escrita.
-- O cadastro atual atribui `organizer` a toda conta criada por ele para manter o fluxo de demonstração do MVP. Isso é apenas um roteamento de interface, não uma concessão de acesso segura. Antes de usar dados reais, o primeiro organizador deve ser provisionado de forma controlada, técnicos devem receber vínculo/convite e regras do Firestore devem bloquear autoatribuição de papel.
-- Aceitar/recusar deve atualizar somente uma atribuição cujo `technicianUid` seja o usuário autenticado e cujo status ainda seja `pending`.
-- Indisponibilidades devem ser consultadas e alteradas somente pelo técnico autenticado cujo UID consta em `technicianUid`; validar isso nas regras do Firestore.
-- Eventos e atribuições devem ser arquivados/cancelados, não apagados em cascata sem decisão explícita de retenção.
-- Criar regras e índices do Firestore no Firebase antes de disponibilizar dados reais. O app client-side faz roteamento e validações de interface, mas isso não substitui regras do servidor.
-
-## Próximas telas por etapa
-
-1. **Perfil técnico**: leitura e atualização dos dados pessoais, preferência de notificações, redefinição de senha e saída da conta.
-2. **Início técnico**: resumo de convocações e próximos eventos.
-3. **Eventos técnico**: busca e filtros entre aceitos e pendentes.
-4. **Agenda técnico**: calendário mensal, eventos aceitos e indisponibilidade diária.
-5. **Próximas frentes**: dashboard e CRUD do organizador, gestão de equipe, detalhes completos de eventos e publicação de oportunidades para técnicos.
+As regras versionadas estão em [`firestore.rules`](../firestore.rules). O documento de modelo contém o detalhamento de negócio e deve ser atualizado junto deste arquivo quando houver mudança de contrato.

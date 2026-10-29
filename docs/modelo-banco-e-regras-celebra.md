@@ -28,9 +28,9 @@ O sistema Celebra opera em **dois modos principais**:
 ## 2. Lógica das Regras de Negócio
 
 ### 2.1. Vínculo por Código da Empresa
-1. O Administrador cadastra sua empresa na tabela `empresas`. O sistema gera um código único e legível (ex: `"CEL-8492"` no campo `codigo_vinculo`).
-2. O funcionário baixa o app, cria sua conta na tabela `usuarios` e, na tela inicial, digita o código da empresa.
-3. Ao validar o código, o sistema cria o registro na tabela `membros` com `tipo_acesso = "funcionario"` e atualiza o `id_empresa` no perfil do usuário.
+1. A pessoa cria a conta e o perfil nasce com `papel = false` e `id_empresa = null`.
+2. A empresa e o administrador são cadastrados pelo fluxo administrativo existente; o administrador fornece o código de vínculo à equipe.
+3. Depois de criar a conta, o funcionário informa o ID do documento da empresa (20 caracteres). O app grava `membros` e atualiza `usuarios.id_empresa` em um único lote; as regras do Firestore só permitem isso para o próprio usuário, com `papel = false` e empresa existente. O cliente nunca altera `papel`.
 
 ### 2.2. Eventos Disponíveis vs. Eventos Inscritos
 - **Eventos Inscritos (Confirmados):**
@@ -61,6 +61,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
  ├── empresas
  ├── membros
  ├── clientes
+ ├── tipos_evento
  ├── tipos_profissional
  ├── locais
  ├── tipos_local
@@ -82,7 +83,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 | `nome_completo` | texto | Sim | - | Nome e sobrenome do usuário |
 | `email` | texto | Sim | - | E-mail autenticado de login |
 | `telefone` | texto | Não | - | Telefone ou WhatsApp com DDD |
-| `papel` | texto | Sim | - | `"administrador"` ou `"funcionario"` |
+| `papel` | booleano | Sim | - | `true` para administrador ou `false` para funcionário |
 | `id_empresa` | texto | Não | Chave Estrangeira → `empresas` | Empresa vinculada (nulo enquanto não vinculado) |
 | `ativo` | booleano | Sim | - | `true` (acesso liberado) ou `false` (bloqueado) |
 | `criado_em` | data e hora | Sim | Auditoria | Data e hora em que a conta foi criada |
@@ -95,7 +96,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
 |---|---|:---:|:---:|---|
 | `id_empresa` | texto | Sim | Chave Primária | Identificador único da empresa |
-| `codigo_vinculo` | texto | Sim | Código Único | Código compartilhado com funcionários (ex: `"CEL-8492"`) |
+| `codigo_vinculo` | texto | Não | Legado | O app usa o ID do documento de `empresas` como código de vínculo. |
 | `nome_fantasia` | texto | Sim | - | Nome da empresa exibido no aplicativo |
 | `razao_social` | texto | Não | - | Razão social registrada |
 | `cnpj` | texto | Não | - | Documento oficial CNPJ |
@@ -139,7 +140,21 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ---
 
-### 4.5. Tabela: `tipos_profissional`
+### 4.5. Tabela: `tipos_evento`
+> Catálogo de tipos de evento configurado por cada empresa.
+
+| Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
+|---|---|:---:|:---:|---|
+| `id_tipo_evento` | texto | Sim | Chave Primária | Identificador único do tipo |
+| `id_empresa` | texto | Sim | Chave Estrangeira → `empresas` | Empresa dona do catálogo |
+| `nome` | texto | Sim | - | Ex: `Casamento`, `15 Anos`, `Formatura` |
+| `descricao` | texto | Não | - | Detalhes do tipo de evento |
+| `ativo` | booleano | Sim | - | `true` (disponível) ou `false` (oculto) |
+| `criado_em` | data e hora | Sim | Auditoria | Data do cadastro |
+
+---
+
+### 4.6. Tabela: `tipos_profissional`
 > Catálogo configurável de cargos e especialidades da equipe.
 
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
@@ -152,7 +167,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ---
 
-### 4.6. Tabela: `tipos_local`
+### 4.7. Tabela: `tipos_local`
 > Catálogo configurável das categorias de locais.
 
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
@@ -164,7 +179,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ---
 
-### 4.7. Tabela: `locais`
+### 4.8. Tabela: `locais`
 > Cadastro dos locais para realização dos eventos com endereço e localização.
 
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
@@ -181,7 +196,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ---
 
-### 4.8. Tabela: `eventos`
+### 4.9. Tabela: `eventos`
 > Registro dos eventos da empresa, com datas, locais, cliente e equipe escalada.
 
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
@@ -189,10 +204,12 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 | `id_evento` | texto | Sim | Chave Primária | Identificador único do evento |
 | `id_empresa` | texto | Sim | Chave Estrangeira → `empresas` | Empresa organizadora |
 | `titulo` | texto | Sim | - | Título (ex: `"Casamento Juliana & Marcos"`) |
+| `id_tipo_evento` | texto | Sim | Chave Estrangeira → `tipos_evento` | Categoria do evento cadastrada pela empresa |
 | `id_cliente` | texto | Sim | Chave Estrangeira → `clientes` | Cliente contratante |
 | `id_local` | texto | Sim | Chave Estrangeira → `locais` | Local principal onde ocorrerá o evento |
 | `data_inicio` | data e hora | Sim | - | Data e horário de início da programação |
 | `data_fim` | data e hora | Não | - | Data e horário de término previsto |
+| `quantidade_convidados` | número | Não | - | Estimativa de participantes do evento |
 | `membros_escalados` | lista de textos | Sim | Lista de `id_usuario` | **IDs dos técnicos/membros confirmados no evento** |
 | `situacao` | texto | Sim | - | `"aberto"`, `"em_andamento"`, `"concluido"` ou `"cancelado"` |
 | `observacoes` | texto | Não | - | Roteiro, horários de montagem e instruções |
@@ -200,7 +217,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ---
 
-### 4.9. Tabela: `convites`
+### 4.10. Tabela: `convites`
 > Registro e disparo de convites/escalas feitas pelo Administrador para a equipe.
 
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
@@ -216,7 +233,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ---
 
-### 4.10. Tabela: `indisponibilidade`
+### 4.11. Tabela: `indisponibilidade`
 > Registro dos dias em que cada funcionário avisa que não poderá trabalhar.
 
 | Coluna | Tipo de Dado | Obrigatório? | Chave / Ligação | Descrição |
@@ -232,36 +249,4 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ## 5. Regras de Segurança do Firebase (`firestore.rules`)
 
-Para proteger os dados e garantir que cada empresa e funcionário só acesse o que lhe pertence:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // Perfil do usuário: cada usuário pode ler e editar seu próprio perfil
-    match /usuarios/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Bloqueios de agenda: funcionário gerencia seus próprios dias de indisponibilidade
-    match /indisponibilidade/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (request.resource.data.id_usuario == request.auth.uid || resource.data.id_usuario == request.auth.uid);
-    }
-
-    // Convites: o funcionário pode responder aos convites disparados para ele
-    match /convites/{id} {
-      allow read: if request.auth != null;
-      allow update: if request.auth != null && resource.data.id_usuario == request.auth.uid;
-      allow create, delete: if request.auth != null;
-    }
-
-    // Demais tabelas da empresa (empresas, membros, clientes, locais, tipos, eventos)
-    match /{colecao}/{documento} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
+As regras versionadas estão em [`firestore.rules`](../firestore.rules). Elas aplicam o princípio de menor privilégio: o usuário lê o próprio `usuarios/{id_usuario}`, não altera `papel`, `id_empresa` ou `ativo`, gerencia somente sua `indisponibilidade`, responde somente aos próprios `convites` e acessa dados da empresa apenas quando está vinculado e ativo. Não use regras genéricas que liberem todas as coleções para qualquer usuário autenticado.
