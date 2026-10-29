@@ -32,13 +32,13 @@ Este arquivo registra o escopo, as decisões de interface, as limitações dos d
 
 ## De onde vêm os dados
 
-No modo autenticado, a tela continua recebendo os dados pelo `subscribeToTechnicianAssignments` de `src/services/assignmentService.js`. Essa consulta lê a coleção `eventAssignments` filtrando `technicianUid` pelo usuário conectado. O filtro **Seus eventos** mostra registros com `status: accepted`; **Pendentes** mostra registros com `status: pending`. Registros recusados não aparecem nessas listas.
+No contrato oficial, a tela deve receber os dados de `convites` filtrados por `id_usuario`, cruzados com `eventos` por `id_evento`. O filtro **Seus eventos** mostra `situacao: aceito`; **Pendentes** mostra `situacao: pendente`; convites `recusado` não aparecem. O serviço atual ainda usa aliases legados e precisa ser migrado para essa consulta antes do uso com dados reais.
 
 O modo local de demonstração (`?preview=technician`) usa os registros de exemplo definidos em `App.js`. As mudanças de resposta nesse modo são apenas locais, em memória. A tela Events não adiciona ou altera documentos do Firestore.
 
 ### Limite do filtro “Disponíveis”
 
-O serviço atual consulta somente convocações que já estão associadas ao técnico autenticado. Portanto, não existe nele uma consulta de eventos ainda sem técnico ou liberados para candidatura. A aba mostra uma mensagem vazia apropriada, sem inventar dados. Para preenchê-la em produção, será necessário definir o fluxo de publicação de oportunidades, o modelo de dados e as regras de acesso no Firestore; isso está fora do escopo de front-end desta entrega.
+O modelo oficial ainda não define uma coleção separada para oportunidades abertas. Para preencher **Disponíveis**, será necessário definir uma consulta de `eventos` com `situacao: aberto`, verificar a ausência do usuário em `membros_escalados` e publicar as regras correspondentes.
 
 ## Diferenças em relação ao protótipo
 

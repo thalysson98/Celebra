@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { CORES } from '../tema/cores';
+import { CORES, FONTES } from '../tema/cores';
 
 // Telas das 4 Abas Principais do Organizador (Figma)
 import TelaInicioOrganizador from '../telas/organizador/TelaInicioOrganizador';
@@ -15,14 +15,50 @@ import TelaPerfilOrganizador from '../telas/organizador/TelaPerfilOrganizador';
 // Telas de Pilha (Criação e Detalhes)
 import TelaCriarEvento from '../telas/organizador/TelaCriarEvento';
 import TelaDetalheEvento from '../telas/organizador/TelaDetalheEvento';
+import TelaEditarEmpresa from '../telas/organizador/TelaEditarEmpresa';
 
 const Aba = createBottomTabNavigator();
 const Pilha = createStackNavigator();
 
+function NavegadorEventos({ onLogout, usuario }) {
+  return (
+    <Pilha.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: CORES.bgHeaderDark },
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: { fontFamily: FONTES.heading, fontWeight: '700' },
+      }}
+    >
+      <Pilha.Screen name="ListaEventos" options={{ headerShown: false }}>
+        {(props) => <TelaListaEventos {...props} onLogout={onLogout} />}
+      </Pilha.Screen>
+      <Pilha.Screen name="CriarEvento" options={{ title: 'Adicionando evento' }}>
+        {(props) => <TelaCriarEvento {...props} usuario={usuario} />}
+      </Pilha.Screen>
+      <Pilha.Screen name="DetalheEvento" options={{ title: 'Detalhes do evento', headerTitleStyle: { fontFamily: FONTES.body, fontSize: 22, fontWeight: '400' } }}>
+        {(props) => <TelaDetalheEvento {...props} usuario={usuario} />}
+      </Pilha.Screen>
+    </Pilha.Navigator>
+  );
+}
+
+function NavegadorPerfil({ onLogout, usuario, setCurrentUser }) {
+  return (
+    <Pilha.Navigator screenOptions={{ headerShown: false }}>
+      <Pilha.Screen name="PerfilEmpresa">
+        {(props) => <TelaPerfilOrganizador {...props} onLogout={onLogout} usuario={usuario} />}
+      </Pilha.Screen>
+      <Pilha.Screen name="EditarEmpresa">
+        {(props) => <TelaEditarEmpresa {...props} usuario={usuario} setCurrentUser={setCurrentUser} />}
+      </Pilha.Screen>
+    </Pilha.Navigator>
+  );
+}
+
 /**
  * As 4 Abas Inferiores do Organizador (Figma)
  */
-function AbasOrganizador({ onLogout, usuario }) {
+function AbasOrganizador({ onLogout, usuario, setCurrentUser }) {
   return (
     <Aba.Navigator
       initialRouteName="Inicio"
@@ -34,13 +70,17 @@ function AbasOrganizador({ onLogout, usuario }) {
           backgroundColor: '#FFFFFF',
           borderTopColor: CORES.cardDivider,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 84 : 76,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 6,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
+          fontFamily: FONTES.body,
           fontSize: 11,
+          lineHeight: 14,
           fontWeight: '600',
+          marginTop: 2,
+          marginBottom: 1,
         },
       }}
     >
@@ -77,12 +117,11 @@ function AbasOrganizador({ onLogout, usuario }) {
           ),
         }}
       >
-        {(props) => <TelaListaEventos {...props} onLogout={onLogout} />}
+        {() => <NavegadorEventos onLogout={onLogout} usuario={usuario} />}
       </Aba.Screen>
 
       <Aba.Screen
         name="Administrando"
-        component={TelaAdministrandoOrganizador}
         options={{
           tabBarLabel: 'Administrando',
           tabBarIcon: ({ color, focused }) => (
@@ -95,7 +134,9 @@ function AbasOrganizador({ onLogout, usuario }) {
             </View>
           ),
         }}
-      />
+      >
+        {() => <TelaAdministrandoOrganizador usuario={usuario} />}
+      </Aba.Screen>
 
       <Aba.Screen
         name="Perfil"
@@ -112,7 +153,7 @@ function AbasOrganizador({ onLogout, usuario }) {
           ),
         }}
       >
-        {(props) => <TelaPerfilOrganizador {...props} onLogout={onLogout} usuario={usuario} />}
+        {() => <NavegadorPerfil onLogout={onLogout} usuario={usuario} setCurrentUser={setCurrentUser} />}
       </Aba.Screen>
     </Aba.Navigator>
   );
@@ -121,33 +162,22 @@ function AbasOrganizador({ onLogout, usuario }) {
 /**
  * Pilha de navegação do Organizador
  */
-export default function NavegadorOrganizador({ onLogout, usuario }) {
+export default function NavegadorOrganizador({ onLogout, usuario, setCurrentUser }) {
   return (
     <Pilha.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: CORES.bgHeaderDark },
         headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontFamily: FONTES.heading, fontWeight: '700' },
       }}
     >
       <Pilha.Screen
         name="AbasPrincipais"
         options={{ headerShown: false }}
       >
-        {(props) => <AbasOrganizador {...props} onLogout={onLogout} usuario={usuario} />}
+        {(props) => <AbasOrganizador {...props} onLogout={onLogout} usuario={usuario} setCurrentUser={setCurrentUser} />}
       </Pilha.Screen>
 
-      <Pilha.Screen
-        name="CriarEvento"
-        component={TelaCriarEvento}
-        options={{ title: 'Criar Novo Evento' }}
-      />
-
-      <Pilha.Screen
-        name="DetalheEvento"
-        component={TelaDetalheEvento}
-        options={{ title: 'Detalhes do Evento' }}
-      />
     </Pilha.Navigator>
   );
 }

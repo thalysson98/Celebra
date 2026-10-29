@@ -1,138 +1,81 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, ImageBackground } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { repositorioEventos } from '../servicos/repositorioEventos';
+import { Button } from 'react-native-paper';
+import { CORES } from '../../tema/cores';
+import { styles } from '../../estilos/estilosListaEventosOrganizador';
+import { repositorioEventos } from '../../servicos/repositorioEventos';
+import CartaoEvento from '../../componentes/CartaoEvento';
 
 export default function TelaListaEventos({ navigation }) {
   const [eventos, setEventos] = useState([]);
-  const [filtroStatus, setFiltroStatus] = useState('Futuros');
+  const [filtro, setFiltro] = useState('futuros');
+  const [busca, setBusca] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      carregarEventos();
-    }, [])
-  );
-
-  const carregarEventos = async () => {
+  const carregarEventos = useCallback(async () => {
     const lista = await repositorioEventos.listarEventos();
-    if (lista != null) {
-      setEventos(lista);
-    } else {
-      setEventos([]);
-    }
-  };
+    setEventos(lista || []);
+  }, []);
+
+  useFocusEffect(useCallback(() => { carregarEventos(); }, [carregarEventos]));
+
+  const eventosFiltrados = eventos.filter((evento) => {
+    const correspondeFiltro = filtro === 'futuros'
+      ? evento.statusTempo !== 'concluidos' && evento.statusTempo !== 'concluídos'
+      : evento.statusTempo === 'concluidos' || evento.statusTempo === 'concluídos';
+    const termo = busca.trim().toLocaleLowerCase('pt-BR');
+    const correspondeBusca = !termo || [evento.titulo, evento.cliente?.nome, evento.tipoEvento]
+      .filter(Boolean).some((valor) => valor.toLocaleLowerCase('pt-BR').includes(termo));
+    return correspondeFiltro && correspondeBusca;
+  });
 
   return (
-    <View style={estilos.containerGeral}>
-      {/* TOPO APENAS EM AZUL COM SINO CLICÁVEL */}
-      <View style={estilos.headerTopoFigma}>
-        <Text style={estilos.tituloEventosTopo}>Eventos</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Notificacoes')}>
-          <Icon source="bell" size={22} color="#FFC107" />
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>Meus Eventos</Text>
+            <Text style={styles.subtitle}>Organize os próximos momentos especiais.</Text>
+          </View>
+        </View>
+        <Button mode="contained" icon="plus" onPress={() => navigation.navigate('CriarEvento')} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addButton} contentStyle={styles.addButtonContent}>
+          Adicionar Evento
+        </Button>
       </View>
 
-      <View style={estilos.conteudoCorpo}>
-        <TouchableOpacity 
-          style={estilos.botaoAdicionarFigma}
-          onPress={() => navigation.navigate('CriarEvento')}
-        >
-          <Text style={estilos.textoBotaoAdicionar}>+ Adicionar Evento</Text>
-        </TouchableOpacity>
-
-        <View style={estilos.containerBusca}>
-          <Icon source="magnify" size={20} color="#999" />
-          <TextInput 
-            style={estilos.inputBuscaFigma}
-            placeholder="Buscar evento ou protagonista"
-            placeholderTextColor="#999"
-          />
+      <View style={styles.sheet}>
+        <View style={styles.controls}>
+          <View style={styles.searchBox}>
+            <Feather name="search" size={18} color={CORES.textMuted} />
+            <TextInput value={busca} onChangeText={setBusca} placeholder="Buscar evento ou protagonista" placeholderTextColor={CORES.textSubtle} style={styles.searchInput} returnKeyType="search" />
+            {!!busca && <TouchableOpacity onPress={() => setBusca('')} accessibilityLabel="Limpar busca"><Feather name="x-circle" size={17} color={CORES.textSubtle} /></TouchableOpacity>}
+          </View>
+          <View style={styles.filterRow}>
+            {[['futuros', 'Futuros'], ['concluidos', 'Concluídos']].map(([chave, rotulo]) => {
+              const ativo = filtro === chave;
+              return <TouchableOpacity key={chave} onPress={() => setFiltro(chave)} style={[styles.filter, ativo && styles.filterActive]}><Text style={[styles.filterText, ativo && styles.filterTextActive]}>{rotulo}</Text></TouchableOpacity>;
+            })}
+            <Text style={styles.count}>{eventosFiltrados.length} {eventosFiltrados.length === 1 ? 'evento' : 'eventos'}</Text>
+          </View>
         </View>
-
-        <View style={estilos.linhaFiltros}>
-          <TouchableOpacity 
-            style={[estilos.pillFiltro, filtroStatus === 'Futuros' && estilos.pillFiltroAtivo]}
-            onPress={() => setFiltroStatus('Futuros')}
-          >
-            <Text style={[estilos.textoPill, filtroStatus === 'Futuros' && estilos.textoPillAtivo]}>Futuros</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[estilos.pillFiltro, filtroStatus === 'Concluídos' && estilos.pillFiltroAtivo]}
-            onPress={() => setFiltroStatus('Concluídos')}
-          >
-            <Text style={[estilos.textoPill, filtroStatus === 'Concluídos' && estilos.textoPillAtivo]}>Concluídos</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={estilos.tituloMes}>Outubro de 2026</Text>
 
         <FlatList
-          data={eventos}
+          data={eventosFiltrados}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const clienteNome = item.cliente != null ? item.cliente.nome : 'Cliente não informado';
-            return (
-              <TouchableOpacity 
-                style={estilos.cardEventoFigma}
-                onPress={() => navigation.navigate('DetalheEvento', { idEvento: item.id })}
-              >
-                <ImageBackground 
-                  source={{ uri: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80' }} 
-                  style={estilos.capaCardFoto}
-                >
-                  <View style={estilos.badgeTipoEvento}>
-                    <Text style={estilos.textoBadgeTipo}>{item.tipoEvento || 'Casamento'}</Text>
-                  </View>
-                </ImageBackground>
-
-                <View style={estilos.corpoInfoCard}>
-                  <Text style={estilos.tituloEventoCard}>{item.titulo}</Text>
-                  <Text style={estilos.subtituloCliente}>{clienteNome}</Text>
-
-                  {/* DADOS ESSENCIAIS DO EVENTO */}
-                  <View style={estilos.linhaIconesDetalhes}>
-                    <Text style={estilos.textoIconeInfo}>📅 {item.dataInicio || '17 out'}</Text>
-                    <Text style={estilos.textoIconeInfo}>⏰ {item.horaInicio || '16h'}</Text>
-                    <Text style={estilos.textoIconeInfo}>📍 2 locais</Text>
-                    <Text style={estilos.textoIconeInfo}>👥 {item.numConvidados || 0}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <Text style={estilos.textoListaVazia}>Nenhum evento cadastrado ainda.</Text>
-          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => <CartaoEvento evento={item} aoPressionar={() => navigation.navigate('DetalheEvento', { idEvento: item.id })} />}
+          ListEmptyComponent={(
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}><Feather name={busca ? 'search' : 'calendar'} size={25} color={CORES.textMuted} /></View>
+              <Text style={styles.emptyTitle}>{busca ? 'Nenhum evento encontrado' : filtro === 'futuros' ? 'Nenhum evento futuro' : 'Nenhum evento concluído'}</Text>
+              <Text style={styles.emptyText}>{busca ? 'Tente buscar por outro nome.' : 'Seus eventos aparecerão aqui quando forem cadastrados.'}</Text>
+              {!busca && filtro === 'futuros' && <Button mode="text" onPress={() => navigation.navigate('CriarEvento')} textColor={CORES.textNavy}>Adicionar primeiro evento</Button>}
+            </View>
+          )}
         />
       </View>
     </View>
   );
 }
-
-const estilos = StyleSheet.create({
-  containerGeral: { flex: 1, backgroundColor: '#F4F6F8' },
-  headerTopoFigma: { backgroundColor: '#0B2545', paddingTop: 45, paddingHorizontal: 20, paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  tituloEventosTopo: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
-  conteudoCorpo: { flex: 1, padding: 18 },
-  botaoAdicionarFigma: { backgroundColor: '#FFC107', padding: 14, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
-  textoBotaoAdicionar: { color: '#0B2545', fontWeight: 'bold', fontSize: 15 },
-  containerBusca: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E0E0E0', paddingHorizontal: 12, marginBottom: 12 },
-  inputBuscaFigma: { flex: 1, paddingVertical: 12, paddingLeft: 8, fontSize: 14, color: '#333' },
-  linhaFiltros: { flexDirection: 'row', marginBottom: 15 },
-  pillFiltro: { backgroundColor: '#E0E0E0', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
-  pillFiltroAtivo: { backgroundColor: '#0B2545' },
-  textoPill: { color: '#555', fontWeight: 'bold', fontSize: 13 },
-  textoPillAtivo: { color: '#FFF' },
-  tituloMes: { fontSize: 14, fontWeight: 'bold', color: '#555', marginBottom: 10 },
-  cardEventoFigma: { backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: '#E0E0E0', overflow: 'hidden', marginBottom: 15 },
-  capaCardFoto: { height: 130, padding: 10, justifyContent: 'flex-start' },
-  badgeTipoEvento: { backgroundColor: '#FFF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
-  textoBadgeTipo: { fontSize: 11, fontWeight: 'bold', color: '#0B2545' },
-  corpoInfoCard: { padding: 14 },
-  tituloEventoCard: { fontSize: 18, fontWeight: 'bold', color: '#0B2545' },
-  subtituloCliente: { fontSize: 13, color: '#777', marginTop: 2, marginBottom: 10 },
-  linhaIconesDetalhes: { flexDirection: 'row', justifyContent: 'space-between' },
-  textoIconeInfo: { fontSize: 12, color: '#555', fontWeight: '500' },
-  textoListaVazia: { textAlign: 'center', color: '#888', marginTop: 40, fontSize: 15 }
-});

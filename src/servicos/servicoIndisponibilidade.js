@@ -30,8 +30,8 @@ function obterIdIndisponibilidade(uid, data) {
 
 export function assinarIndisponibilidadeTecnico(uid, aoReceberDatas, aoOcorrerErro) {
   const consultaIndisponibilidade = query(
-    collection(bancoDados, 'technicianUnavailability'),
-    where('technicianUid', '==', uid),
+    collection(bancoDados, 'indisponibilidade'),
+    where('id_usuario', '==', uid),
   );
 
   return onSnapshot(
@@ -39,7 +39,7 @@ export function assinarIndisponibilidadeTecnico(uid, aoReceberDatas, aoOcorrerEr
     (snapshot) => {
       aoReceberDatas(snapshot.docs.map((item) => ({
         id: item.id,
-        dateKey: item.data().dateKey,
+        dateKey: item.data().chave_data,
       })));
     },
     aoOcorrerErro,
@@ -54,12 +54,12 @@ export async function marcarIndisponibilidadeTecnico(uid, data) {
   const chaveData = obterChaveData(dataNormalizada);
   const idIndisponibilidade = obterIdIndisponibilidade(uid, dataNormalizada);
 
-  await setDoc(doc(bancoDados, 'technicianUnavailability', idIndisponibilidade), {
-    technicianUid: uid,
-    dateKey: chaveData,
-    date: Timestamp.fromDate(dataNormalizada),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  await setDoc(doc(bancoDados, 'indisponibilidade', idIndisponibilidade), {
+    id_indisponibilidade: idIndisponibilidade,
+    id_usuario: uid,
+    chave_data: chaveData,
+    data: Timestamp.fromDate(dataNormalizada),
+    criado_em: serverTimestamp(),
   });
 }
 
@@ -70,7 +70,7 @@ export async function removerIndisponibilidadeTecnico(uid, data) {
   const dataNormalizada = new Date(data.getFullYear(), data.getMonth(), data.getDate());
   const idIndisponibilidade = obterIdIndisponibilidade(uid, dataNormalizada);
 
-  await deleteDoc(doc(bancoDados, 'technicianUnavailability', idIndisponibilidade));
+  await deleteDoc(doc(bancoDados, 'indisponibilidade', idIndisponibilidade));
 }
 
 export const removeTechnicianUnavailability = removerIndisponibilidadeTecnico;

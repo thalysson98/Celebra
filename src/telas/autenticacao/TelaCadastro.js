@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
+  Keyboard,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -15,16 +16,26 @@ import { estilosAutenticacao, CORES_AUTENTICACAO } from '../../estilos/estilosAu
 import { registrarUsuario } from '../../servicos/servicoAutenticacao';
 
 export default function TelaCadastro({ navigation, onRegisterSuccess }) {
-  const [nomeUsuario, setNomeUsuario] = useState('');
+  const [nomeCompleto, setNomeCompleto] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [tecladoVisivel, setTecladoVisivel] = useState(false);
+
+  useEffect(() => {
+    const eventoMostrar = Keyboard.addListener('keyboardDidShow', () => setTecladoVisivel(true));
+    const eventoOcultar = Keyboard.addListener('keyboardDidHide', () => setTecladoVisivel(false));
+    return () => {
+      eventoMostrar.remove();
+      eventoOcultar.remove();
+    };
+  }, []);
 
   const lidarComCadastro = async () => {
-    if (!nomeUsuario.trim() || !email.trim() || !senha || !confirmarSenha) {
+    if (!nomeCompleto.trim() || !email.trim() || !senha || !confirmarSenha) {
       Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
       return;
     }
@@ -42,19 +53,14 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
     try {
       setCarregando(true);
       const novoUsuario = await registrarUsuario({
-        username: nomeUsuario,
+        nomeCompleto,
         email,
         password: senha,
       });
 
-      Alert.alert('Sucesso', 'Sua conta foi criada com sucesso!', [
-        {
-          text: 'Continuar',
-          onPress: () => {
-            if (onRegisterSuccess) onRegisterSuccess(novoUsuario);
-          },
-        },
-      ]);
+      // Não aguarda Alert.alert para avançar: no web ele pode não apresentar
+      // a confirmação, deixando a conta criada parada nesta tela.
+      onRegisterSuccess?.(novoUsuario);
     } catch (erro) {
       Alert.alert('Erro ao Cadastrar', erro.message);
     } finally {
@@ -69,6 +75,10 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
     >
       <ScrollView
         contentContainerStyle={estilosAutenticacao.scrollContent}
+        scrollEnabled={tecladoVisivel}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -88,9 +98,9 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
           <View style={estilosAutenticacao.card}>
             <Text style={estilosAutenticacao.cardTitle}>Criar conta</Text>
 
-            {/* Campo Usuário */}
+            {/* Campo Nome completo */}
             <View style={estilosAutenticacao.fieldGroup}>
-              <Text style={estilosAutenticacao.inputLabel}>Nome de usuário</Text>
+              <Text style={estilosAutenticacao.inputLabel}>Nome completo</Text>
               <View style={estilosAutenticacao.inputWrapper}>
                 <Feather
                   name="user"
@@ -100,11 +110,11 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
                 />
                 <TextInput
                   style={estilosAutenticacao.textInput}
-                  placeholder="Ex: joaosilva"
+                  placeholder="Ex: João Silva"
                   placeholderTextColor={CORES_AUTENTICACAO.placeholder}
-                  value={nomeUsuario}
-                  onChangeText={setNomeUsuario}
-                  autoCapitalize="none"
+                  value={nomeCompleto}
+                  onChangeText={setNomeCompleto}
+                  autoCapitalize="words"
                   autoCorrect={false}
                 />
               </View>

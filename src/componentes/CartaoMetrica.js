@@ -1,22 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CORES, FONTES } from '../tema/cores';
+import { COLORS, FONTES } from '../tema/cores';
 
 /**
  * Componente de Métrica do Dashboard inspirado nas aulas de React Native Paper
  */
-export default function CartaoMetrica({ valor, rotulo, icone, corIcone = CORES.textNavy, estilo }) {
+export default function CartaoMetrica({ valor, rotulo, mostrarIndicador = false, estilo }) {
   return (
     <Card style={[estilos.card, estilo]}>
       <Card.Content style={estilos.conteudo}>
         <View style={estilos.topo}>
-          <View style={estilos.circuloIcone}>
-            <MaterialCommunityIcons name={icone} size={18} color={corIcone} />
-          </View>
+          <Text style={estilos.valor}>{valor}</Text>
+          {mostrarIndicador && <View style={estilos.indicador} />}
         </View>
-        <Text style={estilos.valor}>{valor}</Text>
         <Text style={estilos.rotulo}>{rotulo}</Text>
       </Card.Content>
     </Card>
@@ -26,39 +23,40 @@ export default function CartaoMetrica({ valor, rotulo, icone, corIcone = CORES.t
 const estilos = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: CORES.cardLightBlue,
+    backgroundColor: COLORS.cardWhite,
     borderRadius: 18,
-    elevation: 0,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   conteudo: {
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   topo: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 8,
-  },
-  circuloIcone: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 4,
   },
   valor: {
-    fontFamily: FONTES.body,
-    fontSize: 28,
-    fontWeight: '800',
-    color: CORES.textNavy,
-    lineHeight: 32,
+    fontFamily: FONTES.bold,
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.textNavy,
+  },
+  indicador: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.statusConfirmed,
   },
   rotulo: {
-    fontFamily: FONTES.body,
-    fontSize: 12,
+    fontFamily: FONTES.medium,
+    fontSize: 13,
+    color: COLORS.textMuted,
     fontWeight: '500',
-    color: CORES.textMuted,
-    marginTop: 2,
   },
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import NavegadorAutenticacao from './NavegadorAutenticacao';
 import NavegadorOrganizador from './NavegadorOrganizador';
 import NavegadorTecnico from './NavegadorTecnico';
+import TelaVinculoEmpresa from '../telas/autenticacao/TelaVinculoEmpresa';
 
 /**
  * Navegador Raiz que orquestra a sessão do usuário:
@@ -19,12 +20,22 @@ export default function NavegadorRaiz({ currentUser, setCurrentUser, onLogout })
     );
   }
 
-  if (currentUser.role === 'technician') {
+  if (!currentUser.idEmpresa) {
+    return (
+      <TelaVinculoEmpresa
+        user={currentUser}
+        onLogout={onLogout}
+        onVinculoConcluido={setCurrentUser}
+      />
+    );
+  }
+
+  if (currentUser.papel !== true) {
     return <NavegadorTecnico user={currentUser} onLogout={onLogout} />;
   }
 
   // Padrão para organizador / administrador
-  return <NavegadorOrganizador usuario={currentUser} onLogout={onLogout} />;
+  return <NavegadorOrganizador usuario={currentUser} setCurrentUser={setCurrentUser} onLogout={onLogout} />;
 }
 
 export const RootNavigator = NavegadorRaiz;

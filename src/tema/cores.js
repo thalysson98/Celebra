@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 export const CORES = {
   // Fundo Superior & Header (Dark Blue / Deep Navy do Figma)
   fundoCabecalhoEscuro: '#07182C',
@@ -64,31 +62,15 @@ export const CORES = {
 
 export const COLORS = CORES;
 
+// A família tipográfica segue o arquivo do Figma: Inter.
 export const FONTES = {
-  titulo: Platform.select({
-    ios: 'Georgia',
-    android: 'serif',
-    web: 'Georgia, serif',
-    default: 'serif',
-  }),
-  corpo: Platform.select({
-    ios: 'System',
-    android: 'sans-serif',
-    web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    default: 'sans-serif',
-  }),
-  heading: Platform.select({
-    ios: 'Georgia',
-    android: 'serif',
-    web: 'Georgia, serif',
-    default: 'serif',
-  }),
-  body: Platform.select({
-    ios: 'System',
-    android: 'sans-serif',
-    web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    default: 'sans-serif',
-  }),
+  titulo: 'Inter_700Bold',
+  corpo: 'Inter_400Regular',
+  heading: 'Inter_700Bold',
+  body: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
 };
 
 export const FONTS = FONTES;

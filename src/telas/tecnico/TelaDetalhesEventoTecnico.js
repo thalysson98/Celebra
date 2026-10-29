@@ -38,9 +38,10 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const [secaoAtiva, setSecaoAtiva] = React.useState('general');
 
   const titulo = assignment?.eventTitle || 'Evento Sem Título';
-  const tipo = assignment?.eventType || 'Evento';
+  const tipo = assignment?.eventTypeName || assignment?.eventType || 'Evento';
   const papel = assignment?.roleName || 'Técnico';
-  const local = assignment?.locationName || 'Local a confirmar';
+  const local = assignment?.locationName || assignment?.eventAddress || 'Local a confirmar';
+  const endereco = assignment?.locationAddress || assignment?.eventAddress || 'Endereço não informado.';
   const dataFormatada = formatarDataEvento(assignment?.eventDate);
 
   return (
@@ -80,19 +81,20 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
       </View>
 
       <ScrollView style={estilosDetalhesEventoTecnico.body} contentContainerStyle={{ paddingBottom: 40 }}>
-        <ImageBackground
-          source={{
-            uri:
-              assignment?.coverUrl ||
-              'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
-          }}
-          style={estilosDetalhesEventoTecnico.banner}
-        >
-          <View style={estilosDetalhesEventoTecnico.bannerOverlay}>
+        {assignment?.coverUrl ? (
+          <ImageBackground source={{ uri: assignment.coverUrl }} style={estilosDetalhesEventoTecnico.banner}>
+            <View style={estilosDetalhesEventoTecnico.bannerOverlay}>
+              <Text style={estilosDetalhesEventoTecnico.bannerEventName}>{titulo}</Text>
+              <Text style={estilosDetalhesEventoTecnico.bannerEventType}>{tipo}</Text>
+            </View>
+          </ImageBackground>
+        ) : (
+          <View style={[estilosDetalhesEventoTecnico.banner, estilosDetalhesEventoTecnico.bannerFallback]}>
+            <Feather name="calendar" size={32} color={CORES.buttonGold} />
             <Text style={estilosDetalhesEventoTecnico.bannerEventName}>{titulo}</Text>
             <Text style={estilosDetalhesEventoTecnico.bannerEventType}>{tipo}</Text>
           </View>
-        </ImageBackground>
+        )}
 
         <View style={estilosDetalhesEventoTecnico.contentCard}>
           {secaoAtiva === 'general' && (
@@ -116,7 +118,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
               <Text style={estilosDetalhesEventoTecnico.blockTitle}>Observações de Produção</Text>
               <Text style={estilosDetalhesEventoTecnico.blockText}>
                 {assignment?.productionNotes ||
-                  'Chegar com 1 hora de antecedência para montagem e alinhamento com o organizador.'}
+                  'Nenhuma observação registrada.'}
               </Text>
             </View>
           )}
@@ -126,7 +128,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
               <Text style={estilosDetalhesEventoTecnico.blockTitle}>Local do Evento</Text>
               <Text style={estilosDetalhesEventoTecnico.blockText}>{local}</Text>
               <Text style={[estilosDetalhesEventoTecnico.blockText, { marginTop: 6 }]}>
-                {assignment?.locationAddress || 'Endereço será detalhado pelo organizador.'}
+                {endereco}
               </Text>
             </View>
           )}
@@ -135,7 +137,9 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
             <View>
               <Text style={estilosDetalhesEventoTecnico.blockTitle}>Sua Equipe</Text>
               <Text style={estilosDetalhesEventoTecnico.blockText}>
-                {assignment?.teamMembers?.join(', ') || 'Equipe em fase de confirmação pela produtora.'}
+                {assignment?.teamMembers?.length
+                  ? assignment.teamMembers.join(', ')
+                  : `Você foi convocado como ${papel}. A equipe completa não está disponível nesta convocação.`}
               </Text>
             </View>
           )}

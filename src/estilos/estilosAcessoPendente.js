@@ -46,7 +46,7 @@ export const estilosAcessoPendente = StyleSheet.create({
   },
   buttonText: {
     color: CORES.textNavy,
-    fontFamily: FONTES.body,
+    fontFamily: FONTES.bold,
     fontSize: 14,
     fontWeight: '700',
   },

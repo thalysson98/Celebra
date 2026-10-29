@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
 
 function verificarUsuarioAtual(uid) {
@@ -8,96 +8,90 @@ function verificarUsuarioAtual(uid) {
 }
 
 export async function obterPerfilUsuario(usuarioFirebase) {
-  const refPerfil = doc(bancoDados, 'users', usuarioFirebase.uid);
+  const refPerfil = doc(bancoDados, 'usuarios', usuarioFirebase.uid);
   const snapshotPerfil = await getDoc(refPerfil);
-
   if (!snapshotPerfil.exists()) {
     return {
       uid: usuarioFirebase.uid,
-      email: usuarioFirebase.email,
-      name: usuarioFirebase.displayName || usuarioFirebase.email?.split('@')[0] || 'Colaborador',
-      role: 'technician',
+      email: usuarioFirebase.email || '',
+      name: usuarioFirebase.displayName || 'Colaborador',
+      displayName: usuarioFirebase.displayName || 'Colaborador',
+      papel: false,
+      idEmpresa: null,
       companyId: null,
-      cpf: '',
-      phone: '',
-      city: '',
-      notificationPreferences: { eventsAndTeam: true },
-      active: true,
-      profileStatus: 'ready',
+      ativo: false,
+      active: false,
+      profileStatus: 'perfil_nao_cadastrado',
     };
   }
 
   const perfil = snapshotPerfil.data();
-  const papel = perfil.role === 'organizer' ? 'organizer' : 'technician';
+  if (typeof perfil.papel !== 'boolean') {
+    throw new Error('O campo papel do perfil precisa ser booleano (true ou false).');
+  }
+  const papel = perfil.papel;
+  const nome = perfil.nome_completo || usuarioFirebase.displayName || usuarioFirebase.email?.split('@')[0] || 'Colaborador';
+  const idEmpresa = perfil.id_empresa || null;
   let nomeEmpresa = '';
-  if (perfil.companyId) {
+  let dadosEmpresa = {};
+  const codigoVinculoEmpresa = papel ? idEmpresa || '' : '';
+  if (idEmpresa) {
     try {
-      const snapshotEmpresa = await getDoc(doc(bancoDados, 'companies', perfil.companyId));
-      if (snapshotEmpresa.exists()) nomeEmpresa = snapshotEmpresa.data().name || '';
+      const snapshotEmpresa = await getDoc(doc(bancoDados, 'empresas', idEmpresa));
+      if (snapshotEmpresa.exists()) {
+        dadosEmpresa = snapshotEmpresa.data();
+        nomeEmpresa = dadosEmpresa.nome_fantasia || '';
+      }
     } catch {
-      // Falha opcional na leitura da empresa não impede o acesso ao perfil
+      // O nome da empresa é complementar e não impede o login.
     }
   }
 
   return {
     uid: usuarioFirebase.uid,
     email: usuarioFirebase.email || perfil.email || '',
-    name: perfil.displayName || usuarioFirebase.displayName || usuarioFirebase.email?.split('@')[0] || 'Colaborador',
-    displayName: perfil.displayName || usuarioFirebase.displayName || usuarioFirebase.email?.split('@')[0] || 'Colaborador',
-    username: perfil.username || '',
-    cpf: perfil.cpf || '',
-    phone: perfil.phone || '',
-    city: perfil.city || '',
+    name: nome,
+    displayName: nome,
+    telefone: perfil.telefone || '',
+    phone: perfil.telefone || '',
     companyName: nomeEmpresa,
-    notificationPreferences: {
-      ...(perfil.notificationPreferences || {}),
-      eventsAndTeam: perfil.notificationPreferences?.eventsAndTeam ?? true,
-    },
-    role: papel,
-    companyId: perfil.companyId || null,
-    active: true,
-    profileStatus: 'ready',
+    companyCnpj: dadosEmpresa.cnpj || '',
+    companyEmail: dadosEmpresa.email || '',
+    companyPhone: dadosEmpresa.telefone || '',
+    companyAddress: dadosEmpresa.endereco || {},
+    codigoVinculo: codigoVinculoEmpresa,
+    papel,
+    idEmpresa,
+    companyId: idEmpresa,
+    ativo: perfil.ativo === true,
+    active: perfil.ativo === true,
+    profileStatus: perfil.ativo !== true
+      ? 'bloqueado'
+      : idEmpresa ? 'ready' : 'pendente_vinculo',
   };
 }
 
 export const getUserProfile = obterPerfilUsuario;
 
-export async function atualizarPerfilUsuario(uid, { displayName, cpf, phone, city }) {
+export async function atualizarPerfilUsuario(uid, { displayName, phone }) {
   verificarUsuarioAtual(uid);
   const nomeLimpo = typeof displayName === 'string' ? displayName.trim() : '';
-  const cpfLimpo = String(cpf || '').replace(/\D/g, '');
   const telefoneLimpo = String(phone || '').replace(/\D/g, '');
-  const cidadeLimpa = typeof city === 'string' ? city.trim() : '';
+  if (!nomeLimpo) throw new Error('Informe seu nome completo.');
+  if (nomeLimpo.length > 120) throw new Error('O nome completo deve ter no máximo 120 caracteres.');
+  if (telefoneLimpo && ![10, 11].includes(telefoneLimpo.length)) throw new Error('Informe um telefone com DDD.');
 
-  if (!nomeLimpo) throw new Error('Informe seu nome para exibição.');
-  if (nomeLimpo.length > 100) throw new Error('O nome deve ter no máximo 100 caracteres.');
-  if (cpfLimpo && cpfLimpo.length !== 11) throw new Error('O CPF deve conter 11 números.');
-  if (telefoneLimpo && ![10, 11].includes(telefoneLimpo.length)) {
-    throw new Error('Informe um telefone com DDD.');
-  }
-  if (cidadeLimpa.length > 100) throw new Error('A cidade deve ter no máximo 100 caracteres.');
-
-  await updateDoc(doc(bancoDados, 'users', uid), {
-    displayName: nomeLimpo,
-    cpf: cpfLimpo,
-    phone: telefoneLimpo,
-    city: cidadeLimpa,
-    updatedAt: serverTimestamp(),
+  await updateDoc(doc(bancoDados, 'usuarios', uid), {
+    nome_completo: nomeLimpo,
+    telefone: telefoneLimpo,
   });
-
-  return { displayName: nomeLimpo, cpf: cpfLimpo, phone: telefoneLimpo, city: cidadeLimpa };
+  return { displayName: nomeLimpo, phone: telefoneLimpo };
 }
 
 export const updateUserProfile = atualizarPerfilUsuario;
 
-export async function definirPreferenciaNotificacaoEventos(uid, habilitado) {
-  verificarUsuarioAtual(uid);
-  if (typeof habilitado !== 'boolean') throw new Error('Preferência de notificação inválida.');
-
-  await updateDoc(doc(bancoDados, 'users', uid), {
-    'notificationPreferences.eventsAndTeam': habilitado,
-    updatedAt: serverTimestamp(),
-  });
+export async function definirPreferenciaNotificacaoEventos() {
+  throw new Error('Preferências de notificação ainda não fazem parte do modelo oficial de usuarios.');
 }
 
 export const setUserEventsNotificationPreference = definirPreferenciaNotificacaoEventos;
