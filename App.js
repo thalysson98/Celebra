@@ -3,17 +3,18 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
+import { PaperProvider, MD3LightTheme as DefaultTheme, configureFonts } from 'react-native-paper';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { autenticacao } from './src/configuracao/configuracaoFirebase';
-import { CORES } from './src/tema/cores';
+import { CORES, FONTES } from './src/tema/cores';
 import { desconectarUsuario } from './src/servicos/servicoAutenticacao';
 import { obterPerfilUsuario } from './src/servicos/servicoUsuario';
 import NavegadorRaiz from './src/navegacao/NavegadorRaiz';
 
 const paperTheme = {
   ...DefaultTheme,
+  fonts: configureFonts({ config: { fontFamily: FONTES.body } }),
   colors: {
     ...DefaultTheme.colors,
     primary: CORES.buttonGold,

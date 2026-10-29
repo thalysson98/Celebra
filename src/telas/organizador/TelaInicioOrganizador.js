@@ -163,7 +163,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
           <TouchableOpacity
             style={styles.featuredCard}
             activeOpacity={0.9}
-            onPress={() => navigation.navigate('DetalheEvento', { idEvento: eventoDestaque.id })}
+            onPress={() => navigation.navigate('Eventos', { screen: 'DetalheEvento', params: { idEvento: eventoDestaque.id } })}
           >
             <Image
               source={{
@@ -201,7 +201,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
               <React.Fragment key={ev.id || index}>
                 <TouchableOpacity
                   style={styles.eventListItem}
-                  onPress={() => navigation.navigate('DetalheEvento', { idEvento: ev.id })}
+                  onPress={() => navigation.navigate('Eventos', { screen: 'DetalheEvento', params: { idEvento: ev.id } })}
                   activeOpacity={0.7}
                 >
                   <View style={styles.eventListIconBox}>

@@ -21,7 +21,7 @@ export default function NavegadorTecnico({ user, onLogout }) {
       <Pilha.Screen
         name="TechnicianEventDetails"
         component={TelaDetalhesEventoTecnico}
-        options={{ title: 'Detalhes do Evento' }}
+        options={{ headerShown: false }}
       />
     </Pilha.Navigator>
   );

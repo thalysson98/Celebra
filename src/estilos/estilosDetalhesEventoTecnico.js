@@ -24,6 +24,7 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
   sectionTabIndicator: { position: 'absolute', height: 2, left: 0, right: 0, bottom: 0, backgroundColor: CORES.buttonGold },
   body: { flex: 1, backgroundColor: CORES.sheetBg },
   banner: { width: '100%', height: 180, justifyContent: 'flex-end', backgroundColor: '#CBD5E1' },
+  bannerFallback: { backgroundColor: '#173653', alignItems: 'center', justifyContent: 'center', gap: 8 },
   bannerOverlay: { padding: 16, backgroundColor: 'rgba(0, 0, 0, 0.45)' },
   bannerEventName: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
   bannerEventType: { color: CORES.buttonGold, fontSize: 13, marginTop: 2, fontWeight: '600' },

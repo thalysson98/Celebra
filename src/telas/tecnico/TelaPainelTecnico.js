@@ -25,9 +25,6 @@ import {
 } from '../../servicos/servicoIndisponibilidade';
 import { styles } from '../../estilos/estilosPainelTecnico';
 
-// Caminho corrigido (mesma pasta technician):
-import TelaDetalhesEventoTecnico from './TelaDetalhesEventoTecnico';
-
 function formatDate(value) {
   if (!value) return 'Data a confirmar';
   const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
@@ -116,16 +113,13 @@ function formatAgendaDate(value) {
   }).format(value);
 }
 
-export default function TelaPainelTecnico({ user, onLogout }) {
+export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const insets = useSafeAreaInsets();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [respondingId, setRespondingId] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [detailsSection, setDetailsSection] = useState('general');
-  const [detailsReturnTab, setDetailsReturnTab] = useState('events');
   const [eventFilter, setEventFilter] = useState('mine');
   const [eventSearch, setEventSearch] = useState('');
   const [profile, setProfile] = useState(() => ({
@@ -486,14 +480,13 @@ export default function TelaPainelTecnico({ user, onLogout }) {
   };
 
   const openEventDetails = (assignment) => {
-    setDetailsReturnTab(activeTab);
-    setDetailsSection('general');
-    setSelectedEvent(assignment);
-  };
-
-  const closeEventDetails = () => {
-    setSelectedEvent(null);
-    setActiveTab(detailsReturnTab);
+    const serializableAssignment = {
+      ...assignment,
+      eventDate: toDate(assignment.eventDate)?.toISOString() || null,
+      inviteDate: toDate(assignment.inviteDate)?.toISOString() || null,
+      respondedAt: toDate(assignment.respondedAt)?.toISOString() || null,
+    };
+    navigation.navigate('TechnicianEventDetails', { assignment: serializableAssignment });
   };
 
   const renderEvents = () => {
@@ -854,7 +847,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       <View style={styles.userProfileCard}>
         <View style={styles.userProfileHeading}>
           <View style={styles.userProfileAvatar}>
-            <Text style={styles.userProfileInitials}>{getInitials(profile.companyName || profile.displayName || profile.name)}</Text>
+            <Text style={styles.userProfileInitials}>{getInitials(profile.displayName || profile.name || user.name)}</Text>
           </View>
           <View style={styles.userProfileHeadingCopy}>
             <Text style={styles.userProfileName} numberOfLines={1}>
@@ -960,18 +953,6 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       )}
     </View>
   );
-
-  if (selectedEvent) {
-    return (
-      <TelaDetalhesEventoTecnico
-        assignment={selectedEvent}
-        profile={profile}
-        section={detailsSection}
-        onSectionChange={setDetailsSection}
-        onBack={closeEventDetails}
-      />
-    );
-  }
 
   return (
     <View style={styles.screen}>

@@ -35,7 +35,7 @@ function NavegadorEventos({ onLogout, usuario }) {
       <Pilha.Screen name="CriarEvento" options={{ title: 'Criar Novo Evento' }}>
         {(props) => <TelaCriarEvento {...props} usuario={usuario} />}
       </Pilha.Screen>
-      <Pilha.Screen name="DetalheEvento" component={TelaDetalheEvento} options={{ title: 'Detalhes do Evento' }} />
+      <Pilha.Screen name="DetalheEvento" component={TelaDetalheEvento} options={{ title: 'Detalhes do evento', headerTitleStyle: { fontSize: 22, fontWeight: '400' } }} />
     </Pilha.Navigator>
   );
 }
@@ -68,13 +68,16 @@ function AbasOrganizador({ onLogout, usuario, setCurrentUser }) {
           backgroundColor: '#FFFFFF',
           borderTopColor: CORES.cardDivider,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 84 : 76,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 6,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 11,
+          lineHeight: 14,
           fontWeight: '600',
+          marginTop: 2,
+          marginBottom: 1,
         },
       }}
     >
@@ -172,11 +175,6 @@ export default function NavegadorOrganizador({ onLogout, usuario, setCurrentUser
         {(props) => <AbasOrganizador {...props} onLogout={onLogout} usuario={usuario} setCurrentUser={setCurrentUser} />}
       </Pilha.Screen>
 
-      <Pilha.Screen
-        name="DetalheEvento"
-        component={TelaDetalheEvento}
-        options={{ title: 'Detalhes do Evento' }}
-      />
     </Pilha.Navigator>
   );
 }

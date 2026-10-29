@@ -284,5 +284,44 @@ export const repositorioEventos = {
     });
   },
 
+  atualizarEvento: async (idEvento, dadosAtualizados) => {
+    const empresaId = await obterIdEmpresaAtual();
+    if (!empresaId) throw new Error('Vincule sua conta a uma empresa antes de editar eventos.');
+    const referencia = doc(bancoDados, 'eventos', idEvento);
+    const snapshot = await getDoc(referencia);
+    if (!snapshot.exists()) throw new Error('Este evento não existe mais.');
+    const eventoAtual = snapshot.data();
+    if (eventoAtual.id_empresa !== empresaId) throw new Error('Você não tem permissão para editar este evento.');
+
+    const titulo = String(dadosAtualizados.titulo || '').trim();
+    if (!titulo) throw new Error('Informe o título do evento.');
+    const local = dadosAtualizados.local || {};
+    if (!local.nomeDoLocal || !local.endereco || !local.tipoLocal) {
+      throw new Error('Informe o nome, o endereço e o tipo do local do evento.');
+    }
+    const dataInicio = converterDataEvento(dadosAtualizados.dataInicio, dadosAtualizados.horaInicio);
+    const [idTipoEvento, idCliente, idTipoLocal] = await Promise.all([
+      buscarOuCriarCadastro('tipos_evento', 'id_tipo_evento', empresaId, dadosAtualizados.tipoEvento),
+      buscarOuCriarCadastro('clientes', 'id_cliente', empresaId, dadosAtualizados.cliente?.nome),
+      buscarOuCriarCadastro('tipos_local', 'id_tipo_local', empresaId, local.tipoLocal),
+    ]);
+    const idLocal = await buscarOuCriarCadastro('locais', 'id_local', empresaId, local.nomeDoLocal, {
+      id_tipo_local: idTipoLocal,
+      endereco_completo: local.endereco,
+      observacoes: '',
+    });
+
+    await updateDoc(referencia, {
+      titulo,
+      id_tipo_evento: idTipoEvento,
+      id_cliente: idCliente,
+      id_local: idLocal,
+      data_inicio: dataInicio,
+      quantidade_convidados: Number(dadosAtualizados.numConvidados) || 0,
+      observacoes: String(dadosAtualizados.notasProducao || '').trim(),
+    });
+    return repositorioEventos.obterEvento(idEvento);
+  },
+
   criarEvento: async (dadosNovoEvento) => repositorioEventos.adicionarEvento(dadosNovoEvento),
 };

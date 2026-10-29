@@ -64,31 +64,19 @@ export const CORES = {
 
 export const COLORS = CORES;
 
+const FONTE_PADRAO = Platform.select({
+  ios: 'System',
+  android: 'sans-serif',
+  web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  default: 'sans-serif',
+});
+
+// Compatibilidade com estilos existentes, todos usando a mesma família sans-serif.
 export const FONTES = {
-  titulo: Platform.select({
-    ios: 'Georgia',
-    android: 'serif',
-    web: 'Georgia, serif',
-    default: 'serif',
-  }),
-  corpo: Platform.select({
-    ios: 'System',
-    android: 'sans-serif',
-    web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    default: 'sans-serif',
-  }),
-  heading: Platform.select({
-    ios: 'Georgia',
-    android: 'serif',
-    web: 'Georgia, serif',
-    default: 'serif',
-  }),
-  body: Platform.select({
-    ios: 'System',
-    android: 'sans-serif',
-    web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    default: 'sans-serif',
-  }),
+  titulo: FONTE_PADRAO,
+  corpo: FONTE_PADRAO,
+  heading: FONTE_PADRAO,
+  body: FONTE_PADRAO,
 };
 
 export const FONTS = FONTES;
