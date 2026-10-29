@@ -2,27 +2,27 @@ import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { COLORS } from '../../theme/colors';
+import { COLORS } from '../theme/colors';
 
 // Telas das Abas do Organizador
-import TelaInicioOrganizador from './TelaInicioOrganizador';
-import TelaAdministrandoOrganizador from './TelaAdministrandoOrganizador';
-import TelaPerfilOrganizador from './TelaPerfilOrganizador';
-import TelaListaEventos from '../../telas/TelaListaEventos';
+import TelaInicioOrganizador from '../screens/organizer/TelaInicioOrganizador';
+import TelaListaEventos from '../screens/organizer/TelaListaEventos';
+import TelaAdministrandoOrganizador from '../screens/organizer/TelaAdministrandoOrganizador';
+import TelaPerfilOrganizador from '../screens/organizer/TelaPerfilOrganizador';
 
-// Subtelas / Modais do Evento
-import TelaCriarEvento from '../../telas/TelaCriarEvento';
-import TelaDetalheEvento from '../../telas/TelaDetalheEvento';
+// Subtelas da Pilha (Criação e Detalhes)
+import TelaCriarEvento from '../screens/organizer/TelaCriarEvento';
+import TelaDetalheEvento from '../screens/organizer/TelaDetalheEvento';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 /**
- * Abas inferiores do Organizador (Figma: Início, Eventos, Administrando, Perfil)
+ * As 4 Abas Inferiores do Organizador (Figma)
  */
-function AbasOrganizador({ onLogout, usuario }) {
+function OrganizerTabs({ onLogout, usuario }) {
   return (
     <Tab.Navigator
       initialRouteName="Inicio"
@@ -104,7 +104,7 @@ function AbasOrganizador({ onLogout, usuario }) {
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? styles.activeIconPill : null}>
               <MaterialCommunityIcons
-                name={focused ? 'domain' : 'domain'}
+                name="domain"
                 size={23}
                 color={focused ? COLORS.textNavy : color}
               />
@@ -119,9 +119,9 @@ function AbasOrganizador({ onLogout, usuario }) {
 }
 
 /**
- * Pilha completa do Organizador contendo as abas e as subtelas (Criação e Detalhes)
+ * Pilha de navegação do Organizador contendo as abas e telas filhas
  */
-export default function NavegacaoOrganizador({ onLogout, usuario }) {
+export default function OrganizerNavigator({ onLogout, usuario }) {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -134,7 +134,7 @@ export default function NavegacaoOrganizador({ onLogout, usuario }) {
         name="AbasPrincipais"
         options={{ headerShown: false }}
       >
-        {(props) => <AbasOrganizador {...props} onLogout={onLogout} usuario={usuario} />}
+        {(props) => <OrganizerTabs {...props} onLogout={onLogout} usuario={usuario} />}
       </Stack.Screen>
 
       <Stack.Screen

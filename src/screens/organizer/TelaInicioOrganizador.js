@@ -13,8 +13,8 @@ import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { COLORS, FONTS } from '../../theme/colors';
-import { repositorioEventos } from '../../servicos/repositorioEventos';
-import dadosMemoria from '../../servicos/dadosMemoria';
+import { repositorioEventos } from '../../services/repositorioEventos';
+import dadosMemoria from '../../services/dadosMemoria';
 
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);

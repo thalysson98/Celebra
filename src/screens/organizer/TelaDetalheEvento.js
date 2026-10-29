@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import dadosMemoria from '../servicos/dadosMemoria';
+import dadosMemoria from '../../services/dadosMemoria';
 
 export default function TelaDetalheEvento({ route }) {
   const { idEvento } = route.params || {};

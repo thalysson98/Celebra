@@ -11,7 +11,7 @@ import {
   FlatList 
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { repositorioEventos } from '../servicos/repositorioEventos';
+import { repositorioEventos } from '../../services/repositorioEventos';
 
 export default function TelaCriarEvento({ navigation }) {
   // Campos do Evento

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Button } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { repositorioEventos } from '../servicos/repositorioEventos';
+import { repositorioEventos } from '../../services/repositorioEventos';
 
 export default function TelaListaEventos({ navigation, onLogout }) {
   const [eventos, setEventos] = useState([]);
