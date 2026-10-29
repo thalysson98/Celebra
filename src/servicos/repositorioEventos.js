@@ -27,36 +27,27 @@ export const repositorioEventos = {
   },
 
   // Select Inteligente: Adiciona um novo tipo/cadastro na hora (via modal) e retorna o item criado
-  adicionarNovoItemSelect: async (tipoEntidade, dadosNovoItem) => {
-    const novoId = String(Date.now());
-    const itemCriado = {
-      id: novoId,
-      empresaId: dadosMemoria.empresaId,
-      ...dadosNovoItem
-    };
-
-    switch (tipoEntidade) {
-      case 'tiposEvento':
-        dadosMemoria.tiposEvento.push(itemCriado);
-        break;
-      case 'tiposProfissional':
-        dadosMemoria.tiposProfissional.push(itemCriado);
-        break;
-      case 'tiposLocal':
-        dadosMemoria.tiposLocal.push(itemCriado);
-        break;
-      case 'locaisSalvos':
-        dadosMemoria.locaisSalvos.push(itemCriado);
-        break;
-      case 'clientes':
-        dadosMemoria.clientes.push(itemCriado);
-        break;
-      default:
-        throw new Error('Tipo de entidade desconhecido para cadastro rápido.');
-    }
-
-    return itemCriado; // Retorna para preencher o select automaticamente no Front-end
-  },
+  // Adicione ou ajuste esta parte dentro de repositorioEventos.js
+adicionarNovoItemSelect: async (tipoAtivo, novoItem) => {
+  const itemFormatado = { id: String(Date.now()), nome: novoItem.nome };
+  if (tipoAtivo === 'tiposEvento') {
+    dadosMemoria.tiposEvento.push(itemFormatado);
+  } else if (tipoAtivo === 'clientes') {
+    dadosMemoria.clientes.push(itemFormatado);
+  } else if (tipoAtivo === 'locais') {
+    if (!dadosMemoria.locais) dadosMemoria.locais = [];
+    dadosMemoria.locais.push(itemFormatado);
+  } else {
+    throw new Error("Tipo de entidade desconhecido para cadastro rápido.");
+  }
+  return itemFormatado;
+},
+obterOpcoesSelect: async (tipo) => {
+  if (tipo === 'tiposEvento') return dadosMemoria.tiposEvento || [];
+  if (tipo === 'clientes') return dadosMemoria.clientes || [];
+  if (tipo === 'locais') return dadosMemoria.locais || [{ id: '1', nome: 'Sítio Romagna' }, { id: '2', nome: 'Complexo Let\'s Drop' }];
+  return [];
+},
 
   // Criar um novo evento completo
   adicionarEvento: async (dadosNovoEvento) => {
