@@ -6,19 +6,19 @@ import { StatusBar } from 'expo-status-bar';
 import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
 import { onAuthStateChanged } from 'firebase/auth';
 
-import { auth } from './src/config/firebaseConfig';
-import { COLORS } from './src/theme/colors';
-import { logoutUser } from './src/services/authService';
-import { getUserProfile } from './src/services/userService';
-import RootNavigator from './src/navigation/RootNavigator';
+import { autenticacao } from './src/configuracao/configuracaoFirebase';
+import { CORES } from './src/tema/cores';
+import { desconectarUsuario } from './src/servicos/servicoAutenticacao';
+import { obterPerfilUsuario } from './src/servicos/servicoUsuario';
+import NavegadorRaiz from './src/navegacao/NavegadorRaiz';
 
 const paperTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: COLORS.buttonGold,
-    background: COLORS.sheetBg,
-    surface: COLORS.cardWhite,
+    primary: CORES.buttonGold,
+    background: CORES.sheetBg,
+    surface: CORES.cardWhite,
   },
 };
 
@@ -31,7 +31,7 @@ export default function App() {
     let authRevision = 0;
 
     // Escuta a sessão ativa do usuário no Firebase
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+    const unsubscribe = onAuthStateChanged(autenticacao, async (authUser) => {
       const revision = ++authRevision;
       if (!authUser) {
         if (mounted) {
@@ -42,7 +42,7 @@ export default function App() {
       }
 
       try {
-        const profile = await getUserProfile(authUser);
+        const profile = await obterPerfilUsuario(authUser);
         if (mounted && revision === authRevision) setCurrentUser(profile);
       } catch (error) {
         if (mounted && revision === authRevision) {
@@ -66,14 +66,14 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
-    await logoutUser();
+    await desconectarUsuario();
     setCurrentUser(null);
   };
 
   if (!ready) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.buttonGold} />
+        <ActivityIndicator size="large" color={CORES.buttonGold} />
       </View>
     );
   }
@@ -87,10 +87,10 @@ export default function App() {
           style={[styles.safeArea, isTechnician && styles.technicianSafeArea]}
           edges={isTechnician ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
         >
-          <StatusBar style="light" backgroundColor={COLORS.bgHeaderDark} />
+          <StatusBar style="light" backgroundColor={CORES.bgHeaderDark} />
 
           <NavigationContainer>
-            <RootNavigator
+            <NavegadorRaiz
               currentUser={currentUser}
               setCurrentUser={setCurrentUser}
               onLogout={handleLogout}
@@ -105,14 +105,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.bgHeaderDark,
+    backgroundColor: CORES.bgHeaderDark,
   },
   technicianSafeArea: {
     backgroundColor: '#F8FAFF',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: COLORS.bgHeaderDark,
+    backgroundColor: CORES.bgHeaderDark,
     justifyContent: 'center',
     alignItems: 'center',
   },
