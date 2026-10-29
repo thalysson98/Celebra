@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
+  Keyboard,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -22,6 +23,16 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [tecladoVisivel, setTecladoVisivel] = useState(false);
+
+  useEffect(() => {
+    const eventoMostrar = Keyboard.addListener('keyboardDidShow', () => setTecladoVisivel(true));
+    const eventoOcultar = Keyboard.addListener('keyboardDidHide', () => setTecladoVisivel(false));
+    return () => {
+      eventoMostrar.remove();
+      eventoOcultar.remove();
+    };
+  }, []);
 
   const lidarComCadastro = async () => {
     if (!nomeCompleto.trim() || !email.trim() || !senha || !confirmarSenha) {
@@ -64,6 +75,10 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
     >
       <ScrollView
         contentContainerStyle={estilosAutenticacao.scrollContent}
+        scrollEnabled={tecladoVisivel}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

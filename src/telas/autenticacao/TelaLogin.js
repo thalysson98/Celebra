@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   Pressable,
   TouchableOpacity,
+  Keyboard,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -21,6 +22,16 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [lembrarSenha, setLembrarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [tecladoVisivel, setTecladoVisivel] = useState(false);
+
+  useEffect(() => {
+    const eventoMostrar = Keyboard.addListener('keyboardDidShow', () => setTecladoVisivel(true));
+    const eventoOcultar = Keyboard.addListener('keyboardDidHide', () => setTecladoVisivel(false));
+    return () => {
+      eventoMostrar.remove();
+      eventoOcultar.remove();
+    };
+  }, []);
 
   const lidarComLogin = async () => {
     if (!identificador.trim() || !senha.trim()) {
@@ -52,6 +63,10 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
     >
       <ScrollView
         contentContainerStyle={estilosAutenticacao.scrollContent}
+        scrollEnabled={tecladoVisivel}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
