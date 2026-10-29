@@ -54,7 +54,7 @@ function formatUpcomingDetails(assignment) {
   }).format(date).replace(' de ', ' ').replace('.', '');
   const time = `${date.getHours()}h`;
   const location = assignment.eventAddress || 'Local a confirmar';
-  return `${dayAndMonth} â€¢ ${time} â€¢ ${location}`;
+  return `${dayAndMonth} • ${time} • ${location}`;
 }
 
 function formatDaysUntil(value) {
@@ -92,7 +92,7 @@ function formatPhone(value) {
 }
 
 function getInitials(value) {
-  return String(value || 'TÃ©cnico')
+  return String(value || 'Técnico')
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -164,7 +164,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
         setLoading(false);
       },
       () => {
-        setError('NÃ£o foi possÃ­vel carregar suas convocaÃ§Ãµes. Tente novamente mais tarde.');
+        setError('Não foi possível carregar suas convocações. Tente novamente mais tarde.');
         setLoading(false);
       },
     );
@@ -182,7 +182,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
         setAvailabilityLoading(false);
       },
       () => {
-        setAvailabilityError('NÃ£o foi possÃ­vel carregar suas indisponibilidades.');
+        setAvailabilityError('Não foi possível carregar suas indisponibilidades.');
         setAvailabilityLoading(false);
       },
     );
@@ -219,14 +219,14 @@ export default function TelaPainelTecnico({ user, onLogout }) {
         status,
       });
     } catch (responseError) {
-      Alert.alert('NÃ£o foi possÃ­vel responder', responseError.message);
+      Alert.alert('Não foi possível responder', responseError.message);
     } finally {
       setRespondingId(null);
     }
   };
 
   const confirmDecline = (assignment) => {
-    Alert.alert('Recusar convocaÃ§Ã£o', 'Deseja recusar este trabalho?', [
+    Alert.alert('Recusar convocação', 'Deseja recusar este trabalho?', [
       { text: 'Voltar', style: 'cancel' },
       {
         text: 'Recusar',
@@ -266,7 +266,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryNumber}>{pendingAssignments.length}</Text>
-          <Text style={styles.summaryLabel}>Eventos pendentes de aprovaÃ§Ã£o</Text>
+          <Text style={styles.summaryLabel}>Eventos pendentes de aprovação</Text>
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryNumber}>{confirmedAssignments.length}</Text>
@@ -281,7 +281,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       ) : (
         <>
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionTitle}>PrÃ³ximos 7 dias</Text>
+            <Text style={styles.sectionTitle}>Próximos 7 dias</Text>
             <TouchableOpacity
               onPress={() => setActiveTab('agenda')}
               activeOpacity={0.7}
@@ -312,10 +312,10 @@ export default function TelaPainelTecnico({ user, onLogout }) {
                       </View>
                       <View style={styles.upcomingDetails}>
                         <Text style={styles.upcomingTitle} numberOfLines={1}>
-                          {formatShortDate(assignment.eventDate)} Â· {assignment.eventTitle || 'Evento'}
+                          {formatShortDate(assignment.eventDate)} · {assignment.eventTitle || 'Evento'}
                         </Text>
                         <Text style={styles.upcomingSubtitle} numberOfLines={1}>
-                          {formatEventTime(assignment.eventDate)} â€¢ {assignment.eventAddress || 'Local a confirmar'}
+                          {formatEventTime(assignment.eventDate)} • {assignment.eventAddress || 'Local a confirmar'}
                         </Text>
                       </View>
                       <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
@@ -326,8 +326,8 @@ export default function TelaPainelTecnico({ user, onLogout }) {
             </>
           ) : (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Nenhum evento nos prÃ³ximos 7 dias</Text>
-              <Text style={styles.emptyText}>Seus eventos aceitos aparecerÃ£o aqui.</Text>
+              <Text style={styles.emptyTitle}>Nenhum evento nos próximos 7 dias</Text>
+              <Text style={styles.emptyText}>Seus eventos aceitos aparecerão aqui.</Text>
             </View>
           )}
         </>
@@ -380,7 +380,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
 
   const formatEventTime = (value) => {
     const date = toDate(value);
-    return date ? `${date.getHours()}h` : 'HorÃ¡rio a confirmar';
+    return date ? `${date.getHours()}h` : 'Horário a confirmar';
   };
 
   const openProfileEditor = () => {
@@ -395,7 +395,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
 
   const saveProfile = async () => {
     if (!profileForm.displayName.trim()) {
-      Alert.alert('Campo obrigatÃ³rio', 'Informe seu nome para exibiÃ§Ã£o.');
+      Alert.alert('Campo obrigatório', 'Informe seu nome para exibição.');
       return;
     }
 
@@ -406,7 +406,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       setProfileEditorVisible(false);
       Alert.alert('Perfil atualizado', 'Seus dados foram salvos com sucesso.');
     } catch (saveError) {
-      Alert.alert('NÃ£o foi possÃ­vel salvar', saveError.message);
+      Alert.alert('Não foi possível salvar', saveError.message);
     } finally {
       setSavingProfile(false);
     }
@@ -427,7 +427,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       }));
     } catch (preferenceError) {
       setEventsNotificationsEnabled(previousValue);
-      Alert.alert('NÃ£o foi possÃ­vel atualizar', preferenceError.message);
+      Alert.alert('Não foi possível atualizar', preferenceError.message);
     } finally {
       setSavingNotificationPreference(false);
     }
@@ -435,15 +435,15 @@ export default function TelaPainelTecnico({ user, onLogout }) {
 
   const sendPasswordReset = async () => {
     if (!profile.email) {
-      Alert.alert('E-mail indisponÃ­vel', 'Esta conta nÃ£o possui um e-mail para redefiniÃ§Ã£o.');
+      Alert.alert('E-mail indisponível', 'Esta conta não possui um e-mail para redefinição.');
       return;
     }
 
     try {
       await requestPasswordReset(profile.email);
-      Alert.alert('E-mail enviado', `Enviamos um link de redefiniÃ§Ã£o para ${profile.email}.`);
+      Alert.alert('E-mail enviado', `Enviamos um link de redefinição para ${profile.email}.`);
     } catch (resetError) {
-      Alert.alert('NÃ£o foi possÃ­vel enviar', resetError.message);
+      Alert.alert('Não foi possível enviar', resetError.message);
     }
   };
 
@@ -463,7 +463,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
 
   const openAvailabilityDialog = () => {
     if (!selectedDateUnavailable && selectedDayAssignments.length) {
-      Alert.alert('Data com compromisso', 'VocÃª jÃ¡ tem um evento aceito neste dia.');
+      Alert.alert('Data com compromisso', 'Você já tem um evento aceito neste dia.');
       return;
     }
     setAvailabilityDialogVisible(true);
@@ -479,7 +479,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       }
       setAvailabilityDialogVisible(false);
     } catch (changeError) {
-      Alert.alert('NÃ£o foi possÃ­vel atualizar a agenda', changeError.message);
+      Alert.alert('Não foi possível atualizar a agenda', changeError.message);
     } finally {
       setUpdatingAvailability(false);
     }
@@ -500,7 +500,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
     const eventFilters = [
       { key: 'mine', label: 'Seus eventos' },
       { key: 'pending', label: 'Pendentes' },
-      { key: 'available', label: 'DisponÃ­veis' },
+      { key: 'available', label: 'Disponíveis' },
     ];
     const statusByFilter = { mine: 'accepted', pending: 'pending' };
     const normalizedSearch = normalizeSearch(eventSearch);
@@ -575,15 +575,15 @@ export default function TelaPainelTecnico({ user, onLogout }) {
             </View>
             <Text style={styles.emptyTitle}>
               {eventFilter === 'available'
-                ? 'Nenhum evento disponÃ­vel'
+                ? 'Nenhum evento disponível'
                 : eventFilter === 'pending'
-                  ? 'Nenhuma convocaÃ§Ã£o pendente'
-                  : 'VocÃª ainda nÃ£o tem eventos aceitos'}
+                  ? 'Nenhuma convocação pendente'
+                  : 'Você ainda não tem eventos aceitos'}
             </Text>
             <Text style={styles.emptyText}>
               {eventFilter === 'available'
-                ? 'Novas oportunidades aparecerÃ£o aqui quando forem disponibilizadas pela equipe.'
-                : 'Quando houver eventos nesta categoria, eles aparecerÃ£o aqui.'}
+                ? 'Novas oportunidades aparecerão aqui quando forem disponibilizadas pela equipe.'
+                : 'Quando houver eventos nesta categoria, eles aparecerão aqui.'}
             </Text>
           </View>
         )}
@@ -595,7 +595,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
     const eventType = assignment.eventTypeName || assignment.professionalTypeName || 'Evento';
     const eventIcon = /casamento/i.test(eventType)
       ? 'heart'
-      : /aniversÃ¡rio|15 anos/i.test(eventType)
+      : /aniversário|15 anos/i.test(eventType)
         ? 'gift'
         : /formatura/i.test(eventType)
           ? 'award'
@@ -624,7 +624,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
           <View style={styles.eventCardTitleRow}>
             <View style={styles.eventCardTitleBlock}>
               <Text style={styles.eventCardTitle} numberOfLines={1}>
-                {assignment.eventTitle || 'Evento sem tÃ­tulo'}
+                {assignment.eventTitle || 'Evento sem título'}
               </Text>
               {!!assignment.clientName && (
                 <Text style={styles.eventCardClient} numberOfLines={1}>{assignment.clientName}</Text>
@@ -720,7 +720,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
                 style={styles.agendaMonthButton}
                 onPress={() => changeAgendaMonth(-1)}
                 accessibilityRole="button"
-                accessibilityLabel="MÃªs anterior"
+                accessibilityLabel="Mês anterior"
               >
                 <Feather name="chevron-left" size={18} color={COLORS.textNavy} />
               </TouchableOpacity>
@@ -728,7 +728,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
                 style={styles.agendaMonthButton}
                 onPress={() => changeAgendaMonth(1)}
                 accessibilityRole="button"
-                accessibilityLabel="PrÃ³ximo mÃªs"
+                accessibilityLabel="Próximo mês"
               >
                 <Feather name="chevron-right" size={18} color={COLORS.textNavy} />
               </TouchableOpacity>
@@ -736,7 +736,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
           </View>
 
           <View style={styles.agendaWeekdays}>
-            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'SÃ¡b'].map((weekday) => (
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((weekday) => (
               <Text key={weekday} style={styles.agendaWeekday}>{weekday}</Text>
             ))}
           </View>
@@ -754,7 +754,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
                   }
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${formatAgendaDate(day.date)}${day.hasEvent ? ', com evento' : ''}${day.unavailable ? ', indisponÃ­vel' : ''}`}
+                accessibilityLabel={`${formatAgendaDate(day.date)}${day.hasEvent ? ', com evento' : ''}${day.unavailable ? ', indisponível' : ''}`}
                 accessibilityState={{ selected: day.selected }}
               >
                 <View style={[
@@ -778,7 +778,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
             <View style={[styles.agendaLegendDot, styles.agendaLegendEvent]} />
             <Text style={styles.agendaLegendText}>Evento</Text>
             <View style={[styles.agendaLegendDot, styles.agendaLegendUnavailable]} />
-            <Text style={styles.agendaLegendText}>IndisponÃ­vel</Text>
+            <Text style={styles.agendaLegendText}>Indisponível</Text>
           </View>
         </View>
 
@@ -796,12 +796,12 @@ export default function TelaPainelTecnico({ user, onLogout }) {
         </TouchableOpacity>
         {availabilityError ? <Text style={styles.errorText}>{availabilityError}</Text> : null}
         {selectedDayAssignments.length > 0 && !selectedDateUnavailable && (
-          <Text style={styles.agendaConflictHint}>VocÃª jÃ¡ tem evento aceito nesta data.</Text>
+          <Text style={styles.agendaConflictHint}>Você já tem evento aceito nesta data.</Text>
         )}
 
         <View style={styles.agendaSectionHeading}>
           <Text style={styles.agendaSectionTitle}>
-            {isAgendaDaySelected ? 'Eventos do dia' : 'Seus prÃ³ximos eventos'}
+            {isAgendaDaySelected ? 'Eventos do dia' : 'Seus próximos eventos'}
           </Text>
           <Text style={styles.agendaCommitmentCount}>
             {visibleAssignments.length} {visibleAssignments.length === 1 ? 'compromisso' : 'compromissos'}
@@ -826,10 +826,10 @@ export default function TelaPainelTecnico({ user, onLogout }) {
                 </View>
                 <View style={styles.agendaEventDetails}>
                   <Text style={styles.agendaEventTitle} numberOfLines={1}>
-                    {formatShortDate(assignment.eventDate)} Â· {assignment.eventTitle || 'Evento'}
+                    {formatShortDate(assignment.eventDate)} · {assignment.eventTitle || 'Evento'}
                   </Text>
                   <Text style={styles.agendaEventSubtitle} numberOfLines={1}>
-                    {formatEventTime(assignment.eventDate)} â€¢ {assignment.eventAddress || 'Local a confirmar'}
+                    {formatEventTime(assignment.eventDate)} • {assignment.eventAddress || 'Local a confirmar'}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
@@ -841,7 +841,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
             <Text style={styles.emptyText}>
               {isAgendaDaySelected
                 ? 'Nenhum evento aceito nesta data.'
-                : 'Seus prÃ³ximos eventos aceitos aparecerÃ£o aqui.'}
+                : 'Seus próximos eventos aceitos aparecerão aqui.'}
             </Text>
           </View>
         )}
@@ -858,19 +858,19 @@ export default function TelaPainelTecnico({ user, onLogout }) {
           </View>
           <View style={styles.userProfileHeadingCopy}>
             <Text style={styles.userProfileName} numberOfLines={1}>
-              {profile.displayName || profile.name || 'TÃ©cnico'}
+              {profile.displayName || profile.name || 'Técnico'}
             </Text>
             <Text style={styles.userProfileCompany} numberOfLines={1}>
-              {profile.companyName || 'TÃ©cnico de eventos'}
+              {profile.companyName || 'Técnico de eventos'}
             </Text>
           </View>
         </View>
 
         <View style={styles.profileDivider} />
-        <Text style={styles.userProfileDetail}>CPF: {profile.cpf ? formatCpf(profile.cpf) : 'NÃ£o informado'}</Text>
-        <Text style={styles.userProfileDetail} numberOfLines={1}>{profile.email || 'E-mail nÃ£o informado'}</Text>
+        <Text style={styles.userProfileDetail}>CPF: {profile.cpf ? formatCpf(profile.cpf) : 'Não informado'}</Text>
+        <Text style={styles.userProfileDetail} numberOfLines={1}>{profile.email || 'E-mail não informado'}</Text>
         <Text style={styles.userProfileDetail} numberOfLines={1}>
-          {[profile.city, profile.phone ? formatPhone(profile.phone) : null].filter(Boolean).join(' â€¢ ') || 'Cidade e telefone nÃ£o informados'}
+          {[profile.city, profile.phone ? formatPhone(profile.phone) : null].filter(Boolean).join(' • ') || 'Cidade e telefone não informados'}
         </Text>
 
         <TouchableOpacity style={styles.editProfileButton} onPress={openProfileEditor} activeOpacity={0.8}>
@@ -879,11 +879,11 @@ export default function TelaPainelTecnico({ user, onLogout }) {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.profileSectionTitle}>NotificaÃ§Ãµes</Text>
+      <Text style={styles.profileSectionTitle}>Notificações</Text>
       <View style={styles.profilePreferenceCard}>
         <View style={styles.profilePreferenceCopy}>
           <Text style={styles.profilePreferenceTitle}>Eventos e equipe</Text>
-          <Text style={styles.profilePreferenceSubtitle}>PendÃªncias e eventos</Text>
+          <Text style={styles.profilePreferenceSubtitle}>Pendências e eventos</Text>
         </View>
         {isSavingNotificationPreference ? (
           <ActivityIndicator size="small" color={COLORS.buttonGold} />
@@ -893,19 +893,19 @@ export default function TelaPainelTecnico({ user, onLogout }) {
             onValueChange={changeEventsNotificationPreference}
             trackColor={{ false: '#CAD5E2', true: COLORS.buttonGold }}
             thumbColor="#FFFFFF"
-            accessibilityLabel="NotificaÃ§Ãµes de eventos e equipe"
+            accessibilityLabel="Notificações de eventos e equipe"
           />
         )}
       </View>
 
-      <Text style={styles.profileSectionTitle}>ConfiguraÃ§Ãµes</Text>
+      <Text style={styles.profileSectionTitle}>Configurações</Text>
       <TouchableOpacity style={styles.profileSecurityCard} onPress={sendPasswordReset} activeOpacity={0.8}>
         <View style={styles.profileSecurityIcon}>
           <Feather name="shield" size={17} color="#14966F" />
         </View>
         <View style={styles.profilePreferenceCopy}>
-          <Text style={styles.profilePreferenceTitle}>SeguranÃ§a da conta</Text>
-          <Text style={styles.profilePreferenceSubtitle}>Senha e autenticaÃ§Ã£o</Text>
+          <Text style={styles.profilePreferenceTitle}>Segurança da conta</Text>
+          <Text style={styles.profilePreferenceSubtitle}>Senha e autenticação</Text>
         </View>
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
@@ -921,18 +921,18 @@ export default function TelaPainelTecnico({ user, onLogout }) {
     <View key={assignment.id} style={styles.assignmentCard}>
       <View style={styles.cardHeading}>
         <View style={styles.typeBadge}>
-          <Text style={styles.typeBadgeText}>{assignment.professionalTypeName || 'ConvocaÃ§Ã£o'}</Text>
+          <Text style={styles.typeBadgeText}>{assignment.professionalTypeName || 'Convocação'}</Text>
         </View>
         <Text style={styles.statusText}>
           {assignment.status === 'accepted' ? 'Confirmado' : 'Pendente'}
         </Text>
       </View>
 
-      <Text style={styles.eventTitle}>{assignment.eventTitle || 'Evento sem tÃ­tulo'}</Text>
+      <Text style={styles.eventTitle}>{assignment.eventTitle || 'Evento sem título'}</Text>
       {!!assignment.clientName && <Text style={styles.detailText}>{assignment.clientName}</Text>}
       <Text style={styles.detailText}>{formatDate(assignment.eventDate)}</Text>
       {!!assignment.eventAddress && <Text style={styles.detailText}>{assignment.eventAddress}</Text>}
-      {!!assignment.roleName && <Text style={styles.roleText}>FunÃ§Ã£o: {assignment.roleName}</Text>}
+      {!!assignment.roleName && <Text style={styles.roleText}>Função: {assignment.roleName}</Text>}
 
       {showActions && (
         <View style={styles.actions}>
@@ -979,15 +979,15 @@ export default function TelaPainelTecnico({ user, onLogout }) {
         <View style={styles.homeHeaderRow}>
           <Text style={styles.greeting}>
             {activeTab === 'home'
-              ? `OlÃ¡, ${user.name || 'TÃ©cnico'}!`
+              ? `Olá, ${user.name || 'Técnico'}!`
               : { events: 'Eventos', agenda: 'Agenda', profile: 'Perfil' }[activeTab]}
           </Text>
           <TouchableOpacity
             style={styles.notificationButton}
-            onPress={() => Alert.alert('NotificaÃ§Ãµes', 'VocÃª estÃ¡ em dia!')}
+            onPress={() => Alert.alert('Notificações', 'Você está em dia!')}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="NotificaÃ§Ãµes"
+            accessibilityLabel="Notificações"
           >
             <Feather name="bell" size={18} color={COLORS.textWhite} />
           </TouchableOpacity>
@@ -1021,7 +1021,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
               <TouchableOpacity
                 onPress={() => setProfileEditorVisible(false)}
                 accessibilityRole="button"
-                accessibilityLabel="Fechar ediÃ§Ã£o do perfil"
+                accessibilityLabel="Fechar edição do perfil"
               >
                 <Feather name="x" size={21} color={COLORS.textMuted} />
               </TouchableOpacity>
@@ -1069,7 +1069,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
               autoCapitalize="words"
             />
 
-            <Text style={styles.profileEmailNote}>O e-mail da conta nÃ£o pode ser alterado por esta tela.</Text>
+            <Text style={styles.profileEmailNote}>O e-mail da conta não pode ser alterado por esta tela.</Text>
 
             <View style={styles.profileEditorActions}>
               <TouchableOpacity
@@ -1113,8 +1113,8 @@ export default function TelaPainelTecnico({ user, onLogout }) {
             </Text>
             <Text style={styles.availabilityDialogMessage}>
               {selectedDateUnavailable
-                ? `VocÃª ficarÃ¡ disponÃ­vel em ${formatAgendaDate(selectedAgendaDay)}.`
-                : `VocÃª ficarÃ¡ indisponÃ­vel em ${formatAgendaDate(selectedAgendaDay)}.`}
+                ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.`
+                : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
             </Text>
             <View style={styles.profileEditorActions}>
               <TouchableOpacity
@@ -1145,7 +1145,7 @@ export default function TelaPainelTecnico({ user, onLogout }) {
       </Modal>
 
       <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {renderTabButton('home', 'InÃ­cio', 'home')}
+        {renderTabButton('home', 'Início', 'home')}
         {renderTabButton('events', 'Eventos', 'tag')}
         {renderTabButton('agenda', 'Agenda', 'calendar')}
         {renderTabButton('profile', 'Perfil', 'user')}

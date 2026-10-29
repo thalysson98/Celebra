@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Card, Switch } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ export default function TelaPerfilOrganizador({ onLogout, usuario }) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Minha empresa</Text>
-        <Text style={styles.subtitle}>Perfil e preferÃªncias do seu negÃ³cio</Text>
+        <Text style={styles.subtitle}>Perfil e preferências do seu negócio</Text>
       </View>
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
@@ -25,8 +25,8 @@ export default function TelaPerfilOrganizador({ onLogout, usuario }) {
                 <Text style={styles.avatarText}>BP</Text>
               </View>
               <View style={styles.companyTitleWrap}>
-                <Text style={styles.companyName}>Bella Produzione VÃ­deos</Text>
-                <Text style={styles.companySlogan}>VÃ­deos que contam histÃ³rias.</Text>
+                <Text style={styles.companyName}>Bella Produzione Vídeos</Text>
+                <Text style={styles.companySlogan}>Vídeos que contam histórias.</Text>
               </View>
             </View>
 
@@ -34,7 +34,7 @@ export default function TelaPerfilOrganizador({ onLogout, usuario }) {
 
             <Text style={styles.companyInfo}>CNPJ: 12.345.678/0001-90</Text>
             <Text style={styles.companyInfo}>contato@bellaproduzione.com.br</Text>
-            <Text style={styles.companyInfo}>JundiaÃ­, SP â€¢ (11) 99999-0456</Text>
+            <Text style={styles.companyInfo}>Jundiaí, SP • (11) 99999-0456</Text>
 
             <TouchableOpacity style={styles.editButton} activeOpacity={0.8}>
               <Feather name="edit-2" size={16} color={COLORS.textNavy} style={{ marginRight: 8 }} />
@@ -43,14 +43,14 @@ export default function TelaPerfilOrganizador({ onLogout, usuario }) {
           </Card.Content>
         </Card>
 
-        {/* NotificaÃ§Ãµes */}
-        <Text style={styles.sectionTitle}>NotificaÃ§Ãµes</Text>
+        {/* Notificações */}
+        <Text style={styles.sectionTitle}>Notificações</Text>
         <Card style={styles.notificationCard}>
           <Card.Content style={styles.notifContent}>
             <View style={styles.switchRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.switchTitle}>Eventos e equipe</Text>
-                <Text style={styles.switchSubtitle}>PendÃªncias e eventos</Text>
+                <Text style={styles.switchSubtitle}>Pendências e eventos</Text>
               </View>
               <Switch value={notifEventos} onValueChange={setNotifEventos} color={COLORS.buttonGold} />
             </View>
@@ -67,7 +67,7 @@ export default function TelaPerfilOrganizador({ onLogout, usuario }) {
           </Card.Content>
         </Card>
 
-        {/* BotÃ£o Sair da Conta */}
+        {/* Botão Sair da Conta */}
         <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.8}>
           <Feather name="log-out" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Sair da conta</Text>
@@ -107,4 +107,3 @@ const styles = StyleSheet.create({
   logoutButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: '#EF4444', borderRadius: 14, paddingVertical: 14 },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });
-

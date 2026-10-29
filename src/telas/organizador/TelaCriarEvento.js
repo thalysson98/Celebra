@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -31,7 +31,7 @@ export default function TelaCriarEvento({ navigation }) {
   const [notasProducao, setNotasProducao] = useState('');
   const [valorTotal, setValorTotal] = useState('');
 
-  // Listas vindas da memÃ³ria (Aba Administrando)
+  // Listas vindas da memória (Aba Administrando)
   const [opcoesTiposEvento, setOpcoesTiposEvento] = useState([]);
   const [opcoesClientes, setOpcoesClientes] = useState([]);
 
@@ -65,7 +65,7 @@ export default function TelaCriarEvento({ navigation }) {
 
   const salvarNovoItemMemoria = async () => {
     if (!nomeNovoItem.trim()) {
-      Alert.alert('AtenÃ§Ã£o', 'O nome nÃ£o pode estar vazio.');
+      Alert.alert('Atenção', 'O nome não pode estar vazio.');
       return;
     }
 
@@ -79,7 +79,7 @@ export default function TelaCriarEvento({ navigation }) {
       setModalCriacaoVisivel(false);
       Alert.alert('Sucesso', `"${itemCriado.nome}" criado e selecionado!`);
     } catch (error) {
-      Alert.alert('Erro', 'NÃ£o foi possÃ­vel criar o item.');
+      Alert.alert('Erro', 'Não foi possível criar o item.');
     }
   };
 
@@ -110,7 +110,7 @@ export default function TelaCriarEvento({ navigation }) {
 
   const salvarEventoCompleto = async () => {
     if (!titulo || !tipoEvento || !clienteSelecionado) {
-      Alert.alert('AtenÃ§Ã£o', 'Preencha os campos obrigatÃ³rios (TÃ­tulo, Tipo de Evento e Cliente)!');
+      Alert.alert('Atenção', 'Preencha os campos obrigatórios (Título, Tipo de Evento e Cliente)!');
       return;
     }
 
@@ -165,7 +165,7 @@ export default function TelaCriarEvento({ navigation }) {
         </Text>
       </TouchableOpacity>
 
-      <Text style={estilos.rotulo}>TÃ­tulo do Evento *</Text>
+      <Text style={estilos.rotulo}>Título do Evento *</Text>
       <TextInput
         style={estilos.input}
         placeholder="Ex: Ana & Pedro"
@@ -178,14 +178,14 @@ export default function TelaCriarEvento({ navigation }) {
         <View style={estilos.coluna}>
           <Text style={estilos.rotulo}>Data</Text>
           <TouchableOpacity style={estilos.selectBox} onPress={() => setMostrarCalendario(true)}>
-            <Text style={estilos.textoSelecionado}>ðŸ“… {formatarDataVisual(dataObj)}</Text>
+            <Text style={estilos.textoSelecionado}>📅 {formatarDataVisual(dataObj)}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={estilos.coluna}>
           <Text style={estilos.rotulo}>Hora</Text>
           <TouchableOpacity style={estilos.selectBox} onPress={() => setMostrarRelogio(true)}>
-            <Text style={estilos.textoSelecionado}>â° {formatarHoraVisual(horaObj)}</Text>
+            <Text style={estilos.textoSelecionado}>⏰ {formatarHoraVisual(horaObj)}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -210,7 +210,7 @@ export default function TelaCriarEvento({ navigation }) {
         />
       )}
 
-      <Text style={estilos.rotulo}>NÃºmero de Convidados</Text>
+      <Text style={estilos.rotulo}>Número de Convidados</Text>
       <TextInput
         style={estilos.input}
         placeholder="Ex: 180"
@@ -219,10 +219,10 @@ export default function TelaCriarEvento({ navigation }) {
         onChangeText={setNumConvidados}
       />
 
-      <Text style={estilos.rotulo}>Notas da ProduÃ§Ã£o</Text>
+      <Text style={estilos.rotulo}>Notas da Produção</Text>
       <TextInput
         style={[estilos.input, { height: 80, textAlignVertical: 'top' }]}
-        placeholder="Escreva notas e observaÃ§Ãµes..."
+        placeholder="Escreva notas e observações..."
         multiline
         value={notasProducao}
         onChangeText={setNotasProducao}
@@ -242,7 +242,7 @@ export default function TelaCriarEvento({ navigation }) {
         <Text style={estilos.textoBotaoSalvar}>Salvar Evento</Text>
       </TouchableOpacity>
 
-      {/* MODAL 1: Lista de OpÃ§Ãµes (Smart Select) */}
+      {/* MODAL 1: Lista de Opções (Smart Select) */}
       <Modal visible={modalSelecaoVisivel} animationType="slide" transparent={true}>
         <View style={estilos.modalOverlay}>
           <View style={estilos.modalContent}>
@@ -278,7 +278,7 @@ export default function TelaCriarEvento({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL 2: CriaÃ§Ã£o RÃ¡pida de Novo Item */}
+      {/* MODAL 2: Criação Rápida de Novo Item */}
       <Modal visible={modalCriacaoVisivel} animationType="fade" transparent={true}>
         <View style={estilos.modalOverlay}>
           <View style={estilos.modalContent}>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Button } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
@@ -6,7 +6,7 @@ import { repositorioEventos } from '../../servicos/repositorioEventos';
 export default function TelaListaEventos({ navigation, onLogout }) {
   const [eventos, setEventos] = useState([]);
 
-  // useFocusEffect recarrega os eventos sempre que a tela entra em foco (ex: ao voltar da criaÃ§Ã£o)
+  // useFocusEffect recarrega os eventos sempre que a tela entra em foco (ex: ao voltar da criação)
   useFocusEffect(
     useCallback(() => {
       carregarEventos();
@@ -38,8 +38,8 @@ export default function TelaListaEventos({ navigation, onLogout }) {
             onPress={() => navigation.navigate('DetalheEvento', { idEvento: item.id })}
           >
             <Text style={estilos.tituloEvento}>{item.titulo}</Text>
-            <Text style={estilos.subtituloEvento}>ðŸ“ {item.local || 'Local nÃ£o definido'}</Text>
-            <Text style={estilos.dataEvento}>ðŸ“… {item.dataInicio || 'Data nÃ£o definida'}</Text>
+            <Text style={estilos.subtituloEvento}>📍 {item.local || 'Local não definido'}</Text>
+            <Text style={estilos.dataEvento}>📅 {item.dataInicio || 'Data não definida'}</Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={

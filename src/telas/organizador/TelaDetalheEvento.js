@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import dadosMemoria from '../../servicos/dadosMemoria';
 
@@ -8,7 +8,7 @@ export default function TelaDetalheEvento({ route }) {
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    // Simula a busca do evento pelo ID na memÃ³ria
+    // Simula a busca do evento pelo ID na memória
     const carregarDetalhes = () => {
       try {
         const eventoEncontrado = dadosMemoria.eventos.find(ev => ev.id === idEvento);
@@ -35,7 +35,7 @@ export default function TelaDetalheEvento({ route }) {
   if (!evento) {
     return (
       <View style={estilos.centralizado}>
-        <Text style={estilos.erro}>Evento nÃ£o encontrado.</Text>
+        <Text style={estilos.erro}>Evento não encontrado.</Text>
       </View>
     );
   }
@@ -46,17 +46,17 @@ export default function TelaDetalheEvento({ route }) {
       
       <View style={estilos.card}>
         <Text style={estilos.rotulo}>Tipo de Evento:</Text>
-        <Text style={estilos.valor}>{evento.tipoEvento || 'NÃ£o informado'}</Text>
+        <Text style={estilos.valor}>{evento.tipoEvento || 'Não informado'}</Text>
       </View>
 
       <View style={estilos.card}>
-        <Text style={estilos.rotulo}>Local / EndereÃ§o:</Text>
-        <Text style={estilos.valor}>{evento.local || 'NÃ£o informado'}</Text>
+        <Text style={estilos.rotulo}>Local / Endereço:</Text>
+        <Text style={estilos.valor}>{evento.local || 'Não informado'}</Text>
       </View>
 
       <View style={estilos.card}>
         <Text style={estilos.rotulo}>Data:</Text>
-        <Text style={estilos.valor}>{evento.dataInicio || 'NÃ£o informada'}</Text>
+        <Text style={estilos.valor}>{evento.dataInicio || 'Não informada'}</Text>
       </View>
     </ScrollView>
   );

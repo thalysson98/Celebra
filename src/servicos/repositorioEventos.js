@@ -1,6 +1,8 @@
+// src/servicos/repositorioEventos.js
 import dadosMemoria from './dadosMemoria';
 
 export const repositorioEventos = {
+
   // Listar todos os eventos da empresa
   listarEventos: async () => {
     return dadosMemoria.eventos;
@@ -49,22 +51,25 @@ export const repositorioEventos = {
       case 'clientes':
         dadosMemoria.clientes.push(itemCriado);
         break;
+      default:
+        throw new Error('Tipo de entidade desconhecido para cadastro rápido.');
     }
 
-    return itemCriado;
+    return itemCriado; // Retorna para preencher o select automaticamente no Front-end
   },
 
-  // Criar um novo evento completo no repositório
-  criarEvento: async (novoEvento) => {
-    const id = String(Date.now());
+  // Criar um novo evento completo
+  adicionarEvento: async (dadosNovoEvento) => {
     const eventoCompleto = {
-      id,
+      id: String(Date.now()),
       empresaId: dadosMemoria.empresaId,
-      ...novoEvento
+      ...dadosNovoEvento
     };
-    dadosMemoria.eventos.unshift(eventoCompleto);
+    
+    dadosMemoria.eventos.push(eventoCompleto);
     return eventoCompleto;
+  },
+  criarEvento: async (dadosNovoEvento) => {
+    return repositorioEventos.adicionarEvento(dadosNovoEvento);
   }
 };
-
-export default repositorioEventos;
