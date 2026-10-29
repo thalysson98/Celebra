@@ -3,11 +3,13 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   runTransaction,
   serverTimestamp,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
 
@@ -22,6 +24,53 @@ async function obterDocumento(colecao, id) {
   if (!id) return null;
   const snapshot = await getDoc(doc(bancoDados, colecao, id));
   return snapshot.exists() ? snapshot.data() : null;
+}
+
+export async function listarTecnicosDaEmpresa(idEmpresa) {
+  if (!idEmpresa) throw new Error('Vincule esta conta a uma empresa para consultar a equipe.');
+  const resultado = await getDocs(query(
+    collection(bancoDados, 'usuarios'),
+    where('id_empresa', '==', idEmpresa),
+    where('papel', '==', false),
+    where('ativo', '==', true),
+  ));
+  return resultado.docs
+    .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
+    .filter((tecnico) => tecnico.papel === false && tecnico.ativo === true)
+    .map((tecnico) => ({
+      id: tecnico.id_usuario || tecnico.id,
+      nome: tecnico.nome_completo || 'Colaborador',
+    }))
+    .sort((primeiro, segundo) => primeiro.nome.localeCompare(segundo.nome, 'pt-BR'));
+}
+
+export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais = [] }) {
+  const convidados = profissionais.filter((profissional) => profissional.enviarConvite !== false);
+  if (!convidados.length) return;
+  if (!idEvento || !idEmpresa) throw new Error('Não foi possível identificar o evento ou a empresa para enviar convites.');
+
+  const lote = writeBatch(bancoDados);
+  for (const profissional of convidados) {
+    const idUsuario = profissional.idUsuario || profissional.id_usuario || profissional.id;
+    const idTipoProfissional = profissional.idTipoProfissional || profissional.id_tipo_profissional;
+    if (!idUsuario || !idTipoProfissional) throw new Error('Cada convite precisa de um técnico e um tipo de profissional.');
+    const idConvite = `${idEvento}_${idUsuario}`;
+    const referencia = doc(bancoDados, 'convites', idConvite);
+    const existente = await getDoc(referencia);
+    if (existente.exists()) throw new Error(`${profissional.nomeProfissional || 'Este profissional'} já recebeu um convite para o evento.`);
+    lote.set(referencia, {
+      id_convite: idConvite,
+      id_empresa: idEmpresa,
+      id_evento: idEvento,
+      id_usuario: idUsuario,
+      id_tipo_profissional: idTipoProfissional,
+      nome_profissional: profissional.nomeProfissional || '',
+      nome_tipo_profissional: profissional.funcao || profissional.nomeTipoProfissional || '',
+      situacao: 'pendente',
+      enviado_em: serverTimestamp(),
+    });
+  }
+  await lote.commit();
 }
 
 async function mapearConvite(snapshot) {

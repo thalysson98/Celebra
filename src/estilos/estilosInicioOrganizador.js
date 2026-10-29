@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONTS } from '../tema/cores';
+import {COLORS, FONTS, FONTES} from '../tema/cores';
 
 export const styles = StyleSheet.create({
   container: {
@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textWhite,
     fontFamily: FONTS.heading,
   },
-  headerCompany: {
+  headerCompany: { fontFamily: FONTES.body,
     fontSize: 14,
     color: COLORS.headerSubtitle,
     marginTop: 4,
@@ -72,7 +72,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textNavy,
     fontFamily: FONTS.heading,
   },
-  sectionSubtitle: {
+  sectionSubtitle: { fontFamily: FONTES.body,
     fontSize: 13,
     color: COLORS.textMuted,
     marginTop: 2,
@@ -107,13 +107,13 @@ export const styles = StyleSheet.create({
   attentionTextWrap: {
     flex: 1,
   },
-  attentionTitle: {
+  attentionTitle: { fontFamily: FONTES.bold,
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.textNavy,
     lineHeight: 20,
   },
-  attentionCount: {
+  attentionCount: { fontFamily: FONTES.bold,
     fontSize: 22,
     fontWeight: '700',
     color: COLORS.textNavy,
@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.cardDivider,
   },
-  attentionActionText: {
+  attentionActionText: { fontFamily: FONTES.semibold,
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.textNavy,
@@ -167,7 +167,7 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 6,
   },
-  chipTypeText: {
+  chipTypeText: { fontFamily: FONTES.semibold,
     fontSize: 11,
     fontWeight: '600',
     color: COLORS.textNavy,
@@ -178,18 +178,18 @@ export const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  chipDaysText: {
+  chipDaysText: { fontFamily: FONTES.semibold,
     fontSize: 11,
     fontWeight: '600',
     color: '#B45309',
   },
-  featuredTitle: {
+  featuredTitle: { fontFamily: FONTES.bold,
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.textNavy,
     marginBottom: 4,
   },
-  featuredMeta: {
+  featuredMeta: { fontFamily: FONTES.body,
     fontSize: 12,
     color: COLORS.textMuted,
   },
@@ -221,12 +221,12 @@ export const styles = StyleSheet.create({
   eventListTextContainer: {
     flex: 1,
   },
-  eventListTitle: {
+  eventListTitle: { fontFamily: FONTES.bold,
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.textNavy,
   },
-  eventListSubtitle: {
+  eventListSubtitle: { fontFamily: FONTES.body,
     fontSize: 12,
     color: COLORS.textMuted,
     marginTop: 2,
@@ -242,12 +242,12 @@ export const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  noUpcomingText: {
+  noUpcomingText: { fontFamily: FONTES.body,
     color: COLORS.textMuted,
     fontSize: 13,
     lineHeight: 19,
   },
-  noUpcomingAction: {
+  noUpcomingAction: { fontFamily: FONTES.bold,
     color: COLORS.textNavy,
     fontSize: 13,
     fontWeight: '700',

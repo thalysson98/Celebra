@@ -211,6 +211,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 | `data_fim` | data e hora | Não | - | Data e horário de término previsto |
 | `quantidade_convidados` | número | Não | - | Estimativa de participantes do evento |
 | `membros_escalados` | lista de textos | Sim | Lista de `id_usuario` | **IDs dos técnicos/membros confirmados no evento** |
+| `equipe_informativa` | lista de objetos | Não | `id_usuario` e `id_tipo_profissional` | Profissionais vinculados ao evento sem convite no aplicativo; contém nomes para exibição |
 | `situacao` | texto | Sim | - | `"aberto"`, `"em_andamento"`, `"concluido"` ou `"cancelado"` |
 | `observacoes` | texto | Não | - | Roteiro, horários de montagem e instruções |
 | `criado_em` | data e hora | Sim | Auditoria | Data e hora de criação do evento |
@@ -227,6 +228,8 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 | `id_evento` | texto | Sim | Chave Estrangeira → `eventos` | Evento para o qual o profissional foi chamado |
 | `id_usuario` | texto | Sim | Chave Estrangeira → `usuarios` | Funcionário convocado |
 | `id_tipo_profissional` | texto | Não | Chave Estrangeira → `tipos_profissional` | Especialidade requisitada (ex: `"Filmmaker"`) |
+| `nome_profissional` | texto | Sim | - | Nome copiado do perfil para exibir o convite no evento |
+| `nome_tipo_profissional` | texto | Sim | - | Nome do tipo de profissional copiado para exibição |
 | `situacao` | texto | Sim | - | `"pendente"`, `"aceito"` ou `"recusado"` |
 | `enviado_em` | data e hora | Sim | - | Momento do disparo do convite |
 | `respondido_em` | data e hora | Não | - | Momento em que o funcionário aceitou ou recusou |
@@ -249,4 +252,4 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ## 5. Regras de Segurança do Firebase (`firestore.rules`)
 
-As regras versionadas estão em [`firestore.rules`](../firestore.rules). Elas aplicam o princípio de menor privilégio: o usuário lê o próprio `usuarios/{id_usuario}`, não altera `papel`, `id_empresa` ou `ativo`, gerencia somente sua `indisponibilidade`, responde somente aos próprios `convites` e acessa dados da empresa apenas quando está vinculado e ativo. Não use regras genéricas que liberem todas as coleções para qualquer usuário autenticado.
+As regras versionadas estão em [`firestore.rules`](../firestore.rules). Elas aplicam o princípio de menor privilégio: o usuário lê o próprio `usuarios/{id_usuario}`, e o organizador ativo pode ler perfis de funcionários da própria empresa para montar a equipe; ninguém pode alterar `papel`, `id_empresa` ou `ativo` pelo perfil. O usuário gerencia somente sua `indisponibilidade`, responde somente aos próprios `convites` e acessa dados da empresa apenas quando está vinculado e ativo. Não use regras genéricas que liberem todas as coleções para qualquer usuário autenticado.

@@ -69,7 +69,12 @@ service cloud.firestore {
         && request.resource.data.ativo == true
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.nome_completo is string;
-      allow read: if autenticado() && request.auth.uid == userId;
+      allow read: if autenticado() && (
+        request.auth.uid == userId
+        || (resource.data.papel == false
+          && resource.data.ativo == true
+          && organizadorDaEmpresa(resource.data.id_empresa))
+      );
       allow update: if autenticado() && request.auth.uid == userId
         && (
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone'])
@@ -155,6 +160,10 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/usuarios/$(request.resource.data.id_usuario)).data.id_empresa == request.resource.data.id_empresa
         && get(/databases/$(database)/documents/usuarios/$(request.resource.data.id_usuario)).data.ativo == true
         && get(/databases/$(database)/documents/usuarios/$(request.resource.data.id_usuario)).data.papel == false
+        && request.resource.data.id_tipo_profissional is string
+        && get(/databases/$(database)/documents/tipos_profissional/$(request.resource.data.id_tipo_profissional)).data.id_empresa == request.resource.data.id_empresa
+        && request.resource.data.nome_profissional is string
+        && request.resource.data.nome_tipo_profissional is string
         && request.resource.data.situacao == 'pendente'
         && request.resource.data.enviado_em is timestamp;
       allow delete: if organizadorDaEmpresa(resource.data.id_empresa);
@@ -172,6 +181,8 @@ service cloud.firestore {
         && (!('quantidade_convidados' in request.resource.data)
           || request.resource.data.quantidade_convidados is number)
         && request.resource.data.membros_escalados is list
+        && (!('equipe_informativa' in request.resource.data)
+          || request.resource.data.equipe_informativa is list)
         && request.resource.data.situacao in ['aberto', 'em_andamento', 'concluido', 'cancelado'];
       allow update: if organizadorDaEmpresa(resource.data.id_empresa)
           && request.resource.data.id_empresa == resource.data.id_empresa

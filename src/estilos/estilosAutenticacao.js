@@ -61,7 +61,7 @@ export const estilosAutenticacao = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  brandStar: {
+  brandStar: { fontFamily: FONTES.body,
     color: CORES_AUTENTICACAO.starGold,
     fontSize: 24,
     marginLeft: 6,
@@ -102,7 +102,7 @@ export const estilosAutenticacao = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontFamily: FONTES.body,
+    fontFamily: FONTES.semibold,
     fontSize: 13,
     fontWeight: '600',
     color: CORES_AUTENTICACAO.textDark,
@@ -186,7 +186,7 @@ export const estilosAutenticacao = StyleSheet.create({
     elevation: 3,
   },
   submitButtonText: {
-    fontFamily: FONTES.body,
+    fontFamily: FONTES.bold,
     fontSize: 15,
     fontWeight: '700',
     color: CORES_AUTENTICACAO.textDark,
@@ -205,7 +205,7 @@ export const estilosAutenticacao = StyleSheet.create({
     color: CORES_AUTENTICACAO.placeholder,
   },
   footerLink: {
-    fontFamily: FONTES.body,
+    fontFamily: FONTES.bold,
     fontSize: 13,
     fontWeight: '700',
     color: CORES_AUTENTICACAO.textDark,

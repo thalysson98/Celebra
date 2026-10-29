@@ -3,8 +3,15 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { PaperProvider, MD3LightTheme as DefaultTheme, configureFonts } from 'react-native-paper';
 import { onAuthStateChanged } from 'firebase/auth';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 
 import { autenticacao } from './src/configuracao/configuracaoFirebase';
 import { CORES, FONTES } from './src/tema/cores';
@@ -26,6 +33,12 @@ const paperTheme = {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [fontesCarregadas, erroFontes] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -79,7 +92,7 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  if (!ready) {
+  if (!ready || (!fontesCarregadas && !erroFontes)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={CORES.buttonGold} />

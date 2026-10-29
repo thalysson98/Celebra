@@ -2,9 +2,10 @@ import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button, Card } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CORES } from '../../tema/cores';
+import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosCriarEventoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
+import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 
 const SECOES = ['Geral', 'Locais', 'Equipe', 'Financeiro'];
 
@@ -50,7 +51,7 @@ function SeletorDataHora({ modo, valor, aoMudar, styles }) {
         minHeight: 46,
         color: '#102B46',
         fontSize: 14,
-        fontFamily: 'inherit',
+        fontFamily: FONTES.body,
       },
     });
   }
@@ -86,8 +87,9 @@ function SeletorDataHora({ modo, valor, aoMudar, styles }) {
 
 export default function TelaCriarEvento({ navigation, usuario }) {
   const [secao, setSecao] = useState('Geral');
-  const [formulario, setFormulario] = useState({ titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '', local: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', nomeProfissional: '', funcaoProfissional: '', valorContrato: '', parcelas: '' });
+  const [formulario, setFormulario] = useState({ titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '', local: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', valorContrato: '', parcelas: '' });
   const [equipe, setEquipe] = useState([]);
+  const [modalEquipeVisivel, setModalEquipeVisivel] = useState(false);
   const [selecaoVisivel, setSelecaoVisivel] = useState(false);
   const [tipoSelecao, setTipoSelecao] = useState('');
   const [opcoesSelecao, setOpcoesSelecao] = useState([]);
@@ -116,7 +118,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         cliente: 'clientes',
         local: 'locaisSalvos',
         tipoLocal: 'tiposLocal',
-        funcaoProfissional: 'tiposProfissional',
       }[campo];
       const opcoes = await repositorioEventos.obterOpcoesSelect(tipoLista, usuario?.idEmpresa);
       setOpcoesSelecao(opcoes);
@@ -143,15 +144,10 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     }
     setSelecaoVisivel(false);
   };
-  const adicionarProfissional = () => {
-    if (!formulario.nomeProfissional.trim() || !formulario.funcaoProfissional.trim()) {
-      setMensagemFormulario('Para adicionar à equipe, informe o nome e a função do profissional.');
-      return;
-    }
+  const adicionarProfissional = (profissional) => {
     setMensagemFormulario('');
-    setEquipe((anterior) => [...anterior, { id: String(Date.now()), nomeProfissional: formulario.nomeProfissional.trim(), funcao: formulario.funcaoProfissional.trim(), statusConfirmacao: 'Pendente' }]);
-    atualizar('nomeProfissional', '');
-    atualizar('funcaoProfissional', '');
+    setEquipe((anterior) => [...anterior, profissional]);
+    setModalEquipeVisivel(false);
   };
 
   const irParaSecao = (nomeSecao) => {
@@ -196,7 +192,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     setSalvando(true);
     try {
       const eventoCriado = await repositorioEventos.adicionarEvento(novoEvento);
-      navigation.replace('DetalheEvento', { idEvento: eventoCriado.id });
+      navigation.replace('DetalheEvento', { idEvento: eventoCriado.id, erroConvites: eventoCriado.erroConvites || '' });
     } catch (erro) {
       setMensagemFormulario(erro?.code === 'permission-denied'
         ? 'O Firebase bloqueou o cadastro. Publique as regras atualizadas do Firestore e tente novamente.'
@@ -273,12 +269,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       <>
         <Text style={styles.sectionHeading}>Equipe de campo</Text>
         <Text style={styles.sectionHint}>Adicione as funções e os profissionais previstos para o evento.</Text>
-        {equipe.map((pessoa) => <View key={pessoa.id} style={styles.personRow}><View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={20} color={CORES.textNavy} /></View><View style={styles.personInfo}><Text style={styles.personName}>{pessoa.nomeProfissional}</Text><Text style={styles.personMeta}>{pessoa.funcao} · Pendente</Text></View><TouchableOpacity accessibilityLabel={`Remover ${pessoa.nomeProfissional}`} onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))}><MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} /></TouchableOpacity></View>)}
-        <View style={styles.inlineForm}>
-          <Campo label="Profissional" valor={formulario.nomeProfissional} aoMudar={(v) => atualizar('nomeProfissional', v)} placeholder="Nome" />
-          <CampoSelecao label="Tipo de profissional" campo="funcaoProfissional" placeholder="Selecionar tipo" />
-          <Button mode="outlined" icon="plus" onPress={adicionarProfissional} textColor={CORES.textNavy} style={styles.outlineButton}>Adicionar profissional</Button>
-        </View>
+        {equipe.map((pessoa) => <View key={pessoa.id} style={styles.personRow}><View style={styles.personIcon}><MaterialCommunityIcons name="video-outline" size={20} color={CORES.textNavy} /></View><View style={styles.personInfo}><Text style={styles.personName}>{pessoa.funcao}</Text><Text style={styles.personMeta}>{pessoa.nomeProfissional} · {pessoa.enviarConvite ? 'Convite pendente' : 'Informativo'}</Text></View><TouchableOpacity accessibilityLabel={`Remover ${pessoa.nomeProfissional}`} onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))}><MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} /></TouchableOpacity></View>)}
+        <Button mode="contained" icon="plus" onPress={() => setModalEquipeVisivel(true)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addTeamButton}>Adicionar profissional de campo</Button>
       </>
     );
     return (
@@ -312,7 +304,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     cliente: 'Selecionar cliente',
     local: 'Selecionar local',
     tipoLocal: 'Selecionar tipo de local',
-    funcaoProfissional: 'Selecionar tipo de profissional',
   }[tipoSelecao] || 'Selecionar';
   return (
     <View style={styles.container}>
@@ -394,6 +385,13 @@ export default function TelaCriarEvento({ navigation, usuario }) {
           </View>
         </View>
       </Modal>
+      <ModalAdicionarProfissional
+        visible={modalEquipeVisivel}
+        empresaId={usuario?.idEmpresa}
+        equipeAtual={equipe}
+        onClose={() => setModalEquipeVisivel(false)}
+        onAdd={adicionarProfissional}
+      />
     </View>
   );
 }

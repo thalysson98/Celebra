@@ -2,7 +2,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import TelaPainelTecnico from '../telas/tecnico/TelaPainelTecnico';
 import TelaDetalhesEventoTecnico from '../telas/tecnico/TelaDetalhesEventoTecnico';
-import { CORES } from '../tema/cores';
+import { CORES, FONTES } from '../tema/cores';
 
 const Pilha = createStackNavigator();
 
@@ -12,7 +12,7 @@ export default function NavegadorTecnico({ user, onLogout }) {
       screenOptions={{
         headerStyle: { backgroundColor: CORES.bgHeaderDark },
         headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontFamily: FONTES.heading, fontWeight: '700' },
       }}
     >
       <Pilha.Screen name="TechnicianDashboard" options={{ headerShown: false }}>

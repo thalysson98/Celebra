@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -11,6 +12,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
+import { enviarConvitesEvento } from './servicoEscala';
 
 const COLECOES_ADMINISTRACAO = {
   tiposEvento: 'tipos_evento',
@@ -120,12 +122,26 @@ function mapearEvento(snapshot, relacionados = {}) {
     numConvidados: Number(evento.quantidade_convidados) || 0,
     cliente: cliente ? { id: evento.id_cliente, nome: cliente.nome, documento: cliente.documento || '', email: cliente.email || '', telefone: cliente.telefone || '' } : null,
     locais: local ? [{ id: evento.id_local, nomeDoLocal: local.nome || '', endereco: local.endereco_completo || '', tipoLocal: relacionados.tipoLocal?.nome || '' }] : [],
-    equipa: convites.map((convite) => ({
-      id: convite.id,
-      nomeProfissional: convite.nome_profissional || 'Profissional',
-      funcao: convite.tipoProfissional?.nome || '',
-      statusConfirmacao: convite.situacao === 'aceito' ? 'Confirmado' : convite.situacao === 'recusado' ? 'Recusado' : 'Pendente',
-    })),
+    equipa: [
+      ...convites.map((convite) => ({
+        id: convite.id,
+        idUsuario: convite.id_usuario,
+        idTipoProfissional: convite.id_tipo_profissional,
+        nomeProfissional: convite.nome_profissional || 'Profissional',
+        funcao: convite.nome_tipo_profissional || convite.tipoProfissional?.nome || '',
+        statusConfirmacao: convite.situacao === 'aceito' ? 'Confirmado' : convite.situacao === 'recusado' ? 'Recusado' : 'Pendente',
+        enviarConvite: true,
+      })),
+      ...(evento.equipe_informativa || []).map((profissional, index) => ({
+        id: profissional.id_usuario || `${snapshot.id}_informativo_${index}`,
+        idUsuario: profissional.id_usuario,
+        idTipoProfissional: profissional.id_tipo_profissional,
+        nomeProfissional: profissional.nome_profissional || 'Profissional',
+        funcao: profissional.nome_tipo_profissional || '',
+        statusConfirmacao: 'Informativo',
+        enviarConvite: false,
+      })),
+    ],
     financeiro: {},
   };
 }
@@ -270,18 +286,86 @@ export const repositorioEventos = {
       data_inicio: dataInicio,
       quantidade_convidados: Number(dadosNovoEvento.numConvidados) || 0,
       membros_escalados: [],
+      equipe_informativa: (dadosNovoEvento.equipe || [])
+        .filter((profissional) => profissional.enviarConvite === false)
+        .map((profissional) => ({
+          id_usuario: profissional.idUsuario || profissional.id,
+          id_tipo_profissional: profissional.idTipoProfissional,
+          nome_profissional: profissional.nomeProfissional,
+          nome_tipo_profissional: profissional.funcao,
+        })),
       situacao: 'aberto',
       observacoes: String(dadosNovoEvento.notasProducao || '').trim(),
       criado_em: serverTimestamp(),
     };
     await setDoc(referencia, dadosEvento);
-    return mapearEvento({ id: referencia.id, data: () => dadosEvento }, {
-      tipoEvento: { nome: dadosNovoEvento.tipoEvento },
-      cliente: { nome: dadosNovoEvento.cliente.nome },
-      local: { nome: dadosNovoEvento.local.nomeDoLocal, endereco_completo: dadosNovoEvento.local.endereco },
-      tipoLocal: { nome: dadosNovoEvento.local.tipoLocal },
-      convites: [],
-    });
+    let erroConvites = '';
+    try {
+      await enviarConvitesEvento({
+        idEvento: referencia.id,
+        idEmpresa: empresaId,
+        profissionais: dadosNovoEvento.equipe || [],
+      });
+    } catch (error) {
+      erroConvites = error?.message || 'O evento foi salvo, mas não foi possível enviar todos os convites.';
+    }
+    const eventoCriado = await repositorioEventos.obterEvento(referencia.id);
+    return { ...eventoCriado, erroConvites };
+  },
+
+  adicionarProfissionaisEvento: async (idEvento, profissionais = []) => {
+    const empresaId = await obterIdEmpresaAtual();
+    if (!empresaId) throw new Error('Vincule sua conta a uma empresa antes de atualizar a equipe.');
+    const referenciaEvento = doc(bancoDados, 'eventos', idEvento);
+    const snapshotEvento = await getDoc(referenciaEvento);
+    if (!snapshotEvento.exists() || snapshotEvento.data().id_empresa !== empresaId) {
+      throw new Error('Este evento não existe ou não pertence à empresa vinculada.');
+    }
+
+    const convites = [];
+    const equipeInformativa = [];
+    for (const profissional of profissionais) {
+      const idUsuario = profissional.idUsuario || profissional.id_usuario || profissional.id;
+      const idTipoProfissional = profissional.idTipoProfissional || profissional.id_tipo_profissional;
+      if (!idUsuario || !idTipoProfissional) throw new Error('Selecione um profissional e o tipo de serviço.');
+      const [snapshotUsuario, snapshotTipo] = await Promise.all([
+        getDoc(doc(bancoDados, 'usuarios', idUsuario)),
+        getDoc(doc(bancoDados, 'tipos_profissional', idTipoProfissional)),
+      ]);
+      const usuario = snapshotUsuario.exists() ? snapshotUsuario.data() : null;
+      const tipo = snapshotTipo.exists() ? snapshotTipo.data() : null;
+      if (usuario?.id_empresa !== empresaId || usuario?.papel !== false || usuario?.ativo !== true) {
+        throw new Error('O profissional selecionado não está mais ativo na equipe desta empresa.');
+      }
+      if (tipo?.id_empresa !== empresaId || tipo?.ativo === false) {
+        throw new Error('O tipo de profissional selecionado não está disponível para esta empresa.');
+      }
+      const dadosProfissional = {
+        ...profissional,
+        idUsuario,
+        idTipoProfissional,
+        nomeProfissional: usuario.nome_completo || profissional.nomeProfissional || 'Colaborador',
+        funcao: tipo.nome,
+      };
+      if (profissional.enviarConvite === false) {
+        equipeInformativa.push({
+          id_usuario: idUsuario,
+          id_tipo_profissional: idTipoProfissional,
+          nome_profissional: dadosProfissional.nomeProfissional,
+          nome_tipo_profissional: tipo.nome,
+        });
+      } else {
+        convites.push(dadosProfissional);
+      }
+    }
+
+    if (convites.length) {
+      await enviarConvitesEvento({ idEvento, idEmpresa: empresaId, profissionais: convites });
+    }
+    if (equipeInformativa.length) {
+      await updateDoc(referenciaEvento, { equipe_informativa: arrayUnion(...equipeInformativa) });
+    }
+    return repositorioEventos.obterEvento(idEvento);
   },
 
   atualizarEvento: async (idEvento, dadosAtualizados) => {

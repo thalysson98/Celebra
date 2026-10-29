@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { CORES } from '../tema/cores';
+import { CORES, FONTES } from '../tema/cores';
 
 // Telas das 4 Abas Principais do Organizador (Figma)
 import TelaInicioOrganizador from '../telas/organizador/TelaInicioOrganizador';
@@ -26,7 +26,7 @@ function NavegadorEventos({ onLogout, usuario }) {
       screenOptions={{
         headerStyle: { backgroundColor: CORES.bgHeaderDark },
         headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontFamily: FONTES.heading, fontWeight: '700' },
       }}
     >
       <Pilha.Screen name="ListaEventos" options={{ headerShown: false }}>
@@ -35,7 +35,9 @@ function NavegadorEventos({ onLogout, usuario }) {
       <Pilha.Screen name="CriarEvento" options={{ title: 'Criar Novo Evento' }}>
         {(props) => <TelaCriarEvento {...props} usuario={usuario} />}
       </Pilha.Screen>
-      <Pilha.Screen name="DetalheEvento" component={TelaDetalheEvento} options={{ title: 'Detalhes do evento', headerTitleStyle: { fontSize: 22, fontWeight: '400' } }} />
+      <Pilha.Screen name="DetalheEvento" options={{ title: 'Detalhes do evento', headerTitleStyle: { fontFamily: FONTES.body, fontSize: 22, fontWeight: '400' } }}>
+        {(props) => <TelaDetalheEvento {...props} usuario={usuario} />}
+      </Pilha.Screen>
     </Pilha.Navigator>
   );
 }
@@ -73,6 +75,7 @@ function AbasOrganizador({ onLogout, usuario, setCurrentUser }) {
           paddingTop: 6,
         },
         tabBarLabelStyle: {
+          fontFamily: FONTES.body,
           fontSize: 11,
           lineHeight: 14,
           fontWeight: '600',
@@ -165,7 +168,7 @@ export default function NavegadorOrganizador({ onLogout, usuario, setCurrentUser
       screenOptions={{
         headerStyle: { backgroundColor: CORES.bgHeaderDark },
         headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontFamily: FONTES.heading, fontWeight: '700' },
       }}
     >
       <Pilha.Screen

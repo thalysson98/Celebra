@@ -138,6 +138,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#FFF7E6',
   },
   statusTexto: {
+    fontFamily: FONTES.bold,
     fontSize: 11,
     fontWeight: '700',
   },

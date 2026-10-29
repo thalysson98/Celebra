@@ -3,9 +3,10 @@ import { ActivityIndicator, ImageBackground, Linking, Platform, ScrollView, Text
 import { Button, Card } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { CORES } from '../../tema/cores';
+import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosDetalheEventoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
+import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 
 const ABAS = ['Geral', 'Locais', 'Equipe', 'Financeiro'];
 const DateTimePickerNativo = Platform.OS === 'web'
@@ -32,7 +33,7 @@ function CampoDataHora({ modo, valor, aoMudar, styles }) {
       style: {
         width: '100%', boxSizing: 'border-box', minHeight: 46, border: '1px solid #D8E2EB',
         borderRadius: 10, padding: '11px 12px', backgroundColor: '#FFFFFF', color: CORES.textNavy,
-        fontSize: 14, fontFamily: 'inherit',
+        fontSize: 14, fontFamily: FONTES.body,
       },
     });
   }
@@ -113,15 +114,17 @@ function formatarMoeda(valor) {
   return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export default function TelaDetalheEvento({ route }) {
+export default function TelaDetalheEvento({ route, usuario }) {
   const { idEvento } = route.params || {};
   const [evento, setEvento] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
-  const [abaAtiva, setAbaAtiva] = useState('Geral');
+  const [abaAtiva, setAbaAtiva] = useState(route.params?.erroConvites ? 'Equipe' : 'Geral');
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [erroEdicao, setErroEdicao] = useState('');
+  const [modalEquipeVisivel, setModalEquipeVisivel] = useState(false);
+  const [erroConvites, setErroConvites] = useState(route.params?.erroConvites || '');
   const [formulario, setFormulario] = useState({
     titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '',
     notasProducao: '', nomeDoLocal: '', enderecoLocal: '', tipoLocal: '',
@@ -201,6 +204,14 @@ export default function TelaDetalheEvento({ route }) {
     } finally {
       setSalvando(false);
     }
+  };
+
+  const adicionarProfissional = async (profissional) => {
+    const atualizado = await repositorioEventos.adicionarProfissionaisEvento(idEvento, [profissional]);
+    setEvento(atualizado);
+    preencherFormulario(atualizado);
+    setModalEquipeVisivel(false);
+    setErroConvites('');
   };
 
   if (carregando) return <View style={styles.center}><ActivityIndicator size="large" color={CORES.buttonGold} /><Text style={styles.loadingText}>Carregando evento...</Text></View>;
@@ -342,6 +353,15 @@ export default function TelaDetalheEvento({ route }) {
             <Text style={styles.sectionTitle}>Equipe de campo</Text>
             <Text style={styles.teamCount}>{equipe.length} atribuídos</Text>
           </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => setModalEquipeVisivel(true)}
+            style={styles.addTeamButton}
+          >
+            <MaterialCommunityIcons name="plus" size={19} color={CORES.textNavy} />
+            <Text style={styles.addTeamButtonText}>Adicionar profissional de campo</Text>
+          </TouchableOpacity>
+          {!!erroConvites && <Text accessibilityRole="alert" style={styles.editError}>{erroConvites}</Text>}
           {equipe.length ? (
             <Card style={styles.card}><Card.Content>
               {equipe.map((pessoa, index) => (
@@ -376,6 +396,13 @@ export default function TelaDetalheEvento({ route }) {
           </>}
         </>}
       </ScrollView>
+      <ModalAdicionarProfissional
+        visible={modalEquipeVisivel}
+        empresaId={usuario?.idEmpresa}
+        equipeAtual={equipe}
+        onClose={() => setModalEquipeVisivel(false)}
+        onAdd={adicionarProfissional}
+      />
     </View>
   );
 }

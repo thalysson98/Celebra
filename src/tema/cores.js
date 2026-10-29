@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 export const CORES = {
   // Fundo Superior & Header (Dark Blue / Deep Navy do Figma)
   fundoCabecalhoEscuro: '#07182C',
@@ -64,19 +62,15 @@ export const CORES = {
 
 export const COLORS = CORES;
 
-const FONTE_PADRAO = Platform.select({
-  ios: 'System',
-  android: 'sans-serif',
-  web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  default: 'sans-serif',
-});
-
-// Compatibilidade com estilos existentes, todos usando a mesma família sans-serif.
+// A família tipográfica segue o arquivo do Figma: Inter.
 export const FONTES = {
-  titulo: FONTE_PADRAO,
-  corpo: FONTE_PADRAO,
-  heading: FONTE_PADRAO,
-  body: FONTE_PADRAO,
+  titulo: 'Inter_700Bold',
+  corpo: 'Inter_400Regular',
+  heading: 'Inter_700Bold',
+  body: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
 };
 
 export const FONTS = FONTES;

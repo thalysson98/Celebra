@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from 'react-native-paper';
-import { COLORS } from '../tema/cores';
+import { COLORS, FONTES } from '../tema/cores';
 
 /**
  * Componente de Métrica do Dashboard inspirado nas aulas de React Native Paper
@@ -42,6 +42,7 @@ const estilos = StyleSheet.create({
     marginBottom: 4,
   },
   valor: {
+    fontFamily: FONTES.bold,
     fontSize: 32,
     fontWeight: '700',
     color: COLORS.textNavy,
@@ -53,6 +54,7 @@ const estilos = StyleSheet.create({
     backgroundColor: COLORS.statusConfirmed,
   },
   rotulo: {
+    fontFamily: FONTES.medium,
     fontSize: 13,
     color: COLORS.textMuted,
     fontWeight: '500',

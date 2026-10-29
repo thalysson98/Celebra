@@ -71,11 +71,11 @@ Contém `id_local`, `id_empresa`, `nome`, `id_tipo_local`, `endereco_completo`, 
 
 ## `eventos/{id_evento}`
 
-Contém `id_evento`, `id_empresa`, `titulo`, `id_tipo_evento`, `id_cliente`, `id_local`, `data_inicio`, `data_fim`, `quantidade_convidados`, `membros_escalados` (lista de `id_usuario`), `situacao` (`aberto`, `em_andamento`, `concluido` ou `cancelado`), `observacoes` e `criado_em`. `id_tipo_evento` vincula o evento ao catálogo da própria empresa; `quantidade_convidados` é opcional.
+Contém `id_evento`, `id_empresa`, `titulo`, `id_tipo_evento`, `id_cliente`, `id_local`, `data_inicio`, `data_fim`, `quantidade_convidados`, `membros_escalados` (lista de `id_usuario` que aceitaram o convite), `equipe_informativa` (lista opcional de profissionais registrados sem convite no app), `situacao` (`aberto`, `em_andamento`, `concluido` ou `cancelado`), `observacoes` e `criado_em`. `id_tipo_evento` vincula o evento ao catálogo da própria empresa; `quantidade_convidados` é opcional.
 
 ## `convites/{id_convite}`
 
-Contém `id_convite`, `id_empresa`, `id_evento`, `id_usuario`, `id_tipo_profissional`, `situacao` (`pendente`, `aceito` ou `recusado`), `enviado_em` e `respondido_em`. O ID do documento de convite usa `{id_evento}_{id_usuario}` para permitir uma única convocação por pessoa/evento. Ao aceitar, o usuário também entra em `eventos.membros_escalados` na mesma transação.
+Contém `id_convite`, `id_empresa`, `id_evento`, `id_usuario`, `id_tipo_profissional`, `nome_profissional`, `nome_tipo_profissional`, `situacao` (`pendente`, `aceito` ou `recusado`), `enviado_em` e `respondido_em`. Os nomes são cópias de exibição para manter o histórico do evento. O ID do documento de convite usa `{id_evento}_{id_usuario}` para permitir uma única convocação por pessoa/evento. Ao aceitar, o usuário também entra em `eventos.membros_escalados` na mesma transação.
 
 ## `indisponibilidade/{id_indisponibilidade}`
 
@@ -92,7 +92,7 @@ Contém `id_usuario`, `data`, `chave_data`, `motivo` opcional e `criado_em`. O I
 ## Consultas por tela
 
 - Login: Firebase Authentication por e-mail; perfil em `usuarios/{uid}`.
-- Perfil: leitura e atualização limitada de `nome_completo` e `telefone` em `usuarios/{uid}`.
+- Perfil: o usuário lê o próprio perfil e atualiza `nome_completo` e `telefone`; organizadores ativos podem consultar os perfis de funcionários ativos da própria empresa para montar a equipe do evento.
 - Convites: `convites` por `id_usuario`.
 - Agenda: `eventos` por `id_empresa` e `membros_escalados`, mais `indisponibilidade` por `id_usuario`.
 - Área administrativa: coleções filtradas por `id_empresa`.
