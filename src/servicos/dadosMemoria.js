@@ -1,5 +1,4 @@
-// src/servicos/dadosMemoria.js
-
+// Repositório de dados em memória para testes e prototipação
 const dadosMemoria = {
   empresaId: "empresa_123",
 
@@ -48,45 +47,66 @@ const dadosMemoria = {
       notasProducao: "Priorizar votos e entrada dos noivos. Drone antes da cerimónia, conforme clima e autorização do local.",
       cliente: {
         nome: "Ana Costa & Pedro Almeida",
-        email: "ana.costa@email.com",
+        cpf: "123.456.789-00",
+        instagram: "@anapedro",
         telefone: "(11) 99999-0123",
-        status: "Cadastro completo"
+        statusCadastro: "Cadastro completo"
       },
-      locaisDoEvento: [
+      locais: [
         {
-          idLocal: "1",
-          tipoLocal: "Cerimónia",
-          nomeEstabelecimento: "Sítio Romagna",
-          endereco: "Estrada dos Vinhedos, 450 • Jundiaí, SP",
-          complemento: "Jardim principal",
-          chegadaEquipa: "Chegada da equipa às 15h",
-          horarioInicio: "16h",
-          horarioFim: "17h"
-        },
-        {
-          idLocal: "2",
-          tipoLocal: "Festa",
-          nomeEstabelecimento: "Complexo Let's Drop",
-          endereco: "Avenida Luiz Lazzarin, 450 • Criciúma, SC",
-          complemento: "Salão de festas",
-          chegadaEquipa: "Captação até o encerramento",
-          horarioInicio: "18h",
-          horarioFim: "23h"
+          id: "loc_1",
+          tipoLocal: "Cerimónia e Festa",
+          nomeDoLocal: "Sítio Romagna",
+          endereco: "Estrada dos Vinhedos, 450 - Jardim",
+          cidadeEstado: "Jundiaí - SP",
+          horaPrevista: "16:00"
         }
       ],
-      equipaDeCampo: [
-        { idProfissional: "1", funcao: "Cinegrafista principal", nome: "Ronald Cipriani", status: "Confirmado(a)", enviarConvite: true },
-        { idProfissional: "2", funcao: "Cinegrafista de apoio", nome: "Raquel da Boit", status: "Pendente", enviarConvite: true }
+      equipa: [
+        {
+          id: "eq_1",
+          nomeProfissional: "Carlos Silva",
+          funcao: "Cinegrafista",
+          statusConfirmacao: "Confirmado"
+        },
+        {
+          id: "eq_2",
+          nomeProfissional: "Mariana Souza",
+          funcao: "Operadora de Drone",
+          statusConfirmacao: "Pendente"
+        }
       ],
       financeiro: {
-        valorTotal: 6000.00,
-        valorPago: 2000.00,
-        saldoAReceber: 4000.00,
-        parcelas: [
-          { id: "1", nome: "1ª parcela", valor: 2000.00, metodo: "Pix", dataVencimento: "10 set 2026", status: "Pago" },
-          { id: "2", nome: "2ª parcela", valor: 2000.00, metodo: "Pix", dataVencimento: "15 out 2026", status: "Vence em 3 dias" },
-          { id: "3", nome: "3ª parcela", valor: 2000.00, metodo: "Pix", dataVencimento: "15 nov 2026", status: "A vencer" }
-        ]
+        valorContrato: "R$ 4.500,00",
+        custoEquipaPrevisto: "R$ 1.200,00",
+        lucroPrevisto: "R$ 3.300,00"
+      }
+    },
+    {
+      id: "2",
+      empresaId: "empresa_123",
+      titulo: "15 Anos - Marina",
+      tipoEvento: "15 Anos",
+      dataInicio: "24 out 2026",
+      horaInicio: "19h",
+      numConvidados: 120,
+      imagemUrl: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622",
+      statusTempo: "futuros",
+      statusEquipa: "Equipa Completa",
+      notasProducao: "Festa temática neon. Vídeo de retrospectiva pontualmente às 21h.",
+      cliente: {
+        nome: "Marina Melo",
+        cpf: "222.333.444-55",
+        instagram: "@marinamelo",
+        telefone: "(48) 9952-0412",
+        statusCadastro: "Cadastro completo"
+      },
+      locais: [],
+      equipa: [],
+      financeiro: {
+        valorContrato: "R$ 3.200,00",
+        custoEquipaPrevisto: "R$ 800,00",
+        lucroPrevisto: "R$ 2.400,00"
       }
     }
   ]

@@ -1,0 +1,70 @@
+import { StyleSheet } from 'react-native';
+import { CORES, FONTES } from '../tema/cores';
+
+export const estilosDetalhesEventoTecnico = StyleSheet.create({
+  screen: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
+    backgroundColor: CORES.sheetBg,
+  },
+  header: {
+    backgroundColor: '#102B46',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  headerRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backButton: { width: 28, height: 38, justifyContent: 'center' },
+  headerTitle: { color: CORES.textWhite, fontFamily: FONTES.body, fontSize: 20, fontWeight: '400' },
+  sectionTabs: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center', gap: 16, height: 43, marginTop: 1 },
+  sectionTab: { minWidth: 52, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  sectionTabText: { color: '#B8C7D9', fontSize: 12 },
+  sectionTabTextSelected: { color: CORES.buttonGold, fontWeight: '700' },
+  sectionTabIndicator: { position: 'absolute', height: 2, left: 0, right: 0, bottom: 0, backgroundColor: CORES.buttonGold },
+  body: { flex: 1, backgroundColor: CORES.sheetBg },
+  banner: { width: '100%', height: 180, justifyContent: 'flex-end', backgroundColor: '#CBD5E1' },
+  bannerOverlay: { padding: 16, backgroundColor: 'rgba(0, 0, 0, 0.45)' },
+  bannerEventName: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
+  bannerEventType: { color: CORES.buttonGold, fontSize: 13, marginTop: 2, fontWeight: '600' },
+  contentCard: {
+    backgroundColor: CORES.cardWhite,
+    margin: 16,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  blockTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: CORES.textNavy,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  blockText: {
+    fontSize: 14,
+    color: CORES.textMuted,
+    lineHeight: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: CORES.textNavy,
+    fontWeight: '600',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: CORES.textMuted,
+  },
+});
+
+export const styles = estilosDetalhesEventoTecnico;

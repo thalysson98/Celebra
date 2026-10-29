@@ -1,69 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { NavigationContainer, useNavigation } from '@react-navigation/native'; // 1. Importe o useNavigation
+import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Icon } from 'react-native-paper';
-import Toast from 'react-native-toast-message';
+import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth } from './src/config/firebaseConfig';
+import { AUTH_COLORS } from './src/styles/authStyles';
 import { logoutUser } from './src/services/authService';
 import { getUserProfile } from './src/services/userService';
 
+// Telas de Autenticação
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 
-import TelaDashboard from './src/telas/TelaDashboard'; // Certifique-se de importar a TelaDashboard se já a criou
+// Novas telas de gestão de eventos (em português)
 import TelaListaEventos from './src/telas/TelaListaEventos';
 import TelaCriarEvento from './src/telas/TelaCriarEvento';
 import TelaDetalheEvento from './src/telas/TelaDetalheEvento';
-import TelaNotificacoes from './src/telas/TelaNotificacoes';
 
 const AuthStack = createStackNavigator();
 const EventosStack = createStackNavigator();
 
-// HOTBAR INFERIOR COM O HOOK useNavigation
-function HotbarInferior() {
-  const navigation = useNavigation(); // 2. Instancia o hook de navegação aqui
-
+/**
+ * Pilha de navegação para as telas do Celebra após o login
+ */
+function NavegacaoEventos({ onLogout }) {
   return (
-    <View style={estilos.hotbarContainer}>
-      <TouchableOpacity style={estilos.hotbarItem} onPress={() => navigation.navigate('Dashboard')}>
-        <Icon source="home" size={22} color="#666" />
-        <Text style={estilos.hotbarTexto}>Início</Text>
-      </TouchableOpacity>
+    <EventosStack.Navigator
+      initialRouteName="ListaEventos"
+      screenOptions={{
+        headerStyle: { backgroundColor: '#1e1e1e' },
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: 'bold' },
+      }}
+    >
+      <EventosStack.Screen 
+        name="ListaEventos" 
+        options={{ title: 'Meus Eventos' }}
+      >
+        {(props) => <TelaListaEventos {...props} onLogout={onLogout} />}
+      </EventosStack.Screen>
 
-      <TouchableOpacity style={estilos.hotbarItem} onPress={() => navigation.navigate('ListaEventos')}>
-        <Icon source="calendar" size={22} color="#D99B00" />
-        <Text style={[estilos.hotbarTexto, { color: '#D99B00', fontWeight: 'bold' }]}>Eventos</Text>
-      </TouchableOpacity>
+      <EventosStack.Screen 
+        name="CriarEvento" 
+        component={TelaCriarEvento} 
+        options={{ title: 'Criar Novo Evento' }} 
+      />
 
-      <TouchableOpacity style={estilos.hotbarItem} onPress={() => Toast.show({ type: 'info', text1: 'Administrando', text2: 'Módulo de cadastros.' })}>
-        <Icon source="cog-outline" size={22} color="#666" />
-        <Text style={estilos.hotbarTexto}>Administrando</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={estilos.hotbarItem} onPress={() => Toast.show({ type: 'info', text1: 'Perfil', text2: 'Dados da conta.' })}>
-        <Icon source="account-outline" size={22} color="#666" />
-        <Text style={estilos.hotbarTexto}>Perfil</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function NavegacaoEventos() {
-  return (
-    <View style={{ flex: 1 }}>
-      <EventosStack.Navigator initialRouteName="Dashboard" screenOptions={{ headerShown: false }}>
-        <EventosStack.Screen name="Dashboard" component={TelaDashboard} />
-        <EventosStack.Screen name="ListaEventos" component={TelaListaEventos} />
-        <EventosStack.Screen name="CriarEvento" component={TelaCriarEvento} />
-        <EventosStack.Screen name="DetalheEvento" component={TelaDetalheEvento} />
-        <EventosStack.Screen name="Notificacoes" component={TelaNotificacoes} />
-      </EventosStack.Navigator>
-      <HotbarInferior />
-    </View>
+      <EventosStack.Screen 
+        name="DetalheEvento" 
+        component={TelaDetalheEvento} 
+        options={{ title: 'Detalhes do Evento' }} 
+      />
+    </EventosStack.Navigator>
   );
 }
 
@@ -72,7 +63,12 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    let authRevision = 0;
+
+    // Escuta a sessão ativa do usuário no Firebase
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      const revision = ++authRevision;
       if (!authUser) {
         setCurrentUser(null);
         setReady(true);
@@ -80,7 +76,7 @@ export default function App() {
       }
       try {
         const profile = await getUserProfile(authUser);
-        setCurrentUser(profile);
+        if (mounted && revision === authRevision) setCurrentUser(profile);
       } catch (error) {
         setCurrentUser({ uid: authUser.uid, email: authUser.email, name: 'Organizador' });
       } finally {
@@ -90,42 +86,73 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const handleLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+  };
+
   if (!ready) {
     return (
-      <View style={estilos.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFC107" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={AUTH_COLORS.buttonYellow || '#6200ee'} />
       </View>
     );
   }
 
+  const isTechnician = currentUser?.role === 'technician';
+
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={estilos.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+        <StatusBar style="light" backgroundColor={AUTH_COLORS.backgroundDark || '#1e1e1e'} />
+
         <NavigationContainer>
-          {currentUser != null ? (
-            <NavegacaoEventos />
+          {currentUser ? (
+            /* Usuário autenticado: Abre as telas de eventos em português */
+            <NavegacaoEventos onLogout={handleLogout} />
           ) : (
-            <AuthStack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+            /* Utilizador NÃO autenticado: Telas de Login e Registo */
+            <AuthStack.Navigator
+              initialRouteName="Login"
+              screenOptions={{
+                headerShown: false,
+                cardStyle: { backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e' },
+              }}
+            >
               <AuthStack.Screen name="Login">
-                {(props) => <LoginScreen {...props} onLoginSuccess={(u) => setCurrentUser(u)} />}
+                {(props) => (
+                  <LoginScreen
+                    {...props}
+                    onLoginSuccess={(user) => setCurrentUser(user)}
+                  />
+                )}
               </AuthStack.Screen>
+
               <AuthStack.Screen name="Register">
-                {(props) => <RegisterScreen {...props} onRegisterSuccess={(u) => setCurrentUser(u)} />}
+                {(props) => (
+                  <RegisterScreen
+                    {...props}
+                    onRegisterSuccess={(user) => setCurrentUser(user)}
+                  />
+                )}
               </AuthStack.Screen>
             </AuthStack.Navigator>
           )}
         </NavigationContainer>
-
-        <Toast position="top" topOffset={300} />
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
-const estilos = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0B2545' },
-  loadingContainer: { flex: 1, backgroundColor: '#0B2545', justifyContent: 'center', alignItems: 'center' },
-  hotbarContainer: { flexDirection: 'row', backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E0E0E0', height: 60, justifyContent: 'space-around', alignItems: 'center' },
-  hotbarItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  hotbarTexto: { fontSize: 11, color: '#666', marginTop: 2 }
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: AUTH_COLORS.backgroundDark || '#1e1e1e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

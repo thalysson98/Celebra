@@ -59,5 +59,8 @@ obterOpcoesSelect: async (tipo) => {
     
     dadosMemoria.eventos.push(eventoCompleto);
     return eventoCompleto;
+  },
+  criarEvento: async (dadosNovoEvento) => {
+    return repositorioEventos.adicionarEvento(dadosNovoEvento);
   }
 };
