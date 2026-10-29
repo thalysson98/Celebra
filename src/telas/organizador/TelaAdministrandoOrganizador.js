@@ -28,6 +28,7 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
   const [busca, setBusca] = useState('');
   const [mostrarArquivados, setMostrarArquivados] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
+  const [modoLeitura, setModoLeitura] = useState(false);
   const [itemEditando, setItemEditando] = useState(null);
   const [nome, setNome] = useState('');
   const [dadosComplementares, setDadosComplementares] = useState({});
@@ -60,8 +61,9 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
 
   useFocusEffect(useCallback(() => { carregarItens(); }, [carregarItens]));
 
-  const abrirCadastro = (item = null) => {
+  const abrirCadastro = (item = null, somenteLeitura = false) => {
     setItemEditando(item);
+    setModoLeitura(somenteLeitura);
     setNome(item ? obterNome(item) : '');
     setDadosComplementares({
       documento: item?.documento || '',
@@ -219,10 +221,10 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
           )}
           renderItem={({ item }) => (
             <View style={styles.itemRow}>
-              <View style={styles.itemText}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Ver detalhes de ${obterNome(item)}`} activeOpacity={0.7} onPress={() => abrirCadastro(item, true)} style={styles.itemText}>
                 <Text style={styles.itemName}>{obterNome(item)}</Text>
                 <Text style={styles.itemDetail}>{obterDetalhe(categoriaAtiva, item)}</Text>
-              </View>
+              </TouchableOpacity>
               {mostrarArquivados ? (
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Reativar ${obterNome(item)}`} style={styles.editButton} onPress={() => reativar(item)}>
                   <MaterialCommunityIcons name="archive-arrow-up-outline" size={19} color={CORES.textMuted} />
@@ -244,39 +246,46 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
       <Modal visible={modalVisivel} transparent animationType="fade" onRequestClose={() => setModalVisivel(false)}>
         <View style={styles.modalOverlay}>
           <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
-            <Text style={styles.modalTitle}>{itemEditando ? 'Editar' : 'Adicionar'} {categoriaAtiva.singular}</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{modoLeitura ? `Detalhes do ${categoriaAtiva.singular}` : `${itemEditando ? 'Editar' : 'Adicionar'} ${categoriaAtiva.singular}`}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar" onPress={() => setModalVisivel(false)} style={styles.closeButton}>
+                <MaterialCommunityIcons name="close" size={21} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.inputLabel}>Nome</Text>
-            <TextInput autoFocus value={nome} onChangeText={setNome} placeholder={`Nome do ${categoriaAtiva.singular}`} style={styles.modalInput} returnKeyType="next" />
+            <TextInput editable={!modoLeitura} autoFocus={!modoLeitura} value={nome} onChangeText={setNome} placeholder={`Nome do ${categoriaAtiva.singular}`} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} returnKeyType="next" />
             {categoriaAtiva.chave === 'clientes' && <>
               <Text style={styles.inputLabel}>CPF ou CNPJ</Text>
-              <TextInput value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, documento: v }))} style={styles.modalInput} keyboardType="numeric" />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, documento: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
               <Text style={styles.inputLabel}>E-mail</Text>
-              <TextInput value={dadosComplementares.email} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, email: v }))} style={styles.modalInput} keyboardType="email-address" autoCapitalize="none" />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.email} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, email: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="email-address" autoCapitalize="none" />
               <Text style={styles.inputLabel}>Telefone</Text>
-              <TextInput value={dadosComplementares.telefone} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, telefone: v }))} style={styles.modalInput} keyboardType="phone-pad" />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.telefone} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, telefone: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="phone-pad" />
               <Text style={styles.inputLabel}>Observações</Text>
-              <TextInput value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput]} multiline />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput, modoLeitura && styles.readOnlyInput]} multiline />
             </>}
             {['tiposEvento', 'tiposProfissional', 'tiposLocal'].includes(categoriaAtiva.chave) && <>
               <Text style={styles.inputLabel}>Descrição (opcional)</Text>
-              <TextInput value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput]} multiline />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput, modoLeitura && styles.readOnlyInput]} multiline />
             </>}
             {categoriaAtiva.chave === 'locaisSalvos' && <>
               <Text style={styles.inputLabel}>Tipo de local</Text>
               {tiposLocal.length ? <View style={styles.typeChoices}>{tiposLocal.map((tipo) => {
                 const selecionado = dadosComplementares.id_tipo_local === tipo.id;
-                return <TouchableOpacity key={tipo.id} onPress={() => setDadosComplementares((atual) => ({ ...atual, id_tipo_local: tipo.id }))} style={[styles.typeChoice, selecionado && styles.typeChoiceSelected]}><Text style={[styles.typeChoiceText, selecionado && styles.typeChoiceTextSelected]}>{obterNome(tipo)}</Text></TouchableOpacity>;
+                return <TouchableOpacity key={tipo.id} disabled={modoLeitura} onPress={() => setDadosComplementares((atual) => ({ ...atual, id_tipo_local: tipo.id }))} style={[styles.typeChoice, selecionado && styles.typeChoiceSelected]}><Text style={[styles.typeChoiceText, selecionado && styles.typeChoiceTextSelected]}>{obterNome(tipo)}</Text></TouchableOpacity>;
               })}</View> : <Text style={styles.helperText}>Cadastre um tipo de local antes de vinculá-lo.</Text>}
               <Text style={styles.inputLabel}>Endereço completo *</Text>
-              <TextInput value={dadosComplementares.endereco_completo} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, endereco_completo: v }))} style={styles.modalInput} multiline />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.endereco_completo} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, endereco_completo: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} multiline />
               <Text style={styles.inputLabel}>Capacidade</Text>
-              <TextInput value={dadosComplementares.capacidade} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, capacidade: v }))} style={styles.modalInput} keyboardType="numeric" />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.capacidade} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, capacidade: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
               <Text style={styles.inputLabel}>Observações</Text>
-              <TextInput value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput]} multiline />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput, modoLeitura && styles.readOnlyInput]} multiline />
             </>}
             <View style={styles.modalActions}>
-              <Button onPress={() => setModalVisivel(false)} textColor={CORES.textMuted}>Cancelar</Button>
-              <Button mode="contained" onPress={salvar} loading={salvando} disabled={!nome.trim() || salvando || !empresaId} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar</Button>
+              <Button onPress={() => setModalVisivel(false)} textColor={CORES.textMuted}>{modoLeitura ? 'Fechar' : 'Cancelar'}</Button>
+              {modoLeitura
+                ? <Button mode="contained" onPress={() => setModoLeitura(false)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Editar</Button>
+                : <Button mode="contained" onPress={salvar} loading={salvando} disabled={!nome.trim() || salvando || !empresaId} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar</Button>}
             </View>
           </ScrollView>
         </View>

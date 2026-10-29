@@ -32,7 +32,7 @@ function NavegadorEventos({ onLogout, usuario }) {
       <Pilha.Screen name="ListaEventos" options={{ headerShown: false }}>
         {(props) => <TelaListaEventos {...props} onLogout={onLogout} />}
       </Pilha.Screen>
-      <Pilha.Screen name="CriarEvento" options={{ title: 'Criar Novo Evento' }}>
+      <Pilha.Screen name="CriarEvento" options={{ title: 'Adicionando evento' }}>
         {(props) => <TelaCriarEvento {...props} usuario={usuario} />}
       </Pilha.Screen>
       <Pilha.Screen name="DetalheEvento" options={{ title: 'Detalhes do evento', headerTitleStyle: { fontFamily: FONTES.body, fontSize: 22, fontWeight: '400' } }}>

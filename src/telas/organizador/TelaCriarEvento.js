@@ -87,9 +87,10 @@ function SeletorDataHora({ modo, valor, aoMudar, styles }) {
 
 export default function TelaCriarEvento({ navigation, usuario }) {
   const [secao, setSecao] = useState('Geral');
-  const [formulario, setFormulario] = useState({ titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '', local: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', valorContrato: '', parcelas: '' });
+  const [formulario, setFormulario] = useState({ titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '', observacoesLocal: '', local: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', valorContrato: '', parcelas: '' });
   const [equipe, setEquipe] = useState([]);
   const [modalEquipeVisivel, setModalEquipeVisivel] = useState(false);
+  const [modalNotasVisivel, setModalNotasVisivel] = useState(false);
   const [selecaoVisivel, setSelecaoVisivel] = useState(false);
   const [tipoSelecao, setTipoSelecao] = useState('');
   const [opcoesSelecao, setOpcoesSelecao] = useState([]);
@@ -179,7 +180,10 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       numConvidados: Number(formulario.numConvidados) || 0,
       statusTempo: 'futuros',
       statusEquipa: 'Equipa Pendente',
-      notasProducao: formulario.notasProducao.trim(),
+      notasProducao: [
+        formulario.observacoesLocal.trim() && `Local: ${formulario.observacoesLocal.trim()}`,
+        formulario.notasProducao.trim() && `Produção: ${formulario.notasProducao.trim()}`,
+      ].filter(Boolean).join('\n\n'),
       cliente: { nome: formulario.cliente.trim() },
       local: {
         nomeDoLocal: formulario.local.trim(),
@@ -209,8 +213,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     </View>
   );
 
-  const CampoSelecao = ({ label, campo, placeholder, icone }) => (
-    <View style={styles.selectionCard}>
+  const CampoSelecao = ({ label, campo, placeholder, icone, compacto = false }) => (
+    <View style={[styles.selectionCard, compacto && styles.selectionCardCompact]}>
       <Text style={styles.selectionLabel}>{label}</Text>
       <TouchableOpacity
         accessibilityRole="button"
@@ -245,8 +249,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         <Text style={styles.sectionHeading}>Informações do evento</Text>
         <Text style={styles.sectionHint}>Os campos com * são obrigatórios.</Text>
         <Campo label="Título do evento" valor={formulario.titulo} aoMudar={(v) => atualizar('titulo', v)} placeholder="Ex.: Ana & Pedro" obrigatorio />
-        <CampoSelecao label="Tipo de evento *" campo="tipoEvento" placeholder="Selecionar" />
         <CampoSelecao label="Cliente *" campo="cliente" placeholder="Selecionar" icone="account-outline" />
+        <CampoSelecao label="Tipo de evento *" campo="tipoEvento" placeholder="Selecionar" />
         <View style={styles.row}>
           <View style={styles.column}><CampoDataHora label="Data *" campo="dataInicio" modo="date" placeholder="DD/MM/AAAA" /></View>
           <View style={styles.column}><CampoDataHora label="Horário" campo="horaInicio" modo="time" placeholder="16:00" /></View>
@@ -256,36 +260,48 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     );
     if (nomeSecao === 'Locais') return (
       <>
-        <Text style={styles.sectionHeading}>Locais do evento</Text>
-        <Text style={styles.sectionHint}>Informe o espaço e os detalhes de chegada da equipe.</Text>
-        <CampoSelecao label="Local *" campo="local" placeholder="Selecionar o endereço" icone="map-marker-outline" />
-        <View style={styles.row}>
-          <View style={styles.column}><CampoSelecao label="Tipo de local *" campo="tipoLocal" placeholder="Selecionar o tipo do local" /></View>
-          <View style={styles.column}><CampoDataHora label="Horário" campo="horaLocal" modo="time" /></View>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionHeading}>Locais do evento</Text>
+          <Text style={styles.locationCount}>{formulario.local ? '1 local' : '0 locais'}</Text>
         </View>
+        <Text style={styles.sectionHint}>Informe o espaço e os detalhes de chegada da equipe.</Text>
+        <View style={styles.locationCard}>
+          <CampoSelecao label="Local" campo="local" placeholder="Selecionar o endereço" icone="map-marker-outline" compacto />
+          <View style={styles.row}>
+            <View style={styles.column}><CampoSelecao label="Tipo de local" campo="tipoLocal" placeholder="Selecionar o tipo do local" compacto /></View>
+            <View style={styles.column}><CampoDataHora label="Horário" campo="horaLocal" modo="time" /></View>
+          </View>
+          <Campo label="Observações" valor={formulario.observacoesLocal} aoMudar={(v) => atualizar('observacoesLocal', v)} placeholder="Escrever observação..." multilinha />
+        </View>
+        <Button mode="contained" icon={formulario.local ? 'pencil-outline' : 'plus'} onPress={() => abrirSelecao('local')} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addLocationButton}>
+          {formulario.local ? 'Alterar local do evento' : 'Adicionar local ao evento'}
+        </Button>
       </>
     );
     if (nomeSecao === 'Equipe') return (
       <>
         <Text style={styles.sectionHeading}>Equipe de campo</Text>
         <Text style={styles.sectionHint}>Adicione as funções e os profissionais previstos para o evento.</Text>
-        {equipe.map((pessoa) => <View key={pessoa.id} style={styles.personRow}><View style={styles.personIcon}><MaterialCommunityIcons name="video-outline" size={20} color={CORES.textNavy} /></View><View style={styles.personInfo}><Text style={styles.personName}>{pessoa.funcao}</Text><Text style={styles.personMeta}>{pessoa.nomeProfissional} · {pessoa.enviarConvite ? 'Convite pendente' : 'Informativo'}</Text></View><TouchableOpacity accessibilityLabel={`Remover ${pessoa.nomeProfissional}`} onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))}><MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} /></TouchableOpacity></View>)}
+        <View style={styles.teamCard}>
+          {equipe.map((pessoa) => <View key={pessoa.id} style={styles.personRow}><View style={styles.personIcon}><MaterialCommunityIcons name="video-outline" size={20} color={CORES.textNavy} /></View><View style={styles.personInfo}><Text style={styles.personName}>{pessoa.funcao}</Text><Text style={styles.personMeta}>{pessoa.nomeProfissional} · {pessoa.enviarConvite ? 'Convite pendente' : 'Informativo'}</Text></View><TouchableOpacity accessibilityLabel={`Remover ${pessoa.nomeProfissional}`} onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))}><MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} /></TouchableOpacity></View>)}
+          {!equipe.length && <Text style={styles.emptyTeam}>Nenhum profissional adicionado.</Text>}
+        </View>
         <Button mode="contained" icon="plus" onPress={() => setModalEquipeVisivel(true)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addTeamButton}>Adicionar profissional de campo</Button>
       </>
     );
     return (
       <>
         <View style={styles.noteCard}>
-          <Text style={styles.sectionHeading}>Notas da produção</Text>
-          <Text style={styles.sectionHint}>Observações importantes para a equipe.</Text>
-          <TextInput
-            value={formulario.notasProducao}
-            onChangeText={(valor) => atualizar('notasProducao', valor)}
-            placeholder="Escrever notas..."
-            placeholderTextColor={CORES.textSubtle}
-            multiline
-            style={[styles.input, styles.multiline]}
-          />
+          <View style={styles.noteHeader}>
+            <View style={styles.noteHeaderText}>
+              <Text style={styles.sectionHeading}>Notas da produção</Text>
+              <Text style={styles.sectionHint}>Observações importantes para a equipe.</Text>
+            </View>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setModalNotasVisivel(true)}>
+              <Text style={styles.noteEdit}>Editar</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.notePreview} numberOfLines={2}>{formulario.notasProducao || 'Escrever notas...'}</Text>
         </View>
         <Text style={styles.sectionHeading}>Financeiro</Text>
         <Text style={styles.sectionHint}>Registre os valores combinados para acompanhar o evento.</Text>
@@ -392,6 +408,21 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         onClose={() => setModalEquipeVisivel(false)}
         onAdd={adicionarProfissional}
       />
+      <Modal visible={modalNotasVisivel} transparent animationType="fade" onRequestClose={() => setModalNotasVisivel(false)}>
+        <View style={styles.selectionOverlay}>
+          <View style={styles.notesModal}>
+            <View style={styles.selectionModalHeader}>
+              <Text style={styles.selectionModalTitle}>Notas da produção</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar notas" onPress={() => setModalNotasVisivel(false)}>
+                <MaterialCommunityIcons name="close" size={23} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.sectionHint}>Observações importantes para a equipe.</Text>
+            <TextInput value={formulario.notasProducao} onChangeText={(valor) => atualizar('notasProducao', valor)} placeholder="Escrever notas..." placeholderTextColor={CORES.textSubtle} multiline style={[styles.input, styles.multiline]} />
+            <Button mode="contained" onPress={() => setModalNotasVisivel(false)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.notesSaveButton}>Salvar notas</Button>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
