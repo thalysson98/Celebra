@@ -1,3 +1,5 @@
+// src/estilos/estilosPainelTecnico.js
+
 import { StyleSheet } from 'react-native';
 import { CORES, FONTES } from '../tema/cores';
 
@@ -208,7 +210,6 @@ export const estilosPainelTecnico = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  // Perfil e Configurações
   profileCard: {
     backgroundColor: CORES.cardWhite,
     borderRadius: 16,
@@ -302,7 +303,6 @@ export const estilosPainelTecnico = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-  // Bottom Bar
   bottomBar: {
     flexDirection: 'row',
     backgroundColor: CORES.cardWhite,
@@ -332,7 +332,6 @@ export const estilosPainelTecnico = StyleSheet.create({
     color: CORES.textNavy,
     fontWeight: '700',
   },
-  // Modal de Calendário
   calendarModal: {
     flex: 1,
     justifyContent: 'center',
@@ -361,11 +360,9 @@ export const estilosPainelTecnico = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-});
-
-const estilosTecnicoAtualizados = StyleSheet.create({
-  summaryRow: { ...estilosPainelTecnico.summaryGrid },
-  summaryNumber: { ...estilosPainelTecnico.summaryValue },
+  
+  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  summaryNumber: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 32, fontWeight: '700', marginTop: 8 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sectionAction: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 13, fontWeight: '700' },
   loader: { marginVertical: 24 },
@@ -408,9 +405,7 @@ const estilosTecnicoAtualizados = StyleSheet.create({
   eventMonthLabel: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 16, fontWeight: '700', marginBottom: 10 },
   eventEmptyCard: { backgroundColor: CORES.cardWhite, borderRadius: 16, padding: 22, alignItems: 'center' },
   eventEmptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF3F7', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  eventCard: { backgroundColor: CORES.cardWhite, borderRadius: 16, overflow: 'hidden', marginBottom: 14, elevation: 2 },
-  eventCover: { height: 88, backgroundColor: '#DCEBF3', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  eventCoverGlow: { position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: '#FCE082', opacity: 0.45, right: -18, top: -45 },
+  
   eventCoverIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center' },
   eventCoverType: { position: 'absolute', left: 13, bottom: 10, color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 11, fontWeight: '700' },
   eventCardContent: { padding: 14 },
@@ -420,13 +415,15 @@ const estilosTecnicoAtualizados = StyleSheet.create({
   eventCardClient: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 12, marginTop: 3 },
   eventMetadata: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   eventMetadataItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  eventMetadataText: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 11, maxWidth: 190 },
+  // Estilo maior para destacar data e hora
+  eventMetadataTextLarge: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 14 },
   eventCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#E6EDF1', marginTop: 12, paddingTop: 10 },
   eventRole: { color: CORES.textNavy, fontFamily: FONTES.semibold, fontSize: 11, fontWeight: '600' },
   eventStatus: { color: '#147D59', backgroundColor: '#E4F5ED', overflow: 'hidden', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, fontFamily: FONTES.bold, fontSize: 10, fontWeight: '700' },
   eventStatusPending: { backgroundColor: '#FFF2D7' },
   eventStatusText: { color: '#147D59', fontFamily: FONTES.bold, fontSize: 10, fontWeight: '700' },
   eventStatusPendingText: { color: '#9A6500' },
+  
   agendaCalendarCard: { backgroundColor: CORES.cardWhite, borderRadius: 16, padding: 16, marginBottom: 14, elevation: 1 },
   agendaCalendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   agendaMonthTitle: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 17, fontWeight: '700' },
@@ -437,20 +434,27 @@ const estilosTecnicoAtualizados = StyleSheet.create({
   agendaCalendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   agendaDayCell: { width: '14.285%', height: 42, alignItems: 'center', justifyContent: 'center' },
   agendaDayCircle: { width: 31, height: 31, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  
+  // Bolinhas grandes substituindo os dots (Aplicadas como Background no agendaDayCircle)
+  agendaDayConfirmed: { backgroundColor: '#2F80A8' }, // Azul para confirmado
+  agendaDayPending: { backgroundColor: '#F97316' }, // Laranja para pendente
+  agendaDayNumberEvent: { color: '#FFFFFF', fontWeight: 'bold' }, // Texto branco se tiver evento
+  
   agendaDayNumber: { color: CORES.textNavy, fontFamily: FONTES.body, fontSize: 12 },
   agendaDayNumberOutside: { color: '#B6C2CB' },
   agendaDayNumberSelected: { fontFamily: FONTES.bold, color: CORES.textNavy, fontWeight: '700' },
   agendaDayOutsideMonth: { opacity: 0.45 },
   agendaDayToday: { borderWidth: 1, borderColor: CORES.buttonGold },
-  agendaDayUnavailable: { backgroundColor: '#FCE8E8' },
-  agendaDaySelected: { backgroundColor: '#FCE082' },
-  agendaEventDot: { position: 'absolute', bottom: 1, width: 4, height: 4, borderRadius: 2, backgroundColor: '#2F80A8' },
-  agendaEventDotSelected: { backgroundColor: CORES.textNavy },
-  agendaLegend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+  agendaDayUnavailable: { backgroundColor: '#D44848' },
+  agendaDaySelected: { borderWidth: 2, borderColor: '#FCE082' }, // Mudado para borda, para não sobrescrever a cor de status
+  
+  agendaLegend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' },
   agendaLegendDot: { width: 8, height: 8, borderRadius: 4 },
   agendaLegendEvent: { backgroundColor: '#2F80A8' },
-  agendaLegendUnavailable: { backgroundColor: '#D44848', marginLeft: 12 },
+  agendaLegendPending: { backgroundColor: '#F97316', marginLeft: 6 },
+  agendaLegendUnavailable: { backgroundColor: '#D44848', marginLeft: 6 },
   agendaLegendText: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 11 },
+  
   agendaAvailabilityButton: { minHeight: 42, borderRadius: 11, backgroundColor: CORES.textNavy, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 8 },
   agendaAvailabilityButtonText: { color: CORES.textWhite, fontFamily: FONTES.semibold, fontSize: 13, fontWeight: '600' },
   agendaAvailabilityDisabled: { opacity: 0.45 },
@@ -464,6 +468,7 @@ const estilosTecnicoAtualizados = StyleSheet.create({
   agendaEventDetails: { flex: 1 },
   agendaEventTitle: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 13, fontWeight: '700' },
   agendaEventSubtitle: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 11, marginTop: 3 },
+  
   userProfileCard: { backgroundColor: CORES.cardWhite, borderRadius: 16, padding: 16, marginBottom: 18, elevation: 1 },
   userProfileHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   userProfileAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#102B46', alignItems: 'center', justifyContent: 'center' },
@@ -499,27 +504,16 @@ const estilosTecnicoAtualizados = StyleSheet.create({
   availabilityDialogCard: { backgroundColor: CORES.cardWhite, borderRadius: 18, padding: 20, alignItems: 'center' },
   availabilityDialogTitle: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 17, fontWeight: '700', textAlign: 'center', marginTop: 12 },
   availabilityDialogMessage: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 13, textAlign: 'center', marginTop: 8 },
-  bottomNav: { ...estilosPainelTecnico.bottomBar },
-  tabButton: { ...estilosPainelTecnico.bottomTab },
+  
   tabIconContainer: { minWidth: 42, height: 30, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  tabIconSelected: { ...estilosPainelTecnico.activeTabPill },
   tabBadge: { position: 'absolute', top: -5, right: -6, minWidth: 15, height: 15, borderRadius: 8, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center' },
   tabBadgeText: { fontFamily: FONTES.bold, color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
-  tabLabel: { ...estilosPainelTecnico.bottomTabLabel },
-  tabLabelSelected: { ...estilosPainelTecnico.bottomTabLabelActive },
-  assignmentCard: { ...estilosPainelTecnico.eventCard, marginBottom: 12 },
+  
   cardHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   typeBadge: { backgroundColor: '#EAF3F7', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5 },
   typeBadgeText: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 11, fontWeight: '700' },
   statusText: { color: '#147D59', fontFamily: FONTES.bold, fontSize: 11, fontWeight: '700' },
   detailText: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 13, marginTop: 4 },
   roleText: { color: CORES.textNavy, fontFamily: FONTES.body, fontSize: 12, marginTop: 7 },
-  actions: { ...estilosPainelTecnico.actionsRow },
   actionButton: { flex: 1, minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  acceptButton: { ...estilosPainelTecnico.btnAccept },
-  acceptButtonText: { ...estilosPainelTecnico.btnAcceptText },
-  declineButton: { ...estilosPainelTecnico.btnDecline },
-  declineButtonText: { ...estilosPainelTecnico.btnDeclineText },
 });
-
-export const styles = { ...estilosPainelTecnico, ...estilosTecnicoAtualizados };

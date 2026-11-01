@@ -1,9 +1,12 @@
+// src/telas/organizador/TelaAdministrandoOrganizador.js
+
 import React, { useCallback, useState } from 'react';
-import { Alert, FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Button, Card } from 'react-native-paper';
-import { CORES } from '../../tema/cores';
+import Toast from 'react-native-toast-message';
+import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosAdministrandoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 
@@ -22,42 +25,48 @@ const obterDetalhe = (categoria, item) => {
   return 'Disponível em novos eventos';
 };
 
-export default function TelaAdministrandoOrganizador({ usuario }) {
+export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [categoriaAtiva, setCategoriaAtiva] = useState(CATEGORIAS[0]);
   const [itens, setItens] = useState([]);
+  const [inativos, setInativos] = useState([]);
   const [busca, setBusca] = useState('');
-  const [mostrarArquivados, setMostrarArquivados] = useState(false);
-  const [modalVisivel, setModalVisivel] = useState(false);
+  
+  const [modalInativosVisivel, setModalInativosVisivel] = useState(false);
+  const [modalCadastroVisivel, setModalCadastroVisivel] = useState(false);
+  const [modalInativarVisivel, setModalInativarVisivel] = useState(false);
+  const [itemParaInativar, setItemParaInativar] = useState(null);
+  
   const [modoLeitura, setModoLeitura] = useState(false);
   const [itemEditando, setItemEditando] = useState(null);
   const [nome, setNome] = useState('');
   const [dadosComplementares, setDadosComplementares] = useState({});
   const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [tiposLocal, setTiposLocal] = useState([]);
   const empresaId = usuario?.idEmpresa || usuario?.companyId;
 
   const carregarItens = useCallback(async () => {
-    if (!empresaId) {
-      setItens([]);
-      setErro('Esta conta ainda não está vinculada a uma empresa.');
-      return;
-    }
+    if (!empresaId) { setItens([]); return; }
     setCarregando(true);
-    setErro('');
     try {
-      const lista = await repositorioEventos.obterOpcoesSelect(categoriaAtiva.chave, empresaId, mostrarArquivados);
-      setItens(lista || []);
+      const listaAtivos = await repositorioEventos.obterOpcoesSelect(categoriaAtiva.chave, empresaId, false);
+      setItens(listaAtivos || []);
     } catch (error) {
-      setItens([]);
-      setErro(error?.code === 'permission-denied'
-        ? 'O Firebase bloqueou este acesso. Confirme se as regras do Firestore foram publicadas.'
-        : 'Não foi possível carregar os cadastros. Verifique sua conexão e tente novamente.');
-    } finally {
-      setCarregando(false);
-    }
-  }, [categoriaAtiva, empresaId, mostrarArquivados]);
+      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível carregar os cadastros.' });
+    } finally { setCarregando(false); }
+  }, [categoriaAtiva, empresaId]);
+
+  const carregarInativos = async () => {
+    setCarregando(true);
+    try {
+      const listaGeral = await repositorioEventos.obterOpcoesSelect(categoriaAtiva.chave, empresaId, true);
+      const listaInativos = listaGeral.filter(i => i.ativo === false);
+      setInativos(listaInativos || []);
+      setModalInativosVisivel(true);
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível carregar inativos.' });
+    } finally { setCarregando(false); }
+  };
 
   useFocusEffect(useCallback(() => { carregarItens(); }, [carregarItens]));
 
@@ -66,100 +75,74 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
     setModoLeitura(somenteLeitura);
     setNome(item ? obterNome(item) : '');
     setDadosComplementares({
-      documento: item?.documento || '',
-      email: item?.email || '',
-      telefone: item?.telefone || '',
-      observacoes: item?.observacoes || item?.descricao || '',
-      endereco_completo: item?.endereco_completo || '',
-      id_tipo_local: item?.id_tipo_local || '',
-      capacidade: item?.capacidade ? String(item.capacidade) : '',
+      documento: item?.documento || '', email: item?.email || '', telefone: item?.telefone || '',
+      observacoes: item?.observacoes || item?.descricao || '', 
+      rua: item?.rua || '', numero: item?.numero || '', bairro: item?.bairro || '', cidade: item?.cidade || '', estado: item?.estado || '',
     });
     if (categoriaAtiva.chave === 'locaisSalvos') {
-      repositorioEventos.obterOpcoesSelect('tiposLocal', empresaId)
-        .then(setTiposLocal)
-        .catch(() => setTiposLocal([]));
+      repositorioEventos.obterOpcoesSelect('tiposLocal', empresaId).then(setTiposLocal).catch(() => setTiposLocal([]));
     }
-    setModalVisivel(true);
+    setModalCadastroVisivel(true);
   };
 
   const salvar = async () => {
     const valor = nome.trim();
     if (!valor) return;
-    if (categoriaAtiva.chave === 'locaisSalvos' && !dadosComplementares.endereco_completo.trim()) {
-      Alert.alert('Endereço obrigatório', 'Informe o endereço completo do local.');
-      return;
-    }
-    if (categoriaAtiva.chave === 'locaisSalvos' && !dadosComplementares.id_tipo_local) {
-      Alert.alert('Tipo de local obrigatório', tiposLocal.length
-        ? 'Selecione uma categoria para este local.'
-        : 'Cadastre um tipo de local antes de adicionar um local.');
-      return;
-    }
     setSalvando(true);
     try {
+      const enderecoCompleto = categoriaAtiva.chave === 'locaisSalvos' 
+         ? `${dadosComplementares.rua}, ${dadosComplementares.numero} - ${dadosComplementares.bairro}, ${dadosComplementares.cidade} - ${dadosComplementares.estado}`
+         : '';
+
       const dados = {
         nome: valor,
-        ...(categoriaAtiva.chave === 'clientes' && {
-          documento: dadosComplementares.documento.trim(),
-          email: dadosComplementares.email.trim(),
-          telefone: dadosComplementares.telefone.trim(),
-          observacoes: dadosComplementares.observacoes.trim(),
-        }),
+        ...(categoriaAtiva.chave === 'clientes' && { documento: dadosComplementares.documento.trim(), email: dadosComplementares.email.trim(), telefone: dadosComplementares.telefone.trim(), observacoes: dadosComplementares.observacoes.trim() }),
         ...(['tiposEvento', 'tiposProfissional', 'tiposLocal'].includes(categoriaAtiva.chave) && { descricao: dadosComplementares.observacoes.trim() }),
-        ...(categoriaAtiva.chave === 'locaisSalvos' && { endereco_completo: dadosComplementares.endereco_completo.trim() }),
-        ...(categoriaAtiva.chave === 'locaisSalvos' && {
-          id_tipo_local: dadosComplementares.id_tipo_local,
-          capacidade: Number(dadosComplementares.capacidade) || 0,
-          observacoes: dadosComplementares.observacoes.trim(),
+        ...(categoriaAtiva.chave === 'locaisSalvos' && { 
+            endereco_completo: enderecoCompleto, 
+            rua: dadosComplementares.rua, numero: dadosComplementares.numero, bairro: dadosComplementares.bairro, cidade: dadosComplementares.cidade, estado: dadosComplementares.estado,
+            observacoes: dadosComplementares.observacoes.trim() 
         }),
       };
       if (itemEditando) await repositorioEventos.atualizarItemSelect(categoriaAtiva.chave, itemEditando.id, dados, empresaId);
       else await repositorioEventos.adicionarNovoItemSelect(categoriaAtiva.chave, dados, empresaId);
-      setModalVisivel(false);
+      setModalCadastroVisivel(false);
       setNome('');
       await carregarItens();
-    } catch (error) {
-      Alert.alert('Não foi possível salvar', error?.code === 'permission-denied'
-        ? 'O Firebase bloqueou a gravação. Confirme se as regras do Firestore foram publicadas.'
-        : 'Verifique sua conexão e tente novamente.');
-    } finally {
-      setSalvando(false);
-    }
+      Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Salvo com sucesso!' });
+    } catch (error) { Toast.show({ type: 'error', text1: 'Erro', text2: 'Verifique sua conexão.' }); } finally { setSalvando(false); }
   };
 
-  const arquivar = (item) => {
-    Alert.alert(
-      `Arquivar ${categoriaAtiva.singular}`,
-      `“${obterNome(item)}” deixará de aparecer nos cadastros ativos.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Arquivar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await repositorioEventos.arquivarItemSelect(categoriaAtiva.chave, item.id, empresaId);
-              await carregarItens();
-            } catch (error) {
-              Alert.alert('Não foi possível arquivar', error?.code === 'permission-denied'
-                ? 'O Firebase bloqueou esta alteração. Confirme se as regras do Firestore foram publicadas.'
-                : 'Verifique sua conexão e tente novamente.');
-            }
-          },
-        },
-      ],
-    );
+  const inativar = (item) => {
+    setItemParaInativar(item);
+    setModalInativarVisivel(true);
+  };
+
+  const confirmarInativacao = async () => {
+    setModalInativarVisivel(false);
+    try {
+      const emUso = await repositorioEventos.verificarUsoEmEvento(categoriaAtiva.chave, itemParaInativar.id, empresaId);
+      if (emUso) {
+         Toast.show({ type: 'error', text1: 'Atenção', text2: 'Este registro está em uso e não pode ser inativado.' });
+         return;
+      }
+      await repositorioEventos.arquivarItemSelect(categoriaAtiva.chave, itemParaInativar.id, empresaId);
+      carregarItens();
+      Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Cadastro inativado.' });
+    } catch (e) {
+      Toast.show({ type: 'error', text1: 'Erro', text2: 'Ocorreu um erro ao inativar.' });
+    }
   };
 
   const reativar = async (item) => {
     try {
       await repositorioEventos.reativarItemSelect(categoriaAtiva.chave, item.id, empresaId);
-      await carregarItens();
-    } catch (error) {
-      Alert.alert('Não foi possível reativar', error?.code === 'permission-denied'
-        ? 'O Firebase bloqueou esta alteração. Confirme se as regras do Firestore foram publicadas.'
-        : 'Verifique sua conexão e tente novamente.');
-    }
+      const listaAtualizada = inativos.filter(i => i.id !== item.id);
+      setInativos(listaAtualizada);
+      if (listaAtualizada.length === 0) setModalInativosVisivel(false);
+      carregarItens();
+      Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Cadastro reativado.' });
+    } catch (error) { Toast.show({ type: 'error', text1: 'Erro', text2: 'Verifique sua conexão.' }); }
   };
 
   const itensFiltrados = itens.filter((item) => obterNome(item).toLocaleLowerCase('pt-BR').includes(busca.trim().toLocaleLowerCase('pt-BR')));
@@ -171,20 +154,17 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
           <Text style={styles.title}>Minha empresa</Text>
           <Text style={styles.subtitle}>Administrando seu negócio</Text>
         </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Notificações" style={styles.notificationButton}>
+        <TouchableOpacity style={styles.notificationButton} onPress={() => navigation?.navigate('Notificacoes')}>
           <Feather name="bell" size={19} color={CORES.textWhite} />
         </TouchableOpacity>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-        {CATEGORIAS.map((categoria) => {
-          const ativo = categoriaAtiva.chave === categoria.chave;
-          return (
-            <TouchableOpacity key={categoria.chave} onPress={() => { setCategoriaAtiva(categoria); setBusca(''); setMostrarArquivados(false); }} style={[styles.tab, ativo && styles.tabAtiva]}>
-              <Text style={[styles.tabText, ativo && styles.tabTextAtiva]}>{categoria.titulo}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        {CATEGORIAS.map((categoria) => (
+          <TouchableOpacity key={categoria.chave} onPress={() => { setCategoriaAtiva(categoria); setBusca(''); }} style={[styles.tab, categoriaAtiva.chave === categoria.chave && styles.tabAtiva]}>
+            <Text style={[styles.tabText, categoriaAtiva.chave === categoria.chave && styles.tabTextAtiva]}>{categoria.titulo}</Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
       <View style={styles.sheet}>
@@ -197,22 +177,20 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
             <>
               <Text style={styles.sectionTitle}>Cadastros da empresa</Text>
               <Text style={styles.sectionSubtitle}>{categoriaAtiva.descricao}</Text>
-              <Text style={styles.listTitle}>{categoriaAtiva.titulo}</Text>
               <Card style={styles.listCard}>
                 <Card.Content style={styles.cardContent}>
                   <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
                       <Feather name="search" size={17} color={CORES.textMuted} />
-                      <TextInput value={busca} onChangeText={setBusca} placeholder={`Buscar ${categoriaAtiva.titulo.toLowerCase()}`} placeholderTextColor={CORES.textSubtle} style={styles.searchInput} returnKeyType="search" />
+                      <TextInput value={busca} onChangeText={setBusca} placeholder={`Buscar ${categoriaAtiva.titulo.toLowerCase()}`} placeholderTextColor={CORES.textSubtle} style={styles.searchInput} />
                     </View>
-                    <Button mode="contained" onPress={Keyboard.dismiss} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.searchButton} contentStyle={styles.searchButtonContent}>Buscar</Button>
                   </View>
                   <View style={styles.listActions}>
-                    {!mostrarArquivados && <Button mode="contained" icon="plus" onPress={() => abrirCadastro()} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addButton} contentStyle={styles.addButtonContent}>
+                    <Button mode="contained" icon="plus" onPress={() => abrirCadastro()} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addButton}>
                       Adicionar {categoriaAtiva.singular}
-                    </Button>}
-                    <Button mode="text" icon={mostrarArquivados ? 'archive-arrow-up' : 'archive-outline'} onPress={() => setMostrarArquivados((atual) => !atual)} textColor={CORES.textNavy} style={styles.archiveToggle}>
-                      {mostrarArquivados ? 'Ver ativos' : 'Ver arquivados'}
+                    </Button>
+                    <Button mode="text" icon="archive-outline" onPress={carregarInativos} textColor={CORES.textNavy} style={styles.archiveToggle}>
+                      Ver inativos
                     </Button>
                   </View>
                 </Card.Content>
@@ -221,73 +199,103 @@ export default function TelaAdministrandoOrganizador({ usuario }) {
           )}
           renderItem={({ item }) => (
             <View style={styles.itemRow}>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Ver detalhes de ${obterNome(item)}`} activeOpacity={0.7} onPress={() => abrirCadastro(item, true)} style={styles.itemText}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => abrirCadastro(item, true)} style={styles.itemText}>
                 <Text style={styles.itemName}>{obterNome(item)}</Text>
                 <Text style={styles.itemDetail}>{obterDetalhe(categoriaAtiva, item)}</Text>
               </TouchableOpacity>
-              {mostrarArquivados ? (
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Reativar ${obterNome(item)}`} style={styles.editButton} onPress={() => reativar(item)}>
-                  <MaterialCommunityIcons name="archive-arrow-up-outline" size={19} color={CORES.textMuted} />
-                </TouchableOpacity>
-              ) : <>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Editar ${obterNome(item)}`} style={styles.editButton} onPress={() => abrirCadastro(item)}>
-                  <MaterialCommunityIcons name="pencil-outline" size={19} color={CORES.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Arquivar ${obterNome(item)}`} style={styles.editButton} onPress={() => arquivar(item)}>
-                  <MaterialCommunityIcons name="archive-outline" size={19} color={CORES.textMuted} />
-                </TouchableOpacity>
-              </>}
+              <TouchableOpacity style={styles.editButton} onPress={() => abrirCadastro(item)}>
+                <MaterialCommunityIcons name="pencil-outline" size={19} color={CORES.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.editButton} onPress={() => inativar(item)}>
+                <MaterialCommunityIcons name="archive-arrow-down-outline" size={19} color="#8A99A8" />
+              </TouchableOpacity>
             </View>
           )}
-          ListEmptyComponent={<View style={styles.empty}>{carregando ? <Text style={styles.emptyText}>Carregando cadastros...</Text> : erro ? <><MaterialCommunityIcons name="alert-circle-outline" size={30} color={CORES.textSubtle} /><Text style={styles.emptyText}>{erro}</Text><Button mode="text" onPress={carregarItens} textColor={CORES.textNavy}>Tentar novamente</Button></> : <><MaterialCommunityIcons name="text-search" size={30} color={CORES.textSubtle} /><Text style={styles.emptyText}>{busca ? 'Nenhum cadastro encontrado.' : mostrarArquivados ? 'Não há cadastros arquivados nesta categoria.' : 'Ainda não há cadastros nesta categoria.'}</Text></>}</View>}
+          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>{carregando ? 'Carregando...' : 'Nenhum cadastro ativo.'}</Text></View>}
         />
       </View>
 
-      <Modal visible={modalVisivel} transparent animationType="fade" onRequestClose={() => setModalVisivel(false)}>
+      <Modal visible={modalCadastroVisivel} transparent animationType="fade" onRequestClose={() => setModalCadastroVisivel(false)}>
         <View style={styles.modalOverlay}>
           <ScrollView style={styles.modalCard} keyboardShouldPersistTaps="handled">
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{modoLeitura ? `Detalhes do ${categoriaAtiva.singular}` : `${itemEditando ? 'Editar' : 'Adicionar'} ${categoriaAtiva.singular}`}</Text>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar" onPress={() => setModalVisivel(false)} style={styles.closeButton}>
+              <Text style={styles.modalTitle}>{modoLeitura ? `Detalhes` : `${itemEditando ? 'Editar' : 'Adicionar'} ${categoriaAtiva.singular}`}</Text>
+              <TouchableOpacity onPress={() => setModalCadastroVisivel(false)} style={styles.closeButton}>
                 <MaterialCommunityIcons name="close" size={21} color={CORES.textMuted} />
               </TouchableOpacity>
             </View>
             <Text style={styles.inputLabel}>Nome</Text>
-            <TextInput editable={!modoLeitura} autoFocus={!modoLeitura} value={nome} onChangeText={setNome} placeholder={`Nome do ${categoriaAtiva.singular}`} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} returnKeyType="next" />
+            <TextInput editable={!modoLeitura} value={nome} onChangeText={setNome} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
+            
+            {categoriaAtiva.chave === 'locaisSalvos' && <>
+              <Text style={styles.inputLabel}>Rua / Endereço</Text>
+              <TextInput editable={!modoLeitura} value={dadosComplementares.rua} onChangeText={(v) => setDadosComplementares((a) => ({...a, rua: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Número</Text><TextInput editable={!modoLeitura} value={dadosComplementares.numero} onChangeText={(v) => setDadosComplementares((a) => ({...a, numero: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Bairro</Text><TextInput editable={!modoLeitura} value={dadosComplementares.bairro} onChangeText={(v) => setDadosComplementares((a) => ({...a, bairro: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Cidade</Text><TextInput editable={!modoLeitura} value={dadosComplementares.cidade} onChangeText={(v) => setDadosComplementares((a) => ({...a, cidade: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Estado</Text><TextInput editable={!modoLeitura} value={dadosComplementares.estado} onChangeText={(v) => setDadosComplementares((a) => ({...a, estado: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+              </View>
+            </>}
+
             {categoriaAtiva.chave === 'clientes' && <>
               <Text style={styles.inputLabel}>CPF ou CNPJ</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, documento: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
-              <Text style={styles.inputLabel}>E-mail</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.email} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, email: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="email-address" autoCapitalize="none" />
-              <Text style={styles.inputLabel}>Telefone</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.telefone} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, telefone: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="phone-pad" />
-              <Text style={styles.inputLabel}>Observações</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput, modoLeitura && styles.readOnlyInput]} multiline />
-            </>}
-            {['tiposEvento', 'tiposProfissional', 'tiposLocal'].includes(categoriaAtiva.chave) && <>
-              <Text style={styles.inputLabel}>Descrição (opcional)</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput, modoLeitura && styles.readOnlyInput]} multiline />
-            </>}
-            {categoriaAtiva.chave === 'locaisSalvos' && <>
-              <Text style={styles.inputLabel}>Tipo de local</Text>
-              {tiposLocal.length ? <View style={styles.typeChoices}>{tiposLocal.map((tipo) => {
-                const selecionado = dadosComplementares.id_tipo_local === tipo.id;
-                return <TouchableOpacity key={tipo.id} disabled={modoLeitura} onPress={() => setDadosComplementares((atual) => ({ ...atual, id_tipo_local: tipo.id }))} style={[styles.typeChoice, selecionado && styles.typeChoiceSelected]}><Text style={[styles.typeChoiceText, selecionado && styles.typeChoiceTextSelected]}>{obterNome(tipo)}</Text></TouchableOpacity>;
-              })}</View> : <Text style={styles.helperText}>Cadastre um tipo de local antes de vinculá-lo.</Text>}
-              <Text style={styles.inputLabel}>Endereço completo *</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.endereco_completo} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, endereco_completo: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} multiline />
-              <Text style={styles.inputLabel}>Capacidade</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.capacidade} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, capacidade: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
-              <Text style={styles.inputLabel}>Observações</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.observacoes} onChangeText={(v) => setDadosComplementares((atual) => ({ ...atual, observacoes: v }))} style={[styles.modalInput, styles.multilineInput, modoLeitura && styles.readOnlyInput]} multiline />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((a) => ({...a, documento: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
             </>}
             <View style={styles.modalActions}>
-              <Button onPress={() => setModalVisivel(false)} textColor={CORES.textMuted}>{modoLeitura ? 'Fechar' : 'Cancelar'}</Button>
-              {modoLeitura
-                ? <Button mode="contained" onPress={() => setModoLeitura(false)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Editar</Button>
-                : <Button mode="contained" onPress={salvar} loading={salvando} disabled={!nome.trim() || salvando || !empresaId} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar</Button>}
+              <Button onPress={() => setModalCadastroVisivel(false)} textColor={CORES.textMuted}>Cancelar</Button>
+              {!modoLeitura && <Button mode="contained" onPress={salvar} loading={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar</Button>}
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal visible={modalInativarVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#F0F6FA', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <MaterialCommunityIcons name="archive-arrow-down-outline" size={30} color={CORES.textNavy} />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>Inativar Cadastro?</Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
+              Deseja realmente inativar <Text style={{fontWeight: 'bold'}}>{itemParaInativar?.nome}</Text>?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} textColor={CORES.textNavy} onPress={() => setModalInativarVisivel(false)}>Cancelar</Button>
+              <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor="#10B981" textColor="#FFF" onPress={confirmarInativacao}>Inativar</Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={modalInativosVisivel} transparent animationType="slide" onRequestClose={() => setModalInativosVisivel(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '70%', padding: 0 }]}>
+             <View style={[styles.modalHeader, { padding: 20, marginBottom: 0, borderBottomWidth: 1, borderColor: '#EEE' }]}>
+                <Text style={styles.modalTitle}>Cadastros Inativos</Text>
+                <TouchableOpacity onPress={() => setModalInativosVisivel(false)}>
+                  <MaterialCommunityIcons name="close" size={24} color={CORES.textMuted} />
+                </TouchableOpacity>
+             </View>
+             {inativos.length === 0 ? (
+                <View style={{ padding: 30, alignItems: 'center' }}><Text>Nenhum registro inativo.</Text></View>
+             ) : (
+                <FlatList 
+                  data={inativos}
+                  keyExtractor={i => i.id}
+                  renderItem={({item}) => (
+                    <View style={[styles.itemRow, { paddingRight: 16 }]}>
+                       <View style={{ flex: 1 }}>
+                          <Text style={styles.itemName}>{obterNome(item)}</Text>
+                       </View>
+                       <Button mode="contained" onPress={() => reativar(item)} buttonColor="#10B981" textColor="#FFF" compact>Reativar</Button>
+                    </View>
+                  )}
+                />
+             )}
+          </View>
         </View>
       </Modal>
     </View>
