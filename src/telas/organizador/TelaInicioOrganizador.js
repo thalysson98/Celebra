@@ -1,26 +1,35 @@
-import React, { useState, useCallback } from 'react';
+// src/telas/organizador/TelaInicioOrganizador.js
+
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   RefreshControl,
+  StyleSheet
 } from 'react-native';
 import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import CartaoMetrica from '../../componentes/CartaoMetrica';
-
-import { COLORS, FONTS } from '../../tema/cores';
-import { styles } from '../../estilos/estilosInicioOrganizador';
+import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
+
+const parseMoeda = (valor) => {
+  const v = Number(String(valor || '0').replace(/\D/g, '')) / 100;
+  return isNaN(v) ? 0 : v;
+};
+
+const formatarMonetario = (num) => {
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
   const [atualizando, setAtualizando] = useState(false);
+  const [diasFiltro, setDiasFiltro] = useState(15); 
 
-  // Recarrega os dados do dashboard sempre que o organizador volta para esta aba
   useFocusEffect(
     useCallback(() => {
       carregarDadosDashboard();
@@ -32,7 +41,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       const lista = await repositorioEventos.listarEventos();
       setEventos(lista || []);
     } catch (error) {
-      console.error('Erro ao carregar eventos no dashboard:', error);
+      console.log('Erro ao carregar eventos no dashboard:', error);
     }
   };
 
@@ -42,19 +51,49 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     setAtualizando(false);
   };
 
-  // Cálculo das métricas para os cards de topo
-  const totalEventos = eventos.length;
-  // Consideramos eventos nos próximos 15 dias (futuros)
-  const eventosProximos = eventos.filter((e) => e.statusTempo === 'futuros');
-  const eventosPendentes = eventos.filter(
-    (e) => e.statusEquipa === 'Equipa Pendente' || e.statusEquipa === 'Equipe Pendente'
-  );
+  const converterStringParaData = (dataStr) => {
+    if (!dataStr) return null;
+    const mesMap = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11 };
+    const [dia, mesTexto, ano] = dataStr.split('/');
+    if (dia && mesTexto && ano) {
+      return new Date(ano, mesTexto - 1, dia); // Assumindo dd/mm/yyyy
+    }
+    const [d, mT, a] = dataStr.split(' '); // Tenta parse do formato "12 out 2026"
+    if (d && mT && a) return new Date(a, mesMap[mT.toLowerCase()], d);
+    return new Date();
+  };
+  
+  // Cálculo Financeiro
+  const { totalBruto, pendenteReceber } = useMemo(() => {
+    let tBruto = 0;
+    let pReceber = 0;
+    eventos.forEach(ev => {
+      tBruto += parseMoeda(ev.financeiro?.valorTotal);
+      (ev.financeiro?.parcelasDetalhadas || []).forEach(p => {
+         if (p.status !== 'paga') pReceber += parseMoeda(p.valor);
+      });
+    });
+    return { totalBruto: formatarMonetario(tBruto), pendenteReceber: formatarMonetario(pReceber) };
+  }, [eventos]);
 
-  // Evento destaque (primeiro da lista de próximos ou fallback)
-  const eventoDestaque = eventosProximos[0] || null;
-  const outrosEventos = eventosProximos.slice(1, 3);
+  const eventosProximos = useMemo(() => {
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+    const limiteData = new Date(hoje);
+    limiteData.setDate(limiteData.getDate() + diasFiltro);
 
-  // Formatação de data amigável no topo (ex: "Seg, 12 out")
+    return eventos.filter(e => {
+      if (e.statusTempo !== 'futuros') return false;
+      const dataEv = e.dataInicio ? converterStringParaData(e.dataInicio) : null;
+      if (!dataEv) return true;
+      return dataEv >= hoje && dataEv <= limiteData;
+    }).sort((a, b) => {
+        const da = converterStringParaData(a.dataInicio);
+        const db = converterStringParaData(b.dataInicio);
+        return (da?.getTime() || 0) - (db?.getTime() || 0); // Ordem Cronológica
+    });
+  }, [eventos, diasFiltro]);
+
   const obterDataFormatada = () => {
     try {
       const hoje = new Date();
@@ -68,7 +107,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
   return (
     <View style={styles.container}>
-      {/* 1. Header Superior Azul-Marinho Fiel ao Figma */}
       <View style={styles.header}>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerGreeting}>
@@ -78,126 +116,35 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
             {usuario?.companyName || 'Sua produtora'} • {obterDataFormatada()}
           </Text>
         </View>
-
-        <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.bellButton} onPress={() => navigation.navigate('Notificacoes')} activeOpacity={0.7}>
           <Feather name="bell" size={20} color={COLORS.textWhite} />
-          {eventosPendentes.length > 0 && <View style={styles.bellBadge} />}
         </TouchableOpacity>
       </View>
 
-      {/* 2. Conteúdo com Fundo Icy Blue e Cantos Arredondados */}
-      <ScrollView
-        style={styles.sheet}
-        contentContainerStyle={styles.sheetContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={atualizando}
-            onRefresh={onRefresh}
-            colors={[COLORS.buttonGold]}
-            tintColor={COLORS.buttonGold}
-          />
-        }
-      >
-        {/* Cards de Métricas Principais (Lado a Lado) */}
+      <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
+        
+        {/* CARDS FINANCEIROS */}
         <View style={styles.metricRow}>
-          <CartaoMetrica
-            valor={totalEventos}
-            rotulo="Eventos cadastrados"
-            mostrarIndicador
-            estilo={{ marginRight: 8 }}
-          />
-          <CartaoMetrica
-            valor={eventosProximos.length}
-            rotulo="Nos próximos 15 dias"
-            estilo={{ marginLeft: 8 }}
-          />
+          <CartaoMetrica valor={totalBruto} rotulo="Total Bruto (R$)" mostrarIndicador estilo={{ marginRight: 8 }} />
+          <CartaoMetrica valor={pendenteReceber} rotulo="Pendente a receber" estilo={{ marginLeft: 8 }} />
         </View>
 
-        {/* Seção: Precisam da sua atenção */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Precisam da sua atenção</Text>
-          <Text style={styles.sectionSubtitle}>
-            Resolva hoje e deixe os próximos eventos prontos.
-          </Text>
-        </View>
-
-        {/* Card de Atenção (Eventos pendentes) */}
-        <Card
-          style={styles.attentionCard}
-          onPress={() => navigation.navigate('Eventos')}
-        >
-          <Card.Content style={styles.attentionContent}>
-            <View style={styles.attentionTop}>
-              <View style={styles.attentionIconContainer}>
-                <MaterialCommunityIcons
-                  name="calendar-clock"
-                  size={24}
-                  color="#B45309"
-                />
-              </View>
-              <View style={styles.attentionTextWrap}>
-                <Text style={styles.attentionTitle}>
-                  Eventos pendentes de finalização
+          <Text style={styles.sectionTitle}>Próximos eventos</Text>
+          <View style={styles.filterDaysRow}>
+            {[7, 15, 20, 30].map((dias) => (
+              <TouchableOpacity key={dias} style={[styles.filterDayChip, diasFiltro === dias && styles.filterDayChipSelected]} onPress={() => setDiasFiltro(dias)}>
+                <Text style={[styles.filterDayText, diasFiltro === dias && styles.filterDayTextSelected]}>
+                  {dias} dias
                 </Text>
-              </View>
-              <Text style={styles.attentionCount}>
-                {eventosPendentes.length}
-              </Text>
-            </View>
-
-            <View style={styles.attentionActionRow}>
-              <Text style={styles.attentionActionText}>Visualizar eventos pendentes</Text>
-              <Feather name="arrow-right" size={16} color={COLORS.textNavy} />
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Seção: Próximos 15 dias */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Próximos 15 dias</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Card Destaque (Ana & Pedro) com Imagem de Capa e Chips */}
-        {eventoDestaque && (
-          <TouchableOpacity
-            style={styles.featuredCard}
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('Eventos', { screen: 'DetalheEvento', params: { idEvento: eventoDestaque.id } })}
-          >
-            <Image
-              source={{
-                uri:
-                  eventoDestaque.imagemUrl ||
-                  'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80',
-              }}
-              style={styles.featuredImage}
-            />
-            <View style={styles.featuredInfo}>
-              <View style={styles.chipsRow}>
-                <View style={styles.chipType}>
-                  <Text style={styles.chipTypeText}>
-                    {eventoDestaque.tipoEvento || 'Casamento'}
-                  </Text>
-                </View>
-                <View style={styles.chipDays}>
-                  <Text style={styles.chipDaysText}>Próximo</Text>
-                </View>
-              </View>
-
-              <Text style={styles.featuredTitle}>{eventoDestaque.titulo}</Text>
-              <Text style={styles.featuredMeta} numberOfLines={1}>
-                {eventoDestaque.dataInicio || 'Data a definir'} • {eventoDestaque.horaInicio || 'Horário a definir'} •{' '}
-                {eventoDestaque.locais?.[0]?.nomeDoLocal || eventoDestaque.locaisDoEvento?.[0]?.nomeEstabelecimento || eventoDestaque.local || 'Local a definir'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Lista de Outros Eventos Subsequentes */}
-        {outrosEventos.length > 0 ? (
+        {eventosProximos.length > 0 ? (
           <View style={styles.subsequentEventsBox}>
-            {outrosEventos.map((ev, index) => (
+            {eventosProximos.map((ev, index) => (
               <React.Fragment key={ev.id || index}>
                 <TouchableOpacity
                   style={styles.eventListItem}
@@ -205,38 +152,62 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                   activeOpacity={0.7}
                 >
                   <View style={styles.eventListIconBox}>
-                    <MaterialCommunityIcons
-                      name="calendar-blank-outline"
-                      size={20}
-                      color={COLORS.textNavy}
-                    />
+                    <MaterialCommunityIcons name="calendar-blank-outline" size={20} color={COLORS.textNavy} />
                   </View>
                   <View style={styles.eventListTextContainer}>
                     <Text style={styles.eventListTitle} numberOfLines={1}>
-                      {ev.dataInicio || 'Data a definir'} · {ev.titulo}
+                      {ev.dataInicio || 'Data a definir'} • {ev.titulo}
                     </Text>
                     <Text style={styles.eventListSubtitle} numberOfLines={1}>
-                      {ev.horaInicio || 'Horário a definir'} • {ev.locais?.[0]?.nomeDoLocal || ev.locaisDoEvento?.[0]?.nomeEstabelecimento || ev.local || 'Local a definir'}
+                      {ev.horaInicio || 'Horário a definir'}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
                 </TouchableOpacity>
-                {index < outrosEventos.length - 1 && <View style={styles.eventListDivider} />}
+                {index < eventosProximos.length - 1 && <View style={styles.eventListDivider} />}
               </React.Fragment>
             ))}
           </View>
         ) : (
           <View style={styles.noUpcomingBox}>
-            <Text style={styles.noUpcomingText}>Nenhum outro evento programado para os próximos dias.</Text>
+            <Text style={styles.noUpcomingText}>Nenhum evento programado para os próximos {diasFiltro} dias.</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Eventos')} activeOpacity={0.7}>
               <Text style={styles.noUpcomingAction}>Ver todos os eventos</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Espaçamento final */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.bgHeaderDark },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 22, backgroundColor: COLORS.bgHeaderDark },
+  headerTextContainer: { flex: 1 },
+  headerGreeting: { fontSize: 26, fontWeight: '700', color: COLORS.textWhite, fontFamily: FONTS.heading },
+  headerCompany: { fontFamily: FONTES.body, fontSize: 14, color: COLORS.headerSubtitle, marginTop: 4 },
+  bellButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
+  sheet: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
+  sheetContent: { paddingHorizontal: 16, paddingTop: 20 },
+  metricRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  sectionHeader: { marginBottom: 10, marginTop: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textNavy, fontFamily: FONTS.heading },
+  filterDaysRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  filterDayChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#DFE7EE' },
+  filterDayChipSelected: { backgroundColor: COLORS.textNavy },
+  filterDayText: { fontFamily: FONTES.semibold, fontSize: 12, color: COLORS.textMuted },
+  filterDayTextSelected: { color: COLORS.textWhite },
+  subsequentEventsBox: { backgroundColor: COLORS.cardWhite, borderRadius: 18, paddingVertical: 6, elevation: 1 },
+  eventListItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  eventListIconBox: { width: 38, height: 38, borderRadius: 10, backgroundColor: COLORS.cardLightBlue, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  eventListTextContainer: { flex: 1 },
+  eventListTitle: { fontFamily: FONTES.bold, fontSize: 14, fontWeight: '700', color: COLORS.textNavy },
+  eventListSubtitle: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  eventListDivider: { height: 1, backgroundColor: COLORS.cardDivider, marginHorizontal: 16 },
+  noUpcomingBox: { backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 16, gap: 10 },
+  noUpcomingText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19 },
+  noUpcomingAction: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
+  bottomSpacer: { height: 28 }
+});
