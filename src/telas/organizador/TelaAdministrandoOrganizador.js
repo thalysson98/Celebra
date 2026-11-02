@@ -1,11 +1,10 @@
 // src/telas/organizador/TelaAdministrandoOrganizador.js
-
 import React, { useCallback, useState } from 'react';
-import { FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Button, Card } from 'react-native-paper';
-import Toast from 'react-native-toast-message';
+
 import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosAdministrandoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
@@ -21,8 +20,17 @@ const CATEGORIAS = [
 const obterNome = (item) => item.nome || item.nomeDoLocal || '';
 const obterDetalhe = (categoria, item) => {
   if (categoria.chave === 'clientes') return item.telefone || item.email || 'Cadastro de cliente';
-  if (categoria.chave === 'locaisSalvos') return item.endereco_completo || [item.cidade, item.estado].filter(Boolean).join(' • ') || item.rua || 'Local cadastrado';
+  if (categoria.chave === 'locaisSalvos') return item.endereco_completo || [item.cidade, item.estado].filter(Boolean).join(' - ') || item.rua || 'Local cadastrado';
   return 'Disponível em novos eventos';
+};
+
+const formatarCpfCnpj = (valor) => {
+  const v = String(valor).replace(/\D/g, '');
+  if (v.length <= 11) {
+    return v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  } else {
+    return v.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+  }
 };
 
 export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
@@ -34,8 +42,14 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [modalInativosVisivel, setModalInativosVisivel] = useState(false);
   const [modalCadastroVisivel, setModalCadastroVisivel] = useState(false);
   const [modalInativarVisivel, setModalInativarVisivel] = useState(false);
-  const [itemParaInativar, setItemParaInativar] = useState(null);
   
+  // Modais Padronizados
+  const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
+  const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
+  const [modalErroVisivel, setModalErroVisivel] = useState(false);
+  const [msgErro, setMsgErro] = useState('');
+  
+  const [itemParaInativar, setItemParaInativar] = useState(null);
   const [modoLeitura, setModoLeitura] = useState(false);
   const [itemEditando, setItemEditando] = useState(null);
   const [nome, setNome] = useState('');
@@ -43,7 +57,18 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [tiposLocal, setTiposLocal] = useState([]);
+
   const empresaId = usuario?.idEmpresa || usuario?.companyId;
+
+  const mostrarSucesso = (titulo, descricao) => {
+    setMsgSucesso({ titulo, descricao });
+    setModalSucessoVisivel(true);
+  };
+
+  const mostrarErro = (mensagem) => {
+    setMsgErro(mensagem);
+    setModalErroVisivel(true);
+  };
 
   const carregarItens = useCallback(async () => {
     if (!empresaId) { setItens([]); return; }
@@ -52,7 +77,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
       const listaAtivos = await repositorioEventos.obterOpcoesSelect(categoriaAtiva.chave, empresaId, false);
       setItens(listaAtivos || []);
     } catch (error) {
-      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível carregar os cadastros.' });
+      mostrarErro('Não foi possível carregar os cadastros.');
     } finally { setCarregando(false); }
   }, [categoriaAtiva, empresaId]);
 
@@ -64,7 +89,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
       setInativos(listaInativos || []);
       setModalInativosVisivel(true);
     } catch (error) {
-      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível carregar inativos.' });
+      mostrarErro('Não foi possível carregar inativos.');
     } finally { setCarregando(false); }
   };
 
@@ -88,6 +113,12 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const salvar = async () => {
     const valor = nome.trim();
     if (!valor) return;
+
+    if (categoriaAtiva.chave === 'clientes' && !dadosComplementares.documento?.trim()) {
+      mostrarErro('CPF ou CNPJ é obrigatório.');
+      return;
+    }
+
     setSalvando(true);
     try {
       const enderecoCompleto = categoriaAtiva.chave === 'locaisSalvos' 
@@ -99,18 +130,20 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
         ...(categoriaAtiva.chave === 'clientes' && { documento: dadosComplementares.documento.trim(), email: dadosComplementares.email.trim(), telefone: dadosComplementares.telefone.trim(), observacoes: dadosComplementares.observacoes.trim() }),
         ...(['tiposEvento', 'tiposProfissional', 'tiposLocal'].includes(categoriaAtiva.chave) && { descricao: dadosComplementares.observacoes.trim() }),
         ...(categoriaAtiva.chave === 'locaisSalvos' && { 
-            endereco_completo: enderecoCompleto, 
-            rua: dadosComplementares.rua, numero: dadosComplementares.numero, bairro: dadosComplementares.bairro, cidade: dadosComplementares.cidade, estado: dadosComplementares.estado,
-            observacoes: dadosComplementares.observacoes.trim() 
-        }),
+             endereco_completo: enderecoCompleto,
+             rua: dadosComplementares.rua, numero: dadosComplementares.numero, bairro: dadosComplementares.bairro, cidade: dadosComplementares.cidade, estado: dadosComplementares.estado,
+             observacoes: dadosComplementares.observacoes.trim() 
+         }),
       };
+      
       if (itemEditando) await repositorioEventos.atualizarItemSelect(categoriaAtiva.chave, itemEditando.id, dados, empresaId);
       else await repositorioEventos.adicionarNovoItemSelect(categoriaAtiva.chave, dados, empresaId);
+      
       setModalCadastroVisivel(false);
       setNome('');
       await carregarItens();
-      Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Salvo com sucesso!' });
-    } catch (error) { Toast.show({ type: 'error', text1: 'Erro', text2: 'Verifique sua conexão.' }); } finally { setSalvando(false); }
+      mostrarSucesso("Sucesso", "Salvo com sucesso!");
+    } catch (error) { mostrarErro("Verifique sua conexão e tente novamente."); } finally { setSalvando(false); }
   };
 
   const inativar = (item) => {
@@ -123,14 +156,14 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
     try {
       const emUso = await repositorioEventos.verificarUsoEmEvento(categoriaAtiva.chave, itemParaInativar.id, empresaId);
       if (emUso) {
-         Toast.show({ type: 'error', text1: 'Atenção', text2: 'Este registro está em uso e não pode ser inativado.' });
+         mostrarErro("Este registro está em uso e não pode ser inativado.");
          return;
       }
       await repositorioEventos.arquivarItemSelect(categoriaAtiva.chave, itemParaInativar.id, empresaId);
       carregarItens();
-      Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Cadastro inativado.' });
+      mostrarSucesso("Sucesso", "Cadastro inativado.");
     } catch (e) {
-      Toast.show({ type: 'error', text1: 'Erro', text2: 'Ocorreu um erro ao inativar.' });
+      mostrarErro("Ocorreu um erro ao inativar o cadastro.");
     }
   };
 
@@ -141,8 +174,8 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
       setInativos(listaAtualizada);
       if (listaAtualizada.length === 0) setModalInativosVisivel(false);
       carregarItens();
-      Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Cadastro reativado.' });
-    } catch (error) { Toast.show({ type: 'error', text1: 'Erro', text2: 'Verifique sua conexão.' }); }
+      mostrarSucesso("Sucesso", "Cadastro reativado.");
+    } catch (error) { mostrarErro("Verifique sua conexão e tente novamente."); }
   };
 
   const itensFiltrados = itens.filter((item) => obterNome(item).toLocaleLowerCase('pt-BR').includes(busca.trim().toLocaleLowerCase('pt-BR')));
@@ -177,6 +210,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
             <>
               <Text style={styles.sectionTitle}>Cadastros da empresa</Text>
               <Text style={styles.sectionSubtitle}>{categoriaAtiva.descricao}</Text>
+              
               <Card style={styles.listCard}>
                 <Card.Content style={styles.cardContent}>
                   <View style={styles.searchRow}>
@@ -224,6 +258,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
                 <MaterialCommunityIcons name="close" size={21} color={CORES.textMuted} />
               </TouchableOpacity>
             </View>
+
             <Text style={styles.inputLabel}>Nome</Text>
             <TextInput editable={!modoLeitura} value={nome} onChangeText={setNome} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
             
@@ -241,9 +276,10 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
             </>}
 
             {categoriaAtiva.chave === 'clientes' && <>
-              <Text style={styles.inputLabel}>CPF ou CNPJ</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((a) => ({...a, documento: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
+              <Text style={styles.inputLabel}>CPF ou CNPJ *</Text>
+              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((a) => ({...a, documento: formatarCpfCnpj(v)}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
             </>}
+
             <View style={styles.modalActions}>
               <Button onPress={() => setModalCadastroVisivel(false)} textColor={CORES.textMuted}>Cancelar</Button>
               {!modoLeitura && <Button mode="contained" onPress={salvar} loading={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar</Button>}
@@ -282,8 +318,8 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
              {inativos.length === 0 ? (
                 <View style={{ padding: 30, alignItems: 'center' }}><Text>Nenhum registro inativo.</Text></View>
              ) : (
-                <FlatList 
-                  data={inativos}
+                <FlatList
+                   data={inativos}
                   keyExtractor={i => i.id}
                   renderItem={({item}) => (
                     <View style={[styles.itemRow, { paddingRight: 16 }]}>
@@ -298,6 +334,40 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL SUCESSO E ERRO GERAIS */}
+      <Modal visible={modalSucessoVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E6F8F0', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="check" size={32} color="#10B981" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>{msgSucesso.titulo}</Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>{msgSucesso.descricao}</Text>
+            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={() => setModalSucessoVisivel(false)}>Ok, entendi</Button>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={modalErroVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="alert-triangle" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>
+              Atenção
+            </Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>
+              {msgErro}
+            </Text>
+            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor="#EF4444" textColor="#FFF" onPress={() => setModalErroVisivel(false)}>
+              Ok, entendi
+            </Button>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

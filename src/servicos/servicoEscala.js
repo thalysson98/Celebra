@@ -1,4 +1,3 @@
-// src/servicos/servicoEscala.js
 
 import { arrayUnion, arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch, updateDoc } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
@@ -27,8 +26,8 @@ export async function listarTecnicosDaEmpresa(idEmpresa) {
 export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais = [] }) {
   const convidados = profissionais.filter((p) => p.enviarConvite !== false);
   if (!convidados.length) return;
+
   const lote = writeBatch(bancoDados);
-  
   const docEmpresa = await getDoc(doc(bancoDados, 'empresas', idEmpresa));
   const nomeEmpresa = docEmpresa.exists() ? docEmpresa.data().nome_fantasia : 'O Organizador';
 
@@ -37,6 +36,7 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
     const idConvite = `${idEvento}_${idUsuario}`;
     const referencia = doc(bancoDados, 'convites', idConvite);
     const existente = await getDoc(referencia);
+
     if (existente.exists() && existente.data().situacao !== 'cancelado') throw new Error(`O profissional já possui convite ativo.`);
     
     lote.set(referencia, {
@@ -60,7 +60,6 @@ export async function removerConvite(idConvite, idEvento, idUsuario) {
   });
 }
 
-// NOVO: Função para atualizar a função (tipo de profissional) do técnico no convite
 export async function atualizarFuncaoConvite(idConvite, idTipoProfissional, nomeTipoProfissional) {
    await updateDoc(doc(bancoDados, 'convites', idConvite), {
       id_tipo_profissional: idTipoProfissional,
@@ -74,8 +73,8 @@ async function mapearConvite(snapshot) {
   if (!evento) return null;
   const local = evento.id_locais && evento.id_locais.length > 0 ? await obterDocumento('locais', evento.id_locais[0]) : null;
   const tipoEvento = await obterDocumento('tipos_evento', evento.id_tipo_evento);
-  
   const status = { pendente: 'pending', aceito: 'accepted', recusado: 'declined', cancelado: 'cancelled' }[convite.situacao] || 'pending';
+
   return {
     id: snapshot.id, idEvento: convite.id_evento, idUsuario: convite.id_usuario, idEmpresa: convite.id_empresa,
     status, eventTitle: evento.titulo || 'Evento sem título', eventDate: evento.data_inicio || null,
@@ -98,13 +97,30 @@ export function subscribeToTechnicianAssignments(uidTecnico, aoReceber, aoErro) 
 export async function respondToAssignment({ assignmentId, technicianUid, status }) {
   const situacao = { accepted: 'aceito', declined: 'recusado' }[status];
   const refConvite = doc(bancoDados, 'convites', assignmentId);
+
   await runTransaction(bancoDados, async (t) => {
     const snap = await t.get(refConvite);
     const convite = snap.data();
     if (convite.situacao === 'cancelado') throw new Error('Este convite foi cancelado pelo organizador.');
+
     t.update(refConvite, { situacao, respondido_em: serverTimestamp() });
     if (situacao === 'aceito') {
       t.update(doc(bancoDados, 'eventos', convite.id_evento), { membros_escalados: arrayUnion(technicianUid) });
     }
   });
+}
+
+
+export async function removerProfissionalInformativo(idEvento, idUsuario) {
+  const eventoRef = doc(bancoDados, 'eventos', idEvento);
+  const eventoSnap = await getDoc(eventoRef);
+  
+  if (eventoSnap.exists()) {
+    const eventoData = eventoSnap.data();
+    const equipeInformativa = eventoData.equipe_informativa || [];
+  
+    const novaEquipe = equipeInformativa.filter(p => String(p.id_usuario) !== String(idUsuario));
+    
+    await updateDoc(eventoRef, { equipe_informativa: novaEquipe });
+  }
 }

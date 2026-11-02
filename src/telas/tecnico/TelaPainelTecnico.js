@@ -1,9 +1,7 @@
 // src/telas/tecnico/TelaPainelTecnico.js
-
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,28 +12,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Card, Button } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../tema/cores';
+import { COLORS, CORES, FONTES } from '../../tema/cores';
 import { subscribeToTechnicianAssignments, respondToAssignment } from '../../servicos/servicoEscala';
 import { requestPasswordReset } from '../../servicos/servicoAutenticacao';
 import { setUserEventsNotificationPreference, updateUserProfile } from '../../servicos/servicoUsuario';
-import {
-  markTechnicianUnavailable,
-  removeTechnicianUnavailability,
-  subscribeToTechnicianUnavailability,
-} from '../../servicos/servicoIndisponibilidade';
+import { markTechnicianUnavailable, removeTechnicianUnavailability, subscribeToTechnicianUnavailability } from '../../servicos/servicoIndisponibilidade';
 import { estilosPainelTecnico as styles } from '../../estilos/estilosPainelTecnico';
-
-function formatDate(value) {
-  if (!value) return 'Data a confirmar';
-  const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Data a confirmar';
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-}
+import { estilosNavegacao, obterEstiloHotbar } from '../../estilos/estilosNavegacao';
+import Cabecalho from '../../componentes/Cabecalho';
 
 function toDate(value) {
   if (!value) return null;
@@ -43,30 +30,8 @@ function toDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatUpcomingDetails(assignment) {
-  const date = toDate(assignment.eventDate);
-  if (!date) return assignment.eventAddress || 'Data a confirmar';
-  const dayAndMonth = new Intl.DateTimeFormat('pt-BR', {
-    day: 'numeric',
-    month: 'short',
-  }).format(date).replace(' de ', ' ').replace('.', '');
-  const time = `${date.getHours()}h`;
-  const location = assignment.eventAddress || 'Local a confirmar';
-  return `${dayAndMonth} • ${time} • ${location}`;
-}
-
-function formatDaysUntil(value) {
-  const date = toDate(value);
-  if (!date) return 'Data a confirmar';
-  const days = Math.max(0, Math.ceil((date.getTime() - Date.now()) / 86400000));
-  return days === 0 ? 'Hoje' : `Em ${days} dias`;
-}
-
 function normalizeSearch(value) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR');
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 }
 
 function onlyDigits(value) {
@@ -75,10 +40,7 @@ function onlyDigits(value) {
 
 function formatCpf(value) {
   const digits = onlyDigits(value).slice(0, 11);
-  return digits
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  return digits.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 }
 
 function formatPhone(value) {
@@ -90,13 +52,7 @@ function formatPhone(value) {
 }
 
 function getInitials(value) {
-  return String(value || 'Técnico')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toLocaleUpperCase('pt-BR');
+  return String(value || 'Técnico').trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('pt-BR');
 }
 
 function getLocalDateKey(value) {
@@ -107,25 +63,24 @@ function getLocalDateKey(value) {
 }
 
 function formatAgendaDate(value) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(value);
+  return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }).format(value);
 }
 
 function formatShortDate(value) {
   const date = toDate(value);
   if (!date) return 'Data a confirmar';
-  return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' })
-    .format(date)
-    .replace(' de ', ' ')
-    .replace('.', '');
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
 }
 
 function formatEventTime(value) {
   const date = toDate(value);
-  return date ? `${date.getHours()}h` : 'Horário a confirmar';
+  if (!date) return 'Horário a confirmar';
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  return `${h}:${m}h`;
 }
 
 export default function TelaPainelTecnico({ navigation, user, onLogout }) {
@@ -133,7 +88,6 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
   const [activeTab, setActiveTab] = useState('home');
   const [eventFilter, setEventFilter] = useState('mine');
   const [eventSearch, setEventSearch] = useState('');
@@ -145,10 +99,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const [profileForm, setProfileForm] = useState({ displayName: '', cpf: '', phone: '', city: '' });
   const [isProfileEditorVisible, setProfileEditorVisible] = useState(false);
   const [isSavingProfile, setSavingProfile] = useState(false);
-  const [eventsNotificationsEnabled, setEventsNotificationsEnabled] = useState(
-    user.notificationPreferences?.eventsAndTeam ?? true,
-  );
+  const [eventsNotificationsEnabled, setEventsNotificationsEnabled] = useState(user.notificationPreferences?.eventsAndTeam ?? true);
   const [isSavingNotificationPreference, setSavingNotificationPreference] = useState(false);
+
   const [agendaMonth, setAgendaMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -163,6 +116,21 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const [availabilityError, setAvailabilityError] = useState('');
   const [isUpdatingAvailability, setUpdatingAvailability] = useState(false);
   const [isAvailabilityDialogVisible, setAvailabilityDialogVisible] = useState(false);
+
+  const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
+  const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
+  const [modalErroVisivel, setModalErroVisivel] = useState(false);
+  const [msgErro, setMsgErro] = useState({ titulo: '', descricao: '' });
+  
+  const mostrarSucesso = (descricao, titulo = 'Sucesso') => {
+    setMsgSucesso({ titulo, descricao });
+    setModalSucessoVisivel(true);
+  };
+
+  const mostrarErro = (descricao, titulo = 'Atenção') => {
+    setMsgErro({ titulo, descricao });
+    setModalErroVisivel(true);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -198,63 +166,16 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     return unsubscribe;
   }, [user.uid]);
 
-  const pendingAssignments = useMemo(
-    () => assignments.filter((assignment) => assignment.status === 'pending'),
-    [assignments],
-  );
-  const confirmedAssignments = useMemo(
-    () => assignments.filter((assignment) => assignment.status === 'accepted'),
-    [assignments],
-  );
-  const upcomingAssignments = useMemo(() => {
-    const now = Date.now();
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    nextWeek.setHours(23, 59, 59, 999);
-    return confirmedAssignments
-      .filter((assignment) => {
-        const date = toDate(assignment.eventDate);
-        return date && date.getTime() >= now && date.getTime() <= nextWeek.getTime();
-      })
-      .sort((first, second) => toDate(first.eventDate) - toDate(second.eventDate));
-  }, [confirmedAssignments]);
-
-  const allAssignmentsForAgenda = useMemo(
-    () => assignments.filter((a) => a.status === 'accepted' || a.status === 'pending'),
-    [assignments]
-  );
+  const pendingAssignments = useMemo(() => assignments.filter((assignment) => assignment.status === 'pending'), [assignments]);
+  const confirmedAssignments = useMemo(() => assignments.filter((assignment) => assignment.status === 'accepted'), [assignments]);
+  const allAssignmentsForAgenda = useMemo(() => assignments.filter((a) => a.status === 'accepted' || a.status === 'pending'), [assignments]);
 
   const selectedAgendaDateKey = getLocalDateKey(selectedAgendaDay);
-  
   const selectedDayAssignments = allAssignmentsForAgenda.filter((assignment) => {
     const date = toDate(assignment.eventDate);
     return date && getLocalDateKey(date) === selectedAgendaDateKey;
   });
-  
   const selectedDateUnavailable = unavailableDates.some((item) => item.dateKey === selectedAgendaDateKey);
-
-  const updateResponse = async (assignment, status) => {
-    try {
-      await respondToAssignment({
-        assignmentId: assignment.id,
-        technicianUid: user.uid,
-        status,
-      });
-    } catch (responseError) {
-      Alert.alert('Não foi possível responder', responseError.message);
-    }
-  };
-
-  const confirmDecline = (assignment) => {
-    Alert.alert('Recusar convocação', 'Deseja recusar este trabalho?', [
-      { text: 'Voltar', style: 'cancel' },
-      {
-        text: 'Recusar',
-        style: 'destructive',
-        onPress: () => updateResponse(assignment, 'declined'),
-      },
-    ]);
-  };
 
   const openProfileEditor = () => {
     setProfileForm({
@@ -268,7 +189,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   const saveProfile = async () => {
     if (!profileForm.displayName.trim()) {
-      Alert.alert('Campo obrigatório', 'Informe seu nome para exibição.');
+      mostrarErro('Informe seu nome para exibição.', 'Campo obrigatório');
       return;
     }
     setSavingProfile(true);
@@ -276,9 +197,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       const savedFields = await updateUserProfile(user.uid, profileForm);
       setProfile((current) => ({ ...current, ...savedFields, name: savedFields.displayName }));
       setProfileEditorVisible(false);
-      Alert.alert('Perfil atualizado', 'Seus dados foram salvos com sucesso.');
+      mostrarSucesso('Seus dados foram salvos com sucesso.', 'Perfil atualizado');
     } catch (saveError) {
-      Alert.alert('Não foi possível salvar', saveError.message);
+      mostrarErro(saveError.message, 'Não foi possível salvar');
     } finally {
       setSavingProfile(false);
     }
@@ -299,7 +220,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       }));
     } catch (preferenceError) {
       setEventsNotificationsEnabled(previousValue);
-      Alert.alert('Não foi possível atualizar', preferenceError.message);
+      mostrarErro(preferenceError.message, 'Não foi possível atualizar');
     } finally {
       setSavingNotificationPreference(false);
     }
@@ -307,14 +228,14 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   const sendPasswordReset = async () => {
     if (!profile.email) {
-      Alert.alert('E-mail indisponível', 'Esta conta não possui um e-mail para redefinição.');
+      mostrarErro('Esta conta não possui um e-mail para redefinição.', 'E-mail indisponível');
       return;
     }
     try {
       await requestPasswordReset(profile.email);
-      Alert.alert('E-mail enviado', `Enviamos um link de redefinição para ${profile.email}.`);
+      mostrarSucesso(`Enviamos um link de redefinição para ${profile.email}.`, 'E-mail enviado');
     } catch (resetError) {
-      Alert.alert('Não foi possível enviar', resetError.message);
+      mostrarErro(resetError.message, 'Não foi possível enviar');
     }
   };
 
@@ -327,7 +248,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   const openAvailabilityDialog = () => {
     if (!selectedDateUnavailable && selectedDayAssignments.some(a => a.status === 'accepted')) {
-      Alert.alert('Data com compromisso', 'Você tem um evento aceito neste dia.');
+      mostrarErro('Você tem um evento aceito neste dia.', 'Data com compromisso');
       return;
     }
     setAvailabilityDialogVisible(true);
@@ -343,7 +264,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       }
       setAvailabilityDialogVisible(false);
     } catch (changeError) {
-      Alert.alert('Não foi possível atualizar a agenda', changeError.message);
+      mostrarErro(changeError.message, 'Não foi possível atualizar a agenda');
     } finally {
       setUpdatingAvailability(false);
     }
@@ -407,9 +328,11 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               </TouchableOpacity>
             </View>
           </View>
+
           <View style={styles.agendaWeekdays}>
             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => <Text key={day} style={styles.agendaWeekday}>{day}</Text>)}
           </View>
+
           <View style={styles.agendaCalendarGrid}>
             {calendarDays.map((day) => (
               <TouchableOpacity
@@ -428,9 +351,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                   !day.inCurrentMonth && styles.agendaDayOutsideMonth,
                   day.isToday && !day.selected && styles.agendaDayToday,
                   day.unavailable && !day.selected && styles.agendaDayUnavailable,
-                  day.hasConfirmed && !day.selected && styles.agendaDayConfirmed, // Fundo circular preenchido
-                  day.hasPending && !day.selected && styles.agendaDayPending,     // Fundo circular preenchido
-                  day.selected && styles.agendaDaySelected, // Se selecionado vira borda amarela
+                  day.hasConfirmed && !day.selected && styles.agendaDayConfirmed,
+                  day.hasPending && !day.selected && styles.agendaDayPending,
+                  day.selected && styles.agendaDaySelected, 
                 ]}>
                   <Text style={[
                     styles.agendaDayNumber, 
@@ -444,6 +367,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               </TouchableOpacity>
             ))}
           </View>
+
           <View style={styles.agendaLegend}>
             <View style={[styles.agendaLegendDot, styles.agendaLegendEvent]} />
             <Text style={styles.agendaLegendText}>Confirmado</Text>
@@ -476,10 +400,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                   <View style={styles.agendaEventIcon}><Feather name="calendar" size={16} color={COLORS.textNavy} /></View>
                   <View style={styles.agendaEventDetails}>
                     <Text style={styles.agendaEventTitle}>{formatShortDate(assignment.eventDate)} • {assignment.eventTitle}</Text>
-                    <Text style={styles.agendaEventSubtitle}>{formatEventTime(assignment.eventDate)} • {assignment.eventAddress}</Text>
                   </View>
-                  <View>
-                    <Text style={[styles.eventStatusText, assignment.status === 'pending' && styles.eventStatusPendingText]}>
+                  <View style={assignment.status === 'accepted' ? styles.agendaStatusBadgeVerde : styles.agendaStatusBadgeLaranja}>
+                    <Text style={assignment.status === 'accepted' ? styles.agendaStatusTextoVerde : styles.agendaStatusTextoLaranja}>
                       {assignment.status === 'accepted' ? 'Confirmado' : 'Pendente'}
                     </Text>
                   </View>
@@ -495,25 +418,16 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const renderHome = () => (
     <>
       <View style={styles.summaryRow}>
-        <TouchableOpacity 
-          style={styles.summaryCard} 
-          onPress={() => { setEventFilter('pending'); setActiveTab('events'); }}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.summaryCard} onPress={() => { setEventFilter('pending'); setActiveTab('events'); }} activeOpacity={0.8}>
           <Text style={styles.summaryNumber}>{pendingAssignments.length}</Text>
           <Text style={styles.summaryLabel}>Eventos pendentes de aprovação</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={styles.summaryCard}
-          onPress={() => { setEventFilter('mine'); setActiveTab('events'); }}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.summaryCard} onPress={() => { setEventFilter('mine'); setActiveTab('events'); }} activeOpacity={0.8}>
           <Text style={styles.summaryNumber}>{confirmedAssignments.length}</Text>
           <Text style={styles.summaryLabel}>Seus eventos aceitos</Text>
         </TouchableOpacity>
       </View>
-      
       {renderAgenda()}
     </>
   );
@@ -523,9 +437,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       { key: 'mine', label: 'Seus eventos aceitos' },
       { key: 'pending', label: 'Pendentes' },
     ];
-    
     const statusByFilter = { mine: 'accepted', pending: 'pending' };
-    
     const searchTerms = normalizeSearch(eventSearch).split(/\s+/).filter(Boolean);
     
     const visibleAssignments = assignments
@@ -537,17 +449,13 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           assignment.clientName,
           assignment.eventTypeName,
           assignment.professionalTypeName,
-          assignment.eventAddress,
         ].filter(Boolean).join(' '));
-        
         return searchTerms.every(term => combinedString.includes(term));
       })
       .sort((first, second) => (toDate(first.eventDate)?.getTime() || 0) - (toDate(second.eventDate)?.getTime() || 0));
     
     const monthLabel = visibleAssignments.length
-      ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
-        toDate(visibleAssignments[0].eventDate) || new Date(),
-      )
+      ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(toDate(visibleAssignments[0].eventDate) || new Date())
       : '';
 
     return (
@@ -560,27 +468,21 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
             onChangeText={setEventSearch}
             placeholder="Buscar evento ou protagonista"
             placeholderTextColor={COLORS.textMuted}
-            accessibilityLabel="Buscar evento ou protagonista"
             returnKeyType="search"
           />
         </View>
+
         <View style={styles.eventFilters}>
           {eventFilters.map((filter) => {
             const selected = eventFilter === filter.key;
             return (
-              <TouchableOpacity
-                key={filter.key}
-                style={[styles.eventFilterChip, selected && styles.eventFilterChipSelected]}
-                onPress={() => setEventFilter(filter.key)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.eventFilterText, selected && styles.eventFilterTextSelected]}>
-                  {filter.label}
-                </Text>
+              <TouchableOpacity key={filter.key} style={[styles.eventFilterChip, selected && styles.eventFilterChipSelected]} onPress={() => setEventFilter(filter.key)} activeOpacity={0.75}>
+                <Text style={[styles.eventFilterText, selected && styles.eventFilterTextSelected]}>{filter.label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
+
         {loading ? (
           <ActivityIndicator color={COLORS.buttonGold} style={styles.loader} />
         ) : error ? (
@@ -596,9 +498,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               <Feather name="calendar" size={22} color={COLORS.textNavy} />
             </View>
             <Text style={styles.emptyTitle}>
-              {eventFilter === 'pending'
-                ? 'Nenhuma convocação pendente'
-                : 'Você ainda não tem eventos aceitos'}
+              {eventFilter === 'pending' ? 'Nenhuma convocação pendente' : 'Você ainda não tem eventos aceitos'}
             </Text>
             <Text style={styles.emptyText}>
               Quando houver eventos nesta categoria, eles aparecerão aqui.
@@ -610,69 +510,49 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   };
 
   const renderEventCard = (assignment) => {
-    const eventType = assignment.eventTypeName || assignment.professionalTypeName || 'Evento';
-    const eventIcon = /casamento/i.test(eventType)
-      ? 'heart'
-      : /aniversário|15 anos/i.test(eventType)
-        ? 'gift'
-        : /formatura/i.test(eventType)
-          ? 'award'
-          : 'camera';
     return (
-      <TouchableOpacity
-        key={assignment.id}
-        style={styles.eventCard}
-        onPress={() => openEventDetails(assignment)}
-        activeOpacity={0.9}
-        accessibilityRole="button"
-      >
-        <View style={[
-          styles.eventCover,
-          styles[`eventCover${eventIcon[0].toUpperCase()}${eventIcon.slice(1)}`],
-        ]}>
-          <View style={styles.eventCoverIcon}>
-            <Feather name={eventIcon} size={28} color="#FFFFFF" />
+      <Card key={assignment.id} style={styles.eventCardOrganizer} onPress={() => openEventDetails(assignment)}>
+        <Card.Content style={styles.eventCardContentOrganizer}>
+          <View style={styles.linhaTopo}>
+            <Text style={styles.tipoBadge}>
+              {assignment.eventTypeName || assignment.professionalTypeName || 'Evento'}
+            </Text>
+            <Text style={styles.dataTexto}>
+              {formatShortDate(assignment.eventDate)} 
+            </Text>
           </View>
-          <Text style={styles.eventCoverType}>{eventType}</Text>
-        </View>
-        <View style={styles.eventCardContent}>
-          <View style={styles.eventCardTitleRow}>
-            <View style={styles.eventCardTitleBlock}>
-              <Text style={styles.eventCardTitle} numberOfLines={1}>
-                {assignment.eventTitle || 'Evento sem título'}
-              </Text>
-              {!!assignment.clientName && (
-                <Text style={styles.eventCardClient} numberOfLines={1}>{assignment.clientName}</Text>
-              )}
-            </View>
-            <Feather name="chevron-right" size={18} color={COLORS.textNavy} />
+
+          <Text style={styles.tituloEvento}>
+            {assignment.eventTitle || 'Evento sem título'}
+          </Text>
+
+          <View style={styles.linhaInfo}>
+            <Feather name="video" size={16} color={COLORS.textMuted} />
+            <Text style={styles.textoCliente}>
+              Função: {assignment.roleName || assignment.professionalTypeName || 'Equipe'}
+            </Text>
           </View>
-          <View style={styles.eventMetadata}>
-            <View style={styles.eventMetadataItem}>
-              <Feather name="calendar" size={16} color={COLORS.textNavy} />
-              <Text style={styles.eventMetadataTextLarge}>{formatShortDate(assignment.eventDate)}</Text>
-            </View>
-            <View style={styles.eventMetadataItem}>
-              <Feather name="clock" size={16} color={COLORS.textNavy} />
-              <Text style={styles.eventMetadataTextLarge}>{formatEventTime(assignment.eventDate)}</Text>
-            </View>
-            {/* Endereço removido daqui */}
-          </View>
-          <View style={styles.eventCardFooter}>
-            <View style={styles.eventRole}>
-              <Feather name="video" size={14} color="#168D78" />
-              <Text style={styles.eventRoleText} numberOfLines={1}>
-                Função: {assignment.roleName || assignment.professionalTypeName || 'Equipe'}
+
+          <View style={styles.linhaStatus}>
+            <View style={[
+              styles.statusBadge,
+              assignment.status === 'accepted' ? styles.statusBadgeVerde : styles.statusBadgeAmarelo
+            ]}>
+              <Text style={[
+                styles.statusTexto,
+                assignment.status === 'accepted' ? styles.statusTextoVerde : styles.statusTextoAmarelo
+              ]}>
+                {assignment.status === 'accepted' ? 'Confirmado' : 'Pendente'}
               </Text>
             </View>
-            <View style={[styles.eventStatus, assignment.status === 'pending' && styles.eventStatusPending]}>
-              <Text style={[styles.eventStatusText, assignment.status === 'pending' && styles.eventStatusPendingText]}>
-                {assignment.status === 'accepted' ? 'Aceito' : 'Pendente'}
-              </Text>
+
+            <View style={styles.botaoVerDetalhes}>
+              <Text style={styles.botaoVerDetalhesTexto}>Ver detalhes</Text>
+              <Feather name="arrow-right" size={13} color={COLORS.textNavy} />
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </Card.Content>
+      </Card>
     );
   };
 
@@ -693,16 +573,19 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           </View>
         </View>
         <View style={styles.profileDivider} />
+        
         <Text style={styles.userProfileDetail}>CPF: {profile.cpf ? formatCpf(profile.cpf) : 'Não informado'}</Text>
         <Text style={styles.userProfileDetail} numberOfLines={1}>{profile.email || 'E-mail não informado'}</Text>
         <Text style={styles.userProfileDetail} numberOfLines={1}>
           {[profile.city, profile.phone ? formatPhone(profile.phone) : null].filter(Boolean).join(' • ') || 'Cidade e telefone não informados'}
         </Text>
+        
         <TouchableOpacity style={styles.editProfileButton} onPress={openProfileEditor} activeOpacity={0.8}>
           <Feather name="edit-2" size={15} color={COLORS.textNavy} />
           <Text style={styles.editProfileButtonText}>Editar seus dados</Text>
         </TouchableOpacity>
       </View>
+
       <Text style={styles.profileSectionTitle}>Notificações</Text>
       <View style={styles.profilePreferenceCard}>
         <View style={styles.profilePreferenceCopy}>
@@ -717,10 +600,10 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
             onValueChange={changeEventsNotificationPreference}
             trackColor={{ false: '#CAD5E2', true: COLORS.buttonGold }}
             thumbColor="#FFFFFF"
-            accessibilityLabel="Notificações de eventos e equipe"
           />
         )}
       </View>
+
       <Text style={styles.profileSectionTitle}>Configurações</Text>
       <TouchableOpacity style={styles.profileSecurityCard} onPress={sendPasswordReset} activeOpacity={0.8}>
         <View style={styles.profileSecurityIcon}>
@@ -732,6 +615,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />
         <Text style={styles.profileLogoutText}>Sair da conta</Text>
@@ -739,150 +623,100 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     </>
   );
 
- const renderTabButton = (tab, label, icon) => {
+  const renderTabButton = (tab, label, icon) => {
     const selected = activeTab === tab;
     return (
-      <TouchableOpacity
-        key={tab}
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}
-        onPress={() => setActiveTab(tab)}
-      >
-        <View style={selected ? { backgroundColor: '#FCE082', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, minHeight: 36, justifyContent: 'center', alignItems: 'center' } : { paddingHorizontal: 16, paddingVertical: 6, minHeight: 36, justifyContent: 'center', alignItems: 'center' }}>
-          <Feather name={icon} size={22} color={selected ? COLORS.textNavy : COLORS.textSubtle} />
-          {tab === 'home' && pendingAssignments.length > 0 && (
-            <View style={{ position: 'absolute', top: -3, right: 4, minWidth: 14, height: 14, borderRadius: 7, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: 'bold' }}>{pendingAssignments.length}</Text>
-            </View>
-          )}
+      <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}>
+        <View style={estilosNavegacao.tabContainer}>
+          <View style={selected ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}>
+            <Feather name={icon} size={24} color={selected ? CORES.textNavy : COLORS.textSubtle} />
+            {tab === 'home' && pendingAssignments.length > 0 && (
+              <View style={estilosNavegacao.badge}>
+                <Text style={estilosNavegacao.badgeText}>{pendingAssignments.length}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[estilosNavegacao.tabLabel, { color: selected ? CORES.textNavy : COLORS.textSubtle }]}>{label}</Text>
         </View>
-        <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: selected ? COLORS.textNavy : COLORS.textSubtle, marginTop: 4 }}>{label}</Text>
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <View style={styles.homeHeaderRow}>
-          <Text style={styles.greeting}>
-            {activeTab === 'home'
-              ? `Olá, ${user.name || 'Técnico'}!`
-              : { events: 'Eventos', profile: 'Perfil' }[activeTab]}
-          </Text>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => navigation.navigate('Notificacoes')}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Notificações"
-          >
-            <Feather name="bell" size={18} color={COLORS.textWhite} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Cabecalho 
+        titulo={activeTab === 'home' ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!` : { events: 'Eventos', profile: 'Perfil' }[activeTab]} 
+        subtitulo={activeTab === 'home' ? 'Seu painel de eventos' : ''}
+        mostrarSino={true}
+        aoClicarSino={() => navigation.navigate('Notificacoes')}
+      />
       
-      <ScrollView
-        style={styles.mainContent}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.mainContent} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'home' && renderHome()}
         {activeTab === 'events' && renderEvents()}
         {activeTab === 'profile' && renderProfile()}
       </ScrollView>
 
-      <Modal
-        visible={isProfileEditorVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setProfileEditorVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.profileModalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+      {/* MODAIS GERAIS (Substitutos de Alerts) */}
+      <Modal visible={modalSucessoVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E6F8F0', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="check" size={32} color="#10B981" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>{msgSucesso.titulo}</Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>{msgSucesso.descricao}</Text>
+            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={() => setModalSucessoVisivel(false)}>Ok</Button>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={modalErroVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="alert-triangle" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>{msgErro.titulo}</Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>{msgErro.descricao}</Text>
+            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor="#EF4444" textColor="#FFF" onPress={() => setModalErroVisivel(false)}>Ok, entendi</Button>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE EDIÇÃO DE PERFIL */}
+      <Modal visible={isProfileEditorVisible} transparent animationType="fade" onRequestClose={() => setProfileEditorVisible(false)}>
+        <KeyboardAvoidingView style={styles.profileModalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.profileEditorCard}>
             <View style={styles.profileEditorHeading}>
               <Text style={styles.profileEditorTitle}>Editar seus dados</Text>
-              <TouchableOpacity
-                onPress={() => setProfileEditorVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar edição do perfil"
-              >
+              <TouchableOpacity onPress={() => setProfileEditorVisible(false)}>
                 <Feather name="x" size={21} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
             <Text style={styles.profileFieldLabel}>Nome</Text>
-            <TextInput
-              style={styles.profileFieldInput}
-              value={profileForm.displayName}
-              onChangeText={(displayName) => setProfileForm((current) => ({ ...current, displayName }))}
-              placeholder="Seu nome"
-              placeholderTextColor={COLORS.textMuted}
-              maxLength={100}
-              autoCapitalize="words"
-            />
+            <TextInput style={styles.profileFieldInput} value={profileForm.displayName} onChangeText={(displayName) => setProfileForm((current) => ({ ...current, displayName }))} placeholder="Seu nome" placeholderTextColor={COLORS.textMuted} maxLength={100} autoCapitalize="words" />
             <Text style={styles.profileFieldLabel}>CPF</Text>
-            <TextInput
-              style={styles.profileFieldInput}
-              value={profileForm.cpf}
-              onChangeText={(cpf) => setProfileForm((current) => ({ ...current, cpf: formatCpf(cpf) }))}
-              placeholder="000.000.000-00"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="numeric"
-            />
+            <TextInput style={styles.profileFieldInput} value={profileForm.cpf} onChangeText={(cpf) => setProfileForm((current) => ({ ...current, cpf: formatCpf(cpf) }))} placeholder="000.000.000-00" placeholderTextColor={COLORS.textMuted} keyboardType="numeric" />
             <Text style={styles.profileFieldLabel}>Telefone</Text>
-            <TextInput
-              style={styles.profileFieldInput}
-              value={profileForm.phone}
-              onChangeText={(phone) => setProfileForm((current) => ({ ...current, phone: formatPhone(phone) }))}
-              placeholder="(00) 00000-0000"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="phone-pad"
-            />
+            <TextInput style={styles.profileFieldInput} value={profileForm.phone} onChangeText={(phone) => setProfileForm((current) => ({ ...current, phone: formatPhone(phone) }))} placeholder="(00) 00000-0000" placeholderTextColor={COLORS.textMuted} keyboardType="phone-pad" />
             <Text style={styles.profileFieldLabel}>Cidade</Text>
-            <TextInput
-              style={styles.profileFieldInput}
-              value={profileForm.city}
-              onChangeText={(city) => setProfileForm((current) => ({ ...current, city }))}
-              placeholder="Sua cidade"
-              placeholderTextColor={COLORS.textMuted}
-              maxLength={100}
-              autoCapitalize="words"
-            />
+            <TextInput style={styles.profileFieldInput} value={profileForm.city} onChangeText={(city) => setProfileForm((current) => ({ ...current, city }))} placeholder="Sua cidade" placeholderTextColor={COLORS.textMuted} maxLength={100} autoCapitalize="words" />
             <Text style={styles.profileEmailNote}>O e-mail da conta não pode ser alterado por esta tela.</Text>
             <View style={styles.profileEditorActions}>
-              <TouchableOpacity
-                style={styles.profileCancelButton}
-                onPress={() => setProfileEditorVisible(false)}
-                disabled={isSavingProfile}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.profileCancelButton} onPress={() => setProfileEditorVisible(false)} disabled={isSavingProfile}>
                 <Text style={styles.profileCancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.profileSaveButton}
-                onPress={saveProfile}
-                disabled={isSavingProfile}
-                activeOpacity={0.8}
-              >
-                {isSavingProfile ? (
-                  <ActivityIndicator size="small" color={COLORS.textNavy} />
-                ) : (
-                  <Text style={styles.profileSaveButtonText}>Salvar</Text>
-                )}
+              <TouchableOpacity style={styles.profileSaveButton} onPress={saveProfile} disabled={isSavingProfile}>
+                {isSavingProfile ? <ActivityIndicator size="small" color={COLORS.textNavy} /> : <Text style={styles.profileSaveButtonText}>Salvar</Text>}
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal
-        visible={isAvailabilityDialogVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAvailabilityDialogVisible(false)}
-      >
+      {/* MODAL DE INDISPONIBILIDADE */}
+      <Modal visible={isAvailabilityDialogVisible} transparent animationType="fade" onRequestClose={() => setAvailabilityDialogVisible(false)}>
         <View style={styles.profileModalOverlay}>
           <View style={styles.availabilityDialogCard}>
             <View style={styles.profileSecurityIcon}>
@@ -892,48 +726,21 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               {selectedDateUnavailable ? 'Remover indisponibilidade?' : 'Adicionar indisponibilidade?'}
             </Text>
             <Text style={styles.availabilityDialogMessage}>
-              {selectedDateUnavailable
-                ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.`
-                : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
+              {selectedDateUnavailable ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.` : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
             </Text>
             <View style={styles.profileEditorActions}>
-              <TouchableOpacity
-                style={styles.profileCancelButton}
-                onPress={() => setAvailabilityDialogVisible(false)}
-                disabled={isUpdatingAvailability}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.profileCancelButton} onPress={() => setAvailabilityDialogVisible(false)} disabled={isUpdatingAvailability}>
                 <Text style={styles.profileCancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.profileSaveButton}
-                onPress={confirmAvailabilityChange}
-                disabled={isUpdatingAvailability}
-                activeOpacity={0.8}
-              >
-                {isUpdatingAvailability ? (
-                  <ActivityIndicator size="small" color={COLORS.textNavy} />
-                ) : (
-                  <Text style={styles.profileSaveButtonText}>
-                    {selectedDateUnavailable ? 'Remover' : 'Confirmar'}
-                  </Text>
-                )}
+              <TouchableOpacity style={styles.profileSaveButton} onPress={confirmAvailabilityChange} disabled={isUpdatingAvailability}>
+                {isUpdatingAvailability ? <ActivityIndicator size="small" color={COLORS.textNavy} /> : <Text style={styles.profileSaveButtonText}>{selectedDateUnavailable ? 'Remover' : 'Confirmar'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-  
-      <View style={{ 
-        flexDirection: 'row', 
-        backgroundColor: '#FFFFFF', 
-        borderTopColor: COLORS.cardDivider, 
-        borderTopWidth: 1, 
-        height: Platform.OS === 'ios' ? 84 : 74, 
-        paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 6),
-        paddingTop: 8 
-      }}>
+      <View style={[estilosNavegacao.hotbarContainer, { paddingBottom: Math.max(insets.bottom, 16), height: 60 + Math.max(insets.bottom, 16) }]}>
         {renderTabButton('home', 'Início', 'home')}
         {renderTabButton('events', 'Eventos', 'tag')}
         {renderTabButton('profile', 'Perfil', 'user')}

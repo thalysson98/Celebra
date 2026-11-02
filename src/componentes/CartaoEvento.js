@@ -1,5 +1,4 @@
 // src/componentes/CartaoEvento.js
-
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card } from 'react-native-paper';
@@ -8,6 +7,7 @@ import { CORES, FONTES } from '../tema/cores';
 
 export default function CartaoEvento({ evento, aoPressionar }) {
   if (!evento) return null;
+
   return (
     <Card style={estilos.card} onPress={aoPressionar}>
       <Card.Content style={estilos.conteudo}>
@@ -17,7 +17,9 @@ export default function CartaoEvento({ evento, aoPressionar }) {
             {evento.dataInicio || 'Data a definir'} {evento.horaInicio ? ` • ${evento.horaInicio}` : ''}
           </Text>
         </View>
+
         <Text style={estilos.titulo}>{evento.titulo}</Text>
+
         {evento.cliente?.nome ? (
           <View style={estilos.linhaInfo}>
             <Feather name="user" size={16} color={CORES.textMuted} />
@@ -40,7 +42,7 @@ export default function CartaoEvento({ evento, aoPressionar }) {
             </View>
           ) : (
             <View style={estilos.statusBadgeConcluido}>
-               <Feather name="check-circle" size={14} color={CORES.textNavy} style={{marginRight: 4}} />
+               <Feather name="check-circle" size={14} color="#059669" style={{marginRight: 4}} />
                <Text style={estilos.statusTextoConcluido}>Evento Concluído</Text>
             </View>
           )}
@@ -68,11 +70,8 @@ const estilos = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   statusBadgeVerde: { backgroundColor: '#E6F8F0' },
   statusBadgeAmarelo: { backgroundColor: '#FFF7E6' },
-  
-  // Badge de Concluído Mais chamativo
-  statusBadgeConcluido: { backgroundColor: CORES.buttonGold, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, flexDirection: 'row', alignItems: 'center' },
-  statusTextoConcluido: { fontFamily: FONTES.bold, fontSize: 12, fontWeight: '700', color: CORES.textNavy },
-
+  statusBadgeConcluido: { backgroundColor: '#E6F8F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, flexDirection: 'row', alignItems: 'center' },
+  statusTextoConcluido: { fontFamily: FONTES.bold, fontSize: 12, fontWeight: '700', color: '#059669' },
   statusTexto: { fontFamily: FONTES.bold, fontSize: 11, fontWeight: '700' },
   statusTextoVerde: { color: '#059669' },
   statusTextoAmarelo: { color: '#D97706' },

@@ -1,5 +1,4 @@
 // src/telas/organizador/TelaInicioOrganizador.js
-
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -15,15 +14,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import CartaoMetrica from '../../componentes/CartaoMetrica';
 import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
+import Cabecalho from '../../componentes/Cabecalho';
 
 const parseMoeda = (valor) => {
   const v = Number(String(valor || '0').replace(/\D/g, '')) / 100;
   return isNaN(v) ? 0 : v;
-};
+}
 
 const formatarMonetario = (num) => {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
+}
 
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
@@ -62,7 +62,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     if (d && mT && a) return new Date(a, mesMap[mT.toLowerCase()], d);
     return new Date();
   };
-  
+
   // Cálculo Financeiro
   const { totalBruto, pendenteReceber } = useMemo(() => {
     let tBruto = 0;
@@ -81,7 +81,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     hoje.setHours(0,0,0,0);
     const limiteData = new Date(hoje);
     limiteData.setDate(limiteData.getDate() + diasFiltro);
-
     return eventos.filter(e => {
       if (e.statusTempo !== 'futuros') return false;
       const dataEv = e.dataInicio ? converterStringParaData(e.dataInicio) : null;
@@ -123,10 +122,10 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
         
-        {/* CARDS FINANCEIROS */}
-        <View style={styles.metricRow}>
-          <CartaoMetrica valor={totalBruto} rotulo="Total Bruto (R$)" mostrarIndicador estilo={{ marginRight: 8 }} />
-          <CartaoMetrica valor={pendenteReceber} rotulo="Pendente a receber" estilo={{ marginLeft: 8 }} />
+        {/* CARDS FINANCEIROS - AGORA EM COLUNA (UM POR LINHA) */}
+        <View style={{ flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+          <CartaoMetrica valor={totalBruto} rotulo="Total Bruto (R$)" />
+          <CartaoMetrica valor={pendenteReceber} rotulo="Pendente a receber" />
         </View>
 
         <View style={styles.sectionHeader}>
@@ -176,6 +175,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
             </TouchableOpacity>
           </View>
         )}
+
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>

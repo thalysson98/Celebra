@@ -1,5 +1,4 @@
 // src/componentes/ModalAdicionarProfissional.js
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,13 +11,10 @@ import ModalSelecao from './ModalSelecao';
 export default function ModalAdicionarProfissional({ visible, empresaId, equipeAtual = [], onClose, onAdd, esconderOpcaoConvite = false }) {
   const [tipos, setTipos] = useState([]);
   const [tecnicos, setTecnicos] = useState([]);
-  
   const [tipoSelecionado, setTipoSelecionado] = useState(null);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
-  
   const [selecaoVisivel, setSelecaoVisivel] = useState(false);
   const [campoSelecao, setCampoSelecao] = useState(''); // 'tipo' ou 'tecnico'
-  
   const [enviarConvite, setEnviarConvite] = useState(true);
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -90,7 +86,7 @@ export default function ModalAdicionarProfissional({ visible, empresaId, equipeA
         idTipoProfissional: tipoSelecionado.id, funcao: tipoSelecionado.nome,
         enviarConvite: esconderOpcaoConvite ? true : enviarConvite, statusConfirmacao: 'Convite pendente',
       });
-      if (!esconderOpcaoConvite) Alert.alert("Sucesso", enviarConvite ? "Convite enviado com sucesso!" : "Profissional adicionado ao evento.");
+      // ALERTA REMOVIDO PARA DEIXAR APENAS O MODAL DA TELA PRINCIPAL
     } catch (error) {
       setErro(error?.message || 'Erro ao adicionar.');
     } finally { setSalvando(false); }
@@ -112,13 +108,11 @@ export default function ModalAdicionarProfissional({ visible, empresaId, equipeA
                 <Text style={[styles.selectText, !tipoSelecionado && styles.placeholder]}>{tipoSelecionado?.nome || 'Selecionar tipo'}</Text>
                 <MaterialCommunityIcons name="chevron-down" size={20} color={CORES.textMuted} />
               </TouchableOpacity>
-
               <Text style={[styles.label, styles.secondLabel]}>Profissional de campo *</Text>
               <TouchableOpacity style={styles.selectButton} onPress={() => abrirSelecao('tecnico')}>
                 <Text style={[styles.selectText, !tecnicoSelecionado && styles.placeholder]} numberOfLines={1}>{tecnicoSelecionado?.nome || 'Buscar nome...'}</Text>
                 <MaterialCommunityIcons name="chevron-down" size={20} color={CORES.textMuted} />
               </TouchableOpacity>
-
               {!esconderOpcaoConvite && (
                 <View style={styles.inviteCard}>
                   <View style={styles.inviteCopy}>
@@ -138,7 +132,6 @@ export default function ModalAdicionarProfissional({ visible, empresaId, equipeA
           <TouchableOpacity onPress={onClose} disabled={salvando} style={styles.cancelButton}><Text style={styles.cancelButtonText}>Cancelar</Text></TouchableOpacity>
         </View>
       </View>
-
       <ModalSelecao 
          visible={selecaoVisivel}
          onClose={() => setSelecaoVisivel(false)}

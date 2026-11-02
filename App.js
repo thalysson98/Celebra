@@ -1,3 +1,4 @@
+// App.js
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +7,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { PaperProvider, MD3LightTheme as DefaultTheme, configureFonts } from 'react-native-paper';
 import { onAuthStateChanged } from 'firebase/auth';
+import Toast from 'react-native-toast-message';
+
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -44,7 +47,6 @@ export default function App() {
     let mounted = true;
     let authRevision = 0;
 
-    // Escuta a sessão ativa do usuário no Firebase
     const unsubscribe = onAuthStateChanged(autenticacao, async (authUser) => {
       const revision = ++authRevision;
       if (!authUser) {
@@ -57,9 +59,6 @@ export default function App() {
 
       try {
         let profile = await obterPerfilUsuario(authUser);
-        // No cadastro, o evento do Auth pode chegar antes de o documento
-        // usuarios terminar de ser gravado no Firestore. Aguarda essa gravação
-        // antes de tratar a conta como inválida e desconectá-la.
         for (let tentativa = 0; profile.profileStatus === 'perfil_nao_cadastrado' && tentativa < 5; tentativa += 1) {
           await new Promise((resolve) => setTimeout(resolve, 300));
           if (!mounted || revision !== authRevision || autenticacao.currentUser?.uid !== authUser.uid) return;
@@ -107,7 +106,7 @@ export default function App() {
       <PaperProvider theme={paperTheme}>
         <SafeAreaView
           style={[styles.safeArea, isTechnician && styles.technicianSafeArea]}
-          edges={isTechnician ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
+          edges={['top', 'left', 'right']} 
         >
           <StatusBar style="light" backgroundColor={CORES.bgHeaderDark} />
 
@@ -118,6 +117,7 @@ export default function App() {
               onLogout={handleLogout}
             />
           </NavigationContainer>
+          <Toast />
         </SafeAreaView>
       </PaperProvider>
     </SafeAreaProvider>
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: CORES.bgHeaderDark,
   },
   technicianSafeArea: {
-    backgroundColor: '#F8FAFF',
+    backgroundColor: '#F3F5F8',
   },
   loadingContainer: {
     flex: 1,

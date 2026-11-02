@@ -1,12 +1,13 @@
 // src/navegacao/NavegadorOrganizador.js
-
 import React from 'react';
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CORES, FONTES } from '../tema/cores';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CORES, FONTES } from '../tema/cores';
+import { estilosNavegacao, obterEstiloHotbar } from '../estilos/estilosNavegacao';
 import TelaInicioOrganizador from '../telas/organizador/TelaInicioOrganizador';
 import TelaListaEventos from '../telas/organizador/TelaListaEventos';
 import TelaAdministrandoOrganizador from '../telas/organizador/TelaAdministrandoOrganizador';
@@ -49,6 +50,8 @@ function NavegadorPerfil({ onLogout, usuario, setCurrentUser }) {
 }
 
 function AbasOrganizador({ onLogout, usuario, setCurrentUser }) {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Aba.Navigator
       initialRouteName="Inicio"
@@ -56,30 +59,20 @@ function AbasOrganizador({ onLogout, usuario, setCurrentUser }) {
         headerShown: false,
         tabBarActiveTintColor: CORES.textNavy,
         tabBarInactiveTintColor: CORES.textSubtle,
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: CORES.cardDivider,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 78,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-          paddingTop: 8,
-        },
+        tabBarStyle: obterEstiloHotbar(insets.bottom),
         tabBarShowLabel: false,
       }}
     >
-      <Aba.Screen name="Inicio" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilos.tabContainer}><View style={focused ? estilos.pilulaIconeAtivo : estilos.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilos.tabLabel, { color: focused ? CORES.textNavy : color }]}>Início</Text></View>) }}>
+      <Aba.Screen name="Inicio" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Início</Text></View>) }}>
         {(props) => <TelaInicioOrganizador {...props} usuario={usuario} />}
       </Aba.Screen>
-      <Aba.Screen name="Eventos" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilos.tabContainer}><View style={focused ? estilos.pilulaIconeAtivo : estilos.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'calendar-month' : 'calendar-month-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilos.tabLabel, { color: focused ? CORES.textNavy : color }]}>Eventos</Text></View>) }}>
+      <Aba.Screen name="Eventos" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'calendar-month' : 'calendar-month-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Eventos</Text></View>) }}>
         {() => <NavegadorEventos onLogout={onLogout} usuario={usuario} />}
       </Aba.Screen>
-      
-      {/* AJUSTE AQUI: O componente agora recebe props para a navegação funcionar nas Notificações */}
-      <Aba.Screen name="Administrando" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilos.tabContainer}><View style={focused ? estilos.pilulaIconeAtivo : estilos.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilos.tabLabel, { color: focused ? CORES.textNavy : color }]}>Administrando</Text></View>) }}>
+      <Aba.Screen name="Administrando" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Gestão</Text></View>) }}>
         {(props) => <TelaAdministrandoOrganizador {...props} usuario={usuario} />}
       </Aba.Screen>
-      
-      <Aba.Screen name="Perfil" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilos.tabContainer}><View style={focused ? estilos.pilulaIconeAtivo : estilos.pilulaIconeInativo}><MaterialCommunityIcons name="domain" size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilos.tabLabel, { color: focused ? CORES.textNavy : color }]}>Perfil</Text></View>) }}>
+      <Aba.Screen name="Perfil" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name="domain" size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Perfil</Text></View>) }}>
         {() => <NavegadorPerfil onLogout={onLogout} usuario={usuario} setCurrentUser={setCurrentUser} />}
       </Aba.Screen>
     </Aba.Navigator>
@@ -96,11 +89,5 @@ export default function NavegadorOrganizador({ onLogout, usuario, setCurrentUser
     </Pilha.Navigator>
   );
 }
-export const OrganizerNavigator = NavegadorOrganizador;
 
-const estilos = StyleSheet.create({
-  tabContainer: { alignItems: 'center', justifyContent: 'center', width: 80, height: 60 },
-  pilulaIconeAtivo: { backgroundColor: CORES.tabActiveGold, paddingHorizontal: 16, paddingVertical: 4, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  pilulaIconeInativo: { paddingHorizontal: 16, paddingVertical: 4, alignItems: 'center', justifyContent: 'center' },
-  tabLabel: { fontFamily: FONTES.semibold, fontSize: 11, marginTop: 4, textAlign: 'center' }
-});
+export const OrganizerNavigator = NavegadorOrganizador;
