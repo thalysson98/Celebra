@@ -1,18 +1,19 @@
 // src/telas/organizador/TelaDetalheEvento.js
-
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Alert, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
+
 import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosDetalheEventoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import { reenviarConvite, removerConvite, removerProfissionalInformativo, atualizarFuncaoConvite } from '../../servicos/servicoEscala';
 import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 import ModalSelecao from '../../componentes/ModalSelecao';
-import { formatarCpfCnpj, formatarTelefone, formatarMoedaInput } from './TelaCriarEvento'; // Reutilizando funções do arquivo irmão
+import CartaoLocal from '../../componentes/CartaoLocal'; // O NOVO COMPONENTE DE LOCAL
+import { formatarCpfCnpj, formatarTelefone, formatarMoedaInput } from './TelaCriarEvento'; 
 
 const ABAS = ['Geral', 'Equipe', 'Financeiro'];
 const OPCOES_PAGAMENTO = [
@@ -26,6 +27,7 @@ function CampoDataHora({ modo, valor, aoMudar }) {
   const [pickerVisivel, setPickerVisivel] = useState(false);
   let stringFormatada = valor;
   if(modo === 'date' && valor && valor.includes('-')) { stringFormatada = valor.split('-').reverse().join('/'); }
+  
   if (Platform.OS === 'web') return React.createElement('input', { type: modo, value: valor, onChange: (e) => aoMudar(e.target.value), style: { width: '100%', boxSizing: 'border-box', minHeight: 48, border: '1px solid #E2E8F0', borderRadius: 12, padding: '11px 12px', backgroundColor: '#F8FAFC', color: CORES.textNavy, fontSize: 14, fontFamily: FONTES.body, textAlign: 'left' } });
   
   let dataPicker = new Date();
@@ -35,6 +37,7 @@ function CampoDataHora({ modo, valor, aoMudar }) {
   } else if (modo === 'time' && valor) {
     const [h, m] = String(valor || '16:00').split(':').map(Number); dataPicker.setHours(h || 0, m || 0, 0, 0); 
   }
+
   return (
     <>
       <TouchableOpacity onPress={() => setPickerVisivel(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: 48, justifyContent: 'space-between' }}>
@@ -83,36 +86,43 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const [abaAtiva, setAbaAtiva] = useState(route.params?.erroConvites ? 'Equipe' : 'Geral');
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
-  const [erroEdicao, setErroEdicao] = useState('');
   
   const [modalEquipeVisivel, setModalEquipeVisivel] = useState(false);
   const [selecaoVisivel, setSelecaoVisivel] = useState(false);
   const [opcoesSelecao, setOpcoesSelecao] = useState([]);
   const [tipoSelecao, setTipoSelecao] = useState('');
   const [carregandoOpcoes, setCarregandoOpcoes] = useState(false);
-
+  
   const [modalExcluirVisivel, setModalExcluirVisivel] = useState(false);
   const [modalConcluirVisivel, setModalConcluirVisivel] = useState(false);
+  const [modalReabrirVisivel, setModalReabrirVisivel] = useState(false);
   const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
   const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
   
-  const [profissionalAlvo, setProfissionalAlvo] = useState(null);
+  const [modalErroVisivel, setModalErroVisivel] = useState(false);
+  const [msgErro, setMsgErro] = useState('');
 
+  const [profissionalAlvo, setProfissionalAlvo] = useState(null);
+  
   const [modalLocalVisivel, setModalLocalVisivel] = useState(false);
   const [formNovoLocal, setFormNovoLocal] = useState({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
-
   const [modalClienteVisivel, setModalClienteVisivel] = useState(false);
   const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', instagram: '' });
-
+  
   const [locais, setLocais] = useState([]);
-  const [formulario, setFormulario] = useState({ 
-    titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '', 
-    metodoPagamento: '', valorTotal: '', observacaoFinanceiro: '', qtdParcelas: '', parcelasDetalhadas: []
+  const [formulario, setFormulario] = useState({
+     titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '',
+     metodoPagamento: '', valorTotal: '', observacaoFinanceiro: '', qtdParcelas: '', parcelasDetalhadas: []
   });
 
   const mostrarSucesso = (titulo, descricao) => {
     setMsgSucesso({ titulo, descricao });
     setModalSucessoVisivel(true);
+  };
+
+  const mostrarErro = (mensagem) => {
+    setMsgErro(mensagem);
+    setModalErroVisivel(true);
   };
 
   const preencherFormulario = (dados) => {
@@ -146,7 +156,6 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const eventoConcluido = evento?.statusTempo === 'concluidos';
 
   const atualizarCampo = (campo, valor) => {
-    setErroEdicao('');
     setFormulario((atual) => {
       const novo = { ...atual, [campo]: valor };
       if (campo === 'qtdParcelas') {
@@ -163,7 +172,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
       arr[index][campo] = valor;
       setFormulario({...formulario, parcelasDetalhadas: arr});
   };
-  
+
   const alternarStatusParcela = (index) => {
       const arr = [...formulario.parcelasDetalhadas];
       arr[index].status = arr[index].status === 'paga' ? 'pendente' : 'paga';
@@ -175,12 +184,12 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
     novosLocais[index][campo] = valor;
     setLocais(novosLocais);
   };
+
   const adicionarLocal = () => setLocais([...locais, { idLocalTemp: Date.now(), nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' }]);
   const removerLocal = (index) => setLocais(locais.filter((_, i) => i !== index));
 
   const cancelarEdicao = () => {
     preencherFormulario(evento);
-    setErroEdicao('');
     setEditando(null);
   };
 
@@ -192,7 +201,6 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
          const [d, m, y] = formulario.dataInicio.split('/');
          dataFormatadaFirebase = `${y}-${m}-${d}`;
       }
-
       const payloadFinanceiro = {
           valorTotal: formulario.valorTotal, metodoPagamento: formulario.metodoPagamento, observacaoFinanceiro: formulario.observacaoFinanceiro,
           qtdParcelas: Number(formulario.qtdParcelas) || 0, parcelasDetalhadas: formulario.parcelasDetalhadas
@@ -203,44 +211,74 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
       await carregarEvento();
       setEditando(null);
       mostrarSucesso("Sucesso!", "Dados do evento atualizados.");
-    } catch (error) { Toast.show({ type: 'error', text1: 'Erro', text2: 'Erro ao salvar.' }); } finally { setSalvando(false); }
-  };
-
-  const confirmarConclusao = async () => {
-    setModalConcluirVisivel(false);
-    setCarregando(true);
-    await repositorioEventos.concluirEvento(idEvento);
-    await carregarEvento();
-    mostrarSucesso("Evento Concluído", "O evento foi encerrado e não pode mais ser editado.");
+    } catch (error) { mostrarErro("Não foi possível salvar as alterações."); } finally { setSalvando(false); }
   };
 
   const tentarConcluirEvento = () => {
-    const fn = evento.financeiro;
-    const valTotalStr = fn?.valorTotal ? String(fn.valorTotal).replace(/\D/g, '') : '0';
+    const fn = evento.financeiro || {};
+    const valTotalStr = fn.valorTotal ? String(fn.valorTotal).replace(/\D/g, '') : '0';
     const valTotal = Number(valTotalStr) / 100;
 
     if (valTotal <= 0) {
-      Toast.show({ type: 'error', text1: 'Atenção', text2: 'Preencha o valor financeiro total antes de concluir.' });
+      mostrarErro('Preencha o valor financeiro total antes de concluir o evento.');
       return;
     }
 
-    let somaPagas = 0;
+    const parcelas = fn.parcelasDetalhadas || [];
+    if (parcelas.length === 0) {
+       mostrarErro('Adicione as parcelas equivalentes ao valor total do evento.');
+       return;
+    }
+
+    let somaTodasParcelas = 0;
     let temPendente = false;
 
-    (fn?.parcelasDetalhadas || []).forEach(p => {
-       if (p.status === 'paga') {
-          somaPagas += (Number(String(p.valor || '0').replace(/\D/g, '')) / 100);
-       } else {
+    parcelas.forEach(p => {
+       const valorParcela = (Number(String(p.valor || '0').replace(/\D/g, '')) / 100);
+       somaTodasParcelas += valorParcela;
+       
+       if (p.status !== 'paga') {
           temPendente = true;
        }
     });
 
-    if (temPendente || somaPagas < (valTotal - 0.05)) { // margem de erro pequena por segurança
-       Toast.show({ type: 'error', text1: 'Financeiro Pendente', text2: 'Todas as parcelas devem estar PAGAS e bater o valor total.' });
+    if (temPendente) {
+       mostrarErro('Todas as parcelas devem estar PAGAS para concluir o evento.');
+       return;
+    }
+
+    if (Math.abs(somaTodasParcelas - valTotal) > 0.05) { 
+       mostrarErro('A soma das parcelas pagas não bate com o valor total do evento.');
        return;
     }
 
     setModalConcluirVisivel(true);
+  };
+
+  const confirmarConclusao = async () => {
+    setModalConcluirVisivel(false); 
+    setCarregando(true);
+    try {
+      await repositorioEventos.concluirEvento(idEvento);
+      await carregarEvento(); 
+      mostrarSucesso("Evento Concluído", "O evento foi encerrado e não pode mais ser editado.");
+    } catch (error) {
+      setCarregando(false);
+      mostrarErro("Não foi possível concluir. Verifique sua conexão.");
+    }
+  };
+
+  const confirmarReabertura = async () => {
+    setModalReabrirVisivel(false);
+    setCarregando(true);
+    try {
+      await repositorioEventos.reabrirEvento(idEvento);
+      await carregarEvento();
+      mostrarSucesso("Evento Reaberto", "O evento retornou para a categoria de futuros e pode ser editado novamente.");
+    } catch (error) {
+      setCarregando(false);
+      mostrarErro("Não foi possível reabrir o evento.");
+    }
   };
 
   const clickReenviar = async (idConvite) => {
@@ -255,10 +293,9 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   };
 
   const confirmarExclusaoTecnico = async () => {
-    const alvo = profissionalAlvo; // Isolar objeto antes de fechar modal
+    const alvo = profissionalAlvo; 
     setModalExcluirVisivel(false);
     
-    // Pequeno timeout para dar tempo da animação do modal acabar, evitando crash visual
     setTimeout(async () => {
       setCarregando(true);
       try {
@@ -271,7 +308,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
         mostrarSucesso("Sucesso", "O Profissional foi removido da equipe.");
       } catch(e) {
         setCarregando(false);
-        Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível remover.' });
+        mostrarErro("Não foi possível remover este profissional.");
       }
     }, 300);
   };
@@ -338,7 +375,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   };
 
   const salvarNovoLocalDetalhado = async () => {
-    if (!formNovoLocal.nome || !formNovoLocal.rua) { Toast.show({ type: 'error', text1: 'Preencha o nome e rua do local.' }); return; }
+    if (!formNovoLocal.nome || !formNovoLocal.rua) { mostrarErro("Preencha o nome e rua do local."); return; }
     setCarregandoOpcoes(true);
     try {
       const enderecoFormatado = `${formNovoLocal.rua}, ${formNovoLocal.numero} - ${formNovoLocal.bairro}, ${formNovoLocal.cidade} - ${formNovoLocal.estado}`;
@@ -350,12 +387,12 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   };
 
   const salvarNovoClienteDetalhado = async () => {
-    if (!formNovoCliente.nome || !formNovoCliente.documento) { Toast.show({ type: 'error', text1: 'Preencha o nome e CPF/CNPJ.' }); return; }
+    if (!formNovoCliente.nome || !formNovoCliente.documento) { mostrarErro("Preencha o nome e CPF/CNPJ."); return; }
     setCarregandoOpcoes(true);
     try {
-      const novo = await repositorioEventos.adicionarNovoItemSelect('clientes', { 
-         nome: formNovoCliente.nome.trim(), 
-         documento: formNovoCliente.documento.trim(),
+      const novo = await repositorioEventos.adicionarNovoItemSelect('clientes', {
+          nome: formNovoCliente.nome.trim(),
+          documento: formNovoCliente.documento.trim(),
          telefone: formNovoCliente.telefone.trim(),
          instagram: formNovoCliente.instagram.trim()
       }, usuario?.idEmpresa);
@@ -368,16 +405,19 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   if (carregando) return <View style={styles.center}><ActivityIndicator size="large" color={CORES.buttonGold} /></View>;
   if (!evento) return <View style={styles.center}><Text>Evento não encontrado.</Text></View>;
 
-  const equipe = evento.equipa || [];
+  const equipe = evento.equipe || [];
   const financeiro = evento.financeiro || {};
   
+  // Ordena cronologicamente para a visualização
+  const locaisOrdenados = [...evento.locais].sort((a, b) => (a.horaLocal || evento.horaInicio || '').localeCompare(b.horaLocal || evento.horaInicio || ''));
+
   let tituloSelecaoUI = 'Selecionar';
   if(tipoSelecao==='cliente') tituloSelecaoUI = 'Selecionar cliente';
   if(tipoSelecao==='tipoEvento') tituloSelecaoUI = 'Selecionar tipo de evento';
   if(tipoSelecao.startsWith('local_')) tituloSelecaoUI = 'Selecionar local';
   if(tipoSelecao.startsWith('tipoLocal_')) tituloSelecaoUI = 'Selecionar tipo do local';
   if(tipoSelecao==='metodoPagamento') tituloSelecaoUI = 'Método de Pagamento';
-  if(tipoSelecao==='editarProfissional') tituloSelecaoUI = 'Nova função';
+  if(tipoSelecao==='editarProfissional') tituloSelecaoUI = 'Nova função do profissional';
 
   return (
     <View style={styles.container}>
@@ -391,12 +431,18 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.content}>
         
-        {/* CARD GERAL MINIMALISTA (SEM BLOCO AZUL) */}
         {abaAtiva === 'Geral' && !editando && (
           <Card style={{ backgroundColor: CORES.cardWhite, borderRadius: 16, padding: 0, marginBottom: 20, elevation: 1 }}>
             <Card.Content style={{ padding: 20 }}>
-              <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 24, fontWeight: '700', marginBottom: 16 }}>{evento.titulo}</Text>
+              <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 24, fontWeight: '700', marginBottom: 8 }}>{evento.titulo}</Text>
               
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                 <Feather name="user" size={20} color={CORES.buttonGold} style={{ marginRight: 8 }} />
+                 <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 18 }}>
+                    Cliente: {evento.cliente?.nome || 'Não informado'}
+                 </Text>
+              </View>
+
               <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10}}>
                 <View style={{backgroundColor: '#EAF3F7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10}}>
                    <Text style={{color: '#2F80A8', fontFamily: FONTES.bold, fontSize: 13}}>{evento.tipoEvento}</Text>
@@ -418,24 +464,13 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
                       <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15 }}>{evento.dataInicio || 'Não informada'}</Text>
                    </View>
                  </View>
-
-                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                    <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#EAF3F7', alignItems: 'center', justifyContent: 'center', marginRight: 12}}>
                       <Feather name="clock" size={16} color={CORES.textNavy} />
                    </View>
                    <View>
                       <Text style={{ fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 12 }}>Horário</Text>
                       <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15 }}>{evento.horaInicio || 'Não informado'}</Text>
-                   </View>
-                 </View>
-
-                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                   <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#FFFBEB', alignItems: 'center', justifyContent: 'center', marginRight: 12}}>
-                      <Feather name="user" size={16} color={CORES.buttonGold} />
-                   </View>
-                   <View>
-                      <Text style={{ fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 12 }}>Cliente Principal</Text>
-                      <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15 }}>{evento.cliente?.nome || 'Não informado'}</Text>
                    </View>
                  </View>
               </View>
@@ -460,6 +495,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
                  <CampoDataHora modo="time" valor={formulario.horaInicio} aoMudar={(valor) => atualizarCampo('horaInicio', valor)} />
               </View>
             </View>
+
             <CampoEdicao label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizarCampo('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" />
 
             <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#DFE7EE', paddingTop: 20 }}>
@@ -480,6 +516,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
                       <CampoDataHora modo="time" valor={local.horaLocal} aoMudar={(v) => atualizarLocal(index, 'horaLocal', v)} />
                     </View>
                   </View>
+
                   <CampoEdicao label="Observações do local" valor={local.observacoesLocal} aoMudar={(v) => atualizarLocal(index, 'observacoesLocal', v)} placeholder="Detalhes de chegada..." multiline />
                 </View>
               ))}
@@ -487,38 +524,36 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
             </View>
 
             <CampoEdicao label="Notas gerais da produção" valor={formulario.notasProducao} aoMudar={(v) => atualizarCampo('notasProducao', v)} placeholder="Escrever notas importantes..." multiline />
+
             <View style={styles.editActions}>
               <Button mode="outlined" onPress={cancelarEdicao} textColor={CORES.textNavy}>Cancelar</Button>
               <Button mode="contained" onPress={salvarEdicao} loading={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar alterações</Button>
             </View>
           </Card.Content></Card>
         </> : <>
+          
           <Text style={styles.sectionTitle}>Locais do Evento</Text>
-          {evento.locais.length > 0 ? evento.locais.map((local, index) => (
-             <Card key={index} style={styles.card}><Card.Content>
-               <View style={styles.placeTitleRow}>
-                 <MaterialCommunityIcons name="map-marker-outline" size={24} color={CORES.statusDanger || '#E5484D'} />
-                 <Text style={styles.placeName}>{local.nomeDoLocal || local.nomeEstabelecimento || local.nome || 'Local'}</Text>
-               </View>
-               <Text style={styles.placeAddress}>{local.enderecoLocal || local.endereco || local.endereco_completo || 'Endereço não informado'}</Text>
-               <Text style={styles.placeMeta}>{local.tipoLocal || 'Tipo não informado'}</Text>
-               <View style={styles.placeFooter}>
-                 <Text style={styles.placeTime}>{local.horaLocal || evento.horaInicio}</Text>
-               </View>
-             </Card.Content></Card>
+          {locaisOrdenados.length > 0 ? locaisOrdenados.map((local, index) => (
+             <CartaoLocal key={index} local={local} fallbackHora={evento.horaInicio} />
           )) : <Text style={styles.sectionHint}>Nenhum local cadastrado.</Text>}
           
           <Text style={styles.sectionTitle}>Notas da produção</Text>
           <Card style={styles.card}><Card.Content><Text style={styles.noteText}>{evento.notasProducao || 'Nenhuma observação registrada.'}</Text></Card.Content></Card>
-
+          
           {!eventoConcluido && (
              <TouchableOpacity onPress={() => setEditando('geral')} style={styles.editPrimaryButton}>
                <Text style={styles.editPrimaryText}>Editar dados gerais e locais</Text>
              </TouchableOpacity>
           )}
-          {!eventoConcluido && (
+
+          {!eventoConcluido ? (
             <TouchableOpacity onPress={tentarConcluirEvento} style={styles.btnConcluir}>
               <Text style={[styles.editPrimaryText, {color: '#FFF'}]}>Concluir Evento</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => setModalReabrirVisivel(true)} style={[styles.editPrimaryButton, { backgroundColor: '#EAF3F7', marginTop: 15 }]}>
+              <Feather name="rotate-ccw" size={16} color="#2F80A8" style={{ marginRight: 8 }} />
+              <Text style={[styles.editPrimaryText, {color: '#2F80A8'}]}>Reabrir Evento</Text>
             </TouchableOpacity>
           )}
         </>)}
@@ -545,7 +580,12 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
                     {pessoa.statusConfirmacao !== 'Informativo' && (
                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
                          <Text style={[styles.personMeta, {marginTop: 0, fontSize: 12}]}>Situação do convite: </Text>
-                         <Text style={pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText : pessoa.statusConfirmacao === 'Recusado' || pessoa.statusConfirmacao === 'Cancelado' ? styles.canceledText : styles.pendingText}>
+                         <Text style={[
+                            pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText : 
+                            pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
+                            pessoa.statusConfirmacao === 'Recusado' ? styles.canceledText : 
+                            styles.pendingText
+                         ]}>
                            {pessoa.statusConfirmacao}
                          </Text>
                        </View>
@@ -657,6 +697,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
             </TouchableOpacity>
           )}
         </>)}
+
       </ScrollView>
 
       {/* MODAIS CUSTOMIZADOS DE AÇÕES */}
@@ -671,8 +712,26 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
               Após concluir, o evento não poderá mais ser editado.
             </Text>
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-              <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} textColor={CORES.textNavy} onPress={() => setModalConcluirVisivel(false)}>Cancelar</Button>
-              <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor="#10B981" textColor="#FFF" onPress={confirmarConclusao}>Sim, concluir</Button>
+              <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} textColor={CORES.textNavy} onPress={() => setModalConcluirVisivel(false)} disabled={carregando}>Cancelar</Button>
+              <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor="#10B981" textColor="#FFF" onPress={confirmarConclusao} loading={carregando}>Sim, concluir</Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={modalReabrirVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#EAF3F7', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="rotate-ccw" size={30} color="#2F80A8" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>Reabrir Evento?</Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>
+              O evento voltará para a aba de futuros e poderá ser editado novamente.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} textColor={CORES.textNavy} onPress={() => setModalReabrirVisivel(false)} disabled={carregando}>Cancelar</Button>
+              <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor="#2F80A8" textColor="#FFF" onPress={confirmarReabertura} loading={carregando}>Sim, reabrir</Button>
             </View>
           </View>
         </View>
@@ -709,6 +768,26 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
         </View>
       </Modal>
 
+      {/* NOVO MODAL DE ERRO */}
+      <Modal visible={modalErroVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="alert-triangle" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>
+              Atenção
+            </Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>
+              {msgErro}
+            </Text>
+            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor="#EF4444" textColor="#FFF" onPress={() => setModalErroVisivel(false)}>
+              Ok, entendi
+            </Button>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={modalLocalVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
            <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
@@ -723,9 +802,10 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
                 <View style={{ flex: 2 }}><CampoEdicao label="Cidade" valor={formNovoLocal.cidade} aoMudar={v => setFormNovoLocal({...formNovoLocal, cidade: v})} placeholder="Cidade" /></View>
                 <View style={{ flex: 1 }}><CampoEdicao label="Estado" valor={formNovoLocal.estado} aoMudar={v => setFormNovoLocal({...formNovoLocal, estado: v})} placeholder="SP" /></View>
               </View>
+              
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
-                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalLocalVisivel(false)} textColor={CORES.textNavy}>Cancelar</Button>
-                 <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoLocalDetalhado}>Salvar</Button>
+                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalLocalVisivel(false)} textColor={CORES.textNavy} disabled={carregandoOpcoes}>Cancelar</Button>
+                 <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoLocalDetalhado} loading={carregandoOpcoes}>Salvar</Button>
               </View>
            </ScrollView>
         </View>
@@ -741,8 +821,8 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
               <CampoEdicao label="Instagram (Opcional)" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
               
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
-                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalClienteVisivel(false)} textColor={CORES.textNavy}>Cancelar</Button>
-                 <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoClienteDetalhado}>Salvar</Button>
+                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalClienteVisivel(false)} textColor={CORES.textNavy} disabled={carregandoOpcoes}>Cancelar</Button>
+                 <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoClienteDetalhado} loading={carregandoOpcoes}>Salvar</Button>
               </View>
            </ScrollView>
         </View>
@@ -759,17 +839,17 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
       />
 
       <ModalAdicionarProfissional 
-         visible={modalEquipeVisivel} 
-         empresaId={usuario?.idEmpresa} 
-         equipeAtual={equipe} 
-         onClose={() => setModalEquipeVisivel(false)} 
-         onAdd={async (p) => { 
-            await repositorioEventos.adicionarProfissionaisEvento(idEvento, [p]); 
-            carregarEvento(); 
-            setModalEquipeVisivel(false); 
-            mostrarSucesso('Profissional adicionado', p.enviarConvite ? 'Convite enviado com sucesso!' : 'Profissional adicionado à equipe.'); 
-         }} 
-      />
+          visible={modalEquipeVisivel} 
+          empresaId={usuario?.idEmpresa} 
+          equipeAtual={equipe} 
+          onClose={() => setModalEquipeVisivel(false)} 
+          onAdd={async (p) => {
+             await repositorioEventos.adicionarProfissionaisEvento(idEvento, [p]);
+             carregarEvento();
+             setModalEquipeVisivel(false);
+             mostrarSucesso('Profissional adicionado', p.enviarConvite ? 'Convite enviado com sucesso!' : 'Profissional adicionado à equipe.');
+          }} 
+       />
     </View>
   );
 }

@@ -1,7 +1,6 @@
 // src/telas/organizador/TelaCriarEvento.js
-
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { CORES, FONTES } from '../../tema/cores';
@@ -11,9 +10,9 @@ import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissi
 import ModalSelecao from '../../componentes/ModalSelecao';
 
 const SECOES = ['Geral', 'Equipe', 'Financeiro'];
+
 const DateTimePickerNativo = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
-// Funções de formatação
 export const formatarCpfCnpj = (valor) => {
   const v = String(valor).replace(/\D/g, '');
   if (v.length <= 11) {
@@ -21,7 +20,7 @@ export const formatarCpfCnpj = (valor) => {
   } else {
     return v.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
   }
-};
+}
 
 export const formatarTelefone = (valor) => {
   const v = String(valor).replace(/\D/g, '');
@@ -29,7 +28,7 @@ export const formatarTelefone = (valor) => {
   if (v.length <= 6) return `(${v.slice(0, 2)}) ${v.slice(2)}`;
   if (v.length <= 10) return `(${v.slice(0, 2)}) ${v.slice(2, 6)}-${v.slice(6)}`;
   return `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`;
-};
+}
 
 export const formatarMoedaInput = (valor) => {
   if (!valor) return '';
@@ -37,7 +36,7 @@ export const formatarMoedaInput = (valor) => {
   if (!numeros) return '';
   const valorMonetario = (Number(numeros) / 100).toFixed(2);
   return 'R$ ' + valorMonetario.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-};
+}
 
 function formatarData(data) {
   if (!data) return '';
@@ -59,6 +58,7 @@ function dataParaPicker(valor, modo) {
 function SeletorDataHora({ modo, valor, aoMudar }) {
   const [visivel, setVisivel] = useState(false);
   const texto = modo === 'date' ? formatarData(valor) : valor;
+
   if (Platform.OS === 'web') {
     return React.createElement('input', {
       type: modo, value: valor, onChange: (evento) => aoMudar(evento.target.value),
@@ -95,18 +95,18 @@ const CampoInput = ({ label, valor, aoMudar, placeholder, teclado = 'default', m
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E2EB', borderRadius: 11, paddingHorizontal: 13, minHeight: 48 }}>
       {icone && <Feather name={icone} size={18} color="#94A3B8" style={{ marginRight: 10 }} />}
       <TextInput 
-        value={valor} 
-        onChangeText={aoMudar} 
-        placeholder={placeholder} 
-        placeholderTextColor={CORES.textSubtle} 
-        keyboardType={teclado} 
-        multiline={multilinha} 
-        textAlign="left"
+         value={valor} 
+         onChangeText={aoMudar} 
+         placeholder={placeholder} 
+         placeholderTextColor={CORES.textSubtle} 
+         keyboardType={teclado} 
+         multiline={multilinha} 
+         textAlign="left"
         style={{ flex: 1, fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, minHeight: multilinha ? 88 : 48, textAlignVertical: multilinha ? 'top' : 'center', paddingTop: multilinha ? 12 : 0, outlineStyle: 'none' }} 
-      />
+       />
     </View>
   </View>
-);
+)
 
 const CampoSelecao = ({ label, campo, valor, placeholder, icone, compacto = false, onPress }) => (
   <View style={[styles.selectionCard, compacto && styles.selectionCardCompact]}>
@@ -117,17 +117,15 @@ const CampoSelecao = ({ label, campo, valor, placeholder, icone, compacto = fals
       <MaterialCommunityIcons name="chevron-down" size={20} color={CORES.textMuted} />
     </TouchableOpacity>
   </View>
-);
+)
 
 export default function TelaCriarEvento({ navigation, usuario }) {
   const [secao, setSecao] = useState('Geral');
   const [locais, setLocais] = useState([{ idLocalTemp: 1, nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' }]);
-  
-  const [formulario, setFormulario] = useState({ 
-    titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', 
-    numConvidados: '', notasProducao: '', valorTotal: '', metodoPagamento: '', qtdParcelas: '', observacaoFinanceiro: '' 
-  });
-  
+  const [formulario, setFormulario] = useState({
+     titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '',
+     numConvidados: '', notasProducao: '', valorTotal: '', metodoPagamento: '', qtdParcelas: '', observacaoFinanceiro: '' 
+   });
   const [parcelas, setParcelas] = useState([]);
   const [equipe, setEquipe] = useState([]);
   
@@ -139,21 +137,25 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   
   const [modalLocalVisivel, setModalLocalVisivel] = useState(false);
   const [formNovoLocal, setFormNovoLocal] = useState({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
-
   const [modalClienteVisivel, setModalClienteVisivel] = useState(false);
   const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', instagram: '' });
-
-  const [mensagemFormulario, setMensagemFormulario] = useState('');
+  
+  // Substituindo Alert e Erro Inline
+  const [modalErroVisivel, setModalErroVisivel] = useState(false);
+  const [msgErro, setMsgErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   
   const [posicoesSecao, setPosicoesSecao] = useState({});
   const scrollConteudo = useRef(null);
   const isAutoScrolling = useRef(false);
 
-  const atualizar = (campo, valor) => {
-    setMensagemFormulario('');
-    setFormulario((anterior) => ({ ...anterior, [campo]: valor }));
+  const mostrarErro = (mensagem) => {
+    setMsgErro(mensagem);
+    setModalErroVisivel(true);
+  };
 
+  const atualizar = (campo, valor) => {
+    setFormulario((anterior) => ({ ...anterior, [campo]: valor }));
     if (campo === 'qtdParcelas') {
        const qtd = Number(valor) || 0;
        const qtdSegura = Math.min(qtd, 12);
@@ -167,7 +169,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       arr[index][campo] = valor;
       setParcelas(arr);
   };
-  
+
   const atualizarLocal = (index, campo, valor) => {
     const novosLocais = [...locais];
     novosLocais[index][campo] = valor;
@@ -185,7 +187,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       else if (campoInfo.startsWith('tipoLocal_')) tipoReal = 'tiposLocal';
       else if (campoInfo === 'cliente') tipoReal = 'clientes';
       else if (campoInfo === 'tipoEvento') tipoReal = 'tiposEvento';
-
       const opcoes = await repositorioEventos.obterOpcoesSelect(tipoReal, usuario?.idEmpresa);
       setOpcoesSelecao(opcoes);
     } catch (erro) {
@@ -207,7 +208,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   };
 
   const escolherOpcao = async (item) => {
-    setMensagemFormulario('');
     if (tipoSelecao === 'metodoPagamento') {
       atualizar('metodoPagamento', item.nome);
     } else if (tipoSelecao.startsWith('local_')) {
@@ -241,7 +241,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       setModalClienteVisivel(true);
       return;
     }
-
     setCarregandoOpcoes(true);
     try {
       let tipoReal = tipoSelecao.startsWith('tipoLocal_') ? 'tiposLocal' : tipoSelecao === 'tipoEvento' ? 'tiposEvento' : tipoSelecao;
@@ -256,15 +255,15 @@ export default function TelaCriarEvento({ navigation, usuario }) {
 
   const salvarNovoLocalDetalhado = async () => {
     if (!formNovoLocal.nome || !formNovoLocal.rua) {
-      Alert.alert("Atenção", "Preencha pelo menos o nome e a rua do local.");
+      mostrarErro("Preencha pelo menos o nome e a rua do local.");
       return;
     }
     setCarregandoOpcoes(true);
     try {
       const enderecoFormatado = `${formNovoLocal.rua}, ${formNovoLocal.numero} - ${formNovoLocal.bairro}, ${formNovoLocal.cidade} - ${formNovoLocal.estado}`;
       const novo = await repositorioEventos.adicionarNovoItemSelect('locaisSalvos', { 
-        nome: formNovoLocal.nome.trim(), 
-        endereco_completo: enderecoFormatado,
+         nome: formNovoLocal.nome.trim(), 
+         endereco_completo: enderecoFormatado,
         rua: formNovoLocal.rua,
         bairro: formNovoLocal.bairro,
         cidade: formNovoLocal.cidade,
@@ -282,12 +281,15 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   };
 
   const salvarNovoClienteDetalhado = async () => {
-    if (!formNovoCliente.nome || !formNovoCliente.documento) { Alert.alert("Atenção", "Preencha o nome e o CPF/CNPJ do cliente."); return; }
+    if (!formNovoCliente.nome || !formNovoCliente.documento) { 
+       mostrarErro("Preencha o nome e o CPF/CNPJ do cliente."); 
+       return; 
+    }
     setCarregandoOpcoes(true);
     try {
-      const novo = await repositorioEventos.adicionarNovoItemSelect('clientes', { 
-         nome: formNovoCliente.nome.trim(), 
-         documento: formNovoCliente.documento.trim(),
+      const novo = await repositorioEventos.adicionarNovoItemSelect('clientes', {
+          nome: formNovoCliente.nome.trim(),
+          documento: formNovoCliente.documento.trim(),
          telefone: formNovoCliente.telefone.trim(),
          instagram: formNovoCliente.instagram.trim()
       }, usuario?.idEmpresa);
@@ -298,7 +300,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   };
 
   const adicionarProfissional = (profissional) => {
-    setMensagemFormulario('');
     setEquipe((anterior) => [...anterior, profissional]);
     setModalEquipeVisivel(false);
   };
@@ -319,16 +320,16 @@ export default function TelaCriarEvento({ navigation, usuario }) {
 
   const salvarEvento = async () => {
     if (salvando) return;
-    setMensagemFormulario('');
+    
     if (!formulario.titulo.trim() || !formulario.tipoEvento.trim() || !formulario.cliente.trim() || !formulario.dataInicio.trim()) {
-      setMensagemFormulario('Preencha título, tipo de evento, cliente e data obrigatória.');
+      mostrarErro('Preencha título, tipo de evento, cliente e data obrigatória.');
       irParaSecao('Geral');
       return;
     }
     
     const locaisValidos = locais.filter(l => l.nomeDoLocal.trim() && l.tipoLocal.trim());
     if (locaisValidos.length === 0) {
-      setMensagemFormulario('Preencha corretamente as informações de pelo menos um local.');
+      mostrarErro('Preencha corretamente as informações de pelo menos um local.');
       irParaSecao('Geral');
       return;
     }
@@ -341,9 +342,9 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       cliente: { nome: formulario.cliente.trim() },
       locaisArray: locaisValidos,
       equipe: equipe,
-      financeiro: { 
-          valorTotal: formulario.valorTotal.trim(), 
-          metodoPagamento: formulario.metodoPagamento.trim(),
+      financeiro: {
+           valorTotal: formulario.valorTotal.trim(),
+           metodoPagamento: formulario.metodoPagamento.trim(),
           observacaoFinanceiro: formulario.observacaoFinanceiro.trim(),
           qtdParcelas: Number(formulario.qtdParcelas) || 0,
           parcelasDetalhadas: parcelas
@@ -355,7 +356,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       const eventoCriado = await repositorioEventos.adicionarEvento(novoEvento);
       navigation.replace('DetalheEvento', { idEvento: eventoCriado.id, erroConvites: eventoCriado.erroConvites || '' });
     } catch (erro) {
-      setMensagemFormulario(erro?.message || 'Não foi possível salvar o evento.');
+      mostrarErro(erro?.message || 'Não foi possível salvar o evento.');
     } finally {
       setSalvando(false);
     }
@@ -366,9 +367,11 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       <>
         <Text style={styles.sectionHeading}>Informações do evento</Text>
         <Text style={styles.sectionHint}>Os campos com * são obrigatórios.</Text>
+
         <CampoInput label="Título do evento" valor={formulario.titulo} aoMudar={(v) => atualizar('titulo', v)} placeholder="Ex.: Ana & Pedro" obrigatorio />
         <CampoSelecao label="Cliente *" campo="cliente" valor={formulario.cliente} placeholder="Selecionar" icone="account-outline" onPress={() => abrirSelecao('cliente')} />
         <CampoSelecao label="Tipo de evento *" campo="tipoEvento" valor={formulario.tipoEvento} placeholder="Selecionar" onPress={() => abrirSelecao('tipoEvento')} />
+
         <View style={styles.row}>
           <View style={styles.column}>
             <View style={styles.field}><Text style={styles.label}>Data *</Text><SeletorDataHora modo="date" valor={formulario.dataInicio} aoMudar={(v) => atualizar('dataInicio', v)} /></View>
@@ -377,6 +380,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
             <View style={styles.field}><Text style={styles.label}>Horário</Text><SeletorDataHora modo="time" valor={formulario.horaInicio} aoMudar={(v) => atualizar('horaInicio', v)} /></View>
           </View>
         </View>
+
         <CampoInput label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizar('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" />
         
         <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#DFE7EE', paddingTop: 20 }}>
@@ -399,14 +403,16 @@ export default function TelaCriarEvento({ navigation, usuario }) {
                   <View style={styles.field}><Text style={styles.selectionLabel}>Horário</Text><SeletorDataHora modo="time" valor={local.horaLocal} aoMudar={(v) => atualizarLocal(index, 'horaLocal', v)} /></View>
                 </View>
               </View>
+
               <View style={styles.field}>
                  <Text style={styles.selectionLabel}>Observações do local</Text>
                  <TextInput value={local.observacoesLocal} onChangeText={(v) => atualizarLocal(index, 'observacoesLocal', v)} placeholder="Observações do local" style={[styles.input, {minHeight: 60}]} multiline />
               </View>
+
             </View>
           ))}
-
           <Button mode="contained" icon="plus" onPress={adicionarLocal} textColor="#FFF" buttonColor="#F97316" style={{ borderRadius: 10, marginBottom: 20 }}>Adicionar mais um local</Button>
+
           <CampoInput label="Notas gerais da produção" valor={formulario.notasProducao} aoMudar={(v) => atualizar('notasProducao', v)} placeholder="Escrever notas importantes para toda a equipe..." multilinha />
         </View>
       </>
@@ -423,6 +429,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         <Button mode="contained" icon="plus" onPress={() => setModalEquipeVisivel(true)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addTeamButton}>Adicionar profissional de campo</Button>
       </>
     );
+
     return (
       <>
         <Text style={styles.sectionHeading}>Financeiro</Text>
@@ -457,13 +464,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
         {SECOES.map((nomeSecao) => <TouchableOpacity key={nomeSecao} onPress={() => irParaSecao(nomeSecao)} style={[styles.tab, secao === nomeSecao && styles.activeTab]}><Text style={[styles.tabText, secao === nomeSecao && styles.activeTabText]}>{nomeSecao}</Text></TouchableOpacity>)}
       </ScrollView>
-      {!!mensagemFormulario && (
-        <View style={styles.formError}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#B42318" />
-          <Text style={styles.formErrorText}>{mensagemFormulario}</Text>
-          <TouchableOpacity onPress={() => setMensagemFormulario('')}><MaterialCommunityIcons name="close" size={19} color="#B42318" /></TouchableOpacity>
-        </View>
-      )}
+
       <ScrollView
         ref={scrollConteudo} style={styles.sheet} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
         onScroll={(evento) => {
@@ -482,13 +483,13 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         
         <View style={styles.actions}>
           <Button 
-            mode="contained" 
-            icon={salvando ? undefined : (equipe.length > 0 ? 'send' : 'check')} 
-            onPress={salvarEvento} 
-            disabled={salvando} 
-            buttonColor={equipe.length > 0 ? '#10B981' : CORES.buttonGold} 
-            textColor={equipe.length > 0 ? '#FFF' : CORES.textNavy} 
-            style={styles.actionButton}
+             mode="contained" 
+             icon={salvando ? undefined : (equipe.length > 0 ? 'send' : 'check')} 
+             onPress={salvarEvento} 
+             disabled={salvando} 
+             buttonColor={equipe.length > 0 ? '#10B981' : CORES.buttonGold} 
+             textColor={equipe.length > 0 ? '#FFF' : CORES.textNavy} 
+             style={styles.actionButton}
           >
             {salvando ? 'Salvando...' : (equipe.length > 0 ? 'Salvar evento e enviar convites' : 'Salvar evento')}
           </Button>
@@ -505,7 +506,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
          onAdicionarNovo={tipoSelecao === 'metodoPagamento' ? null : salvarNovoItemNaSelecao}
       />
 
-      {/* Modal para Novo Local */}
       <Modal visible={modalLocalVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
            <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
@@ -528,7 +528,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         </View>
       </Modal>
 
-      {/* Modal para Novo Cliente */}
       <Modal visible={modalClienteVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
            <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
@@ -545,7 +544,27 @@ export default function TelaCriarEvento({ navigation, usuario }) {
            </ScrollView>
         </View>
       </Modal>
-      
+
+      {/* MODAL DE ERRO */}
+      <Modal visible={modalErroVisivel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+              <Feather name="alert-triangle" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>
+              Atenção
+            </Text>
+            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>
+              {msgErro}
+            </Text>
+            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor="#EF4444" textColor="#FFF" onPress={() => setModalErroVisivel(false)}>
+              Ok, entendi
+            </Button>
+          </View>
+        </View>
+      </Modal>
+
       <ModalAdicionarProfissional visible={modalEquipeVisivel} empresaId={usuario?.idEmpresa} equipeAtual={equipe} onClose={() => setModalEquipeVisivel(false)} onAdd={adicionarProfissional} />
     </View>
   );

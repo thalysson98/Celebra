@@ -1,17 +1,17 @@
 export const CORES = {
-  // Fundo Superior & Header (Dark Blue / Deep Navy do Figma)
+
   fundoCabecalhoEscuro: '#07182C',
   bgHeaderDark: '#07182C',
   bgDark: '#07182C',
   subtituloCabecalho: '#7E9BB8',
   headerSubtitle: '#7E9BB8',
 
-  // Fundo Principal do Conteúdo (Curved Sheet Icy Blue do Figma)
+
   fundoFolha: '#EAF3F7',
   sheetBg: '#EAF3F7',
   sheetBgSubtle: '#F0F6FA',
 
-  // Cards & Contêineres do Figma
+
   cardAzulClaro: '#DDF0F8',
   cardLightBlue: '#DDF0F8',
   cardLightBlueBorder: '#CDE5F2',
@@ -21,7 +21,7 @@ export const CORES = {
   divisorCard: '#E4ECF2',
   cardDivider: '#E4ECF2',
 
-  // Cores de Ação do Figma (Gold / Dourado & Navy)
+
   botaoDourado: '#F4BA42',
   buttonGold: '#F4BA42',
   buttonGoldHover: '#E8AE36',
@@ -34,7 +34,7 @@ export const CORES = {
   textoBotaoMarinho: '#FFFFFF',
   buttonNavyText: '#FFFFFF',
 
-  // Tipografia do Figma
+
   textoMarinho: '#0A192F',
   textNavy: '#0A192F',
   textNavyDark: '#061325',
@@ -44,17 +44,16 @@ export const CORES = {
   textoBranco: '#FFFFFF',
   textWhite: '#FFFFFF',
 
-  // Inputs da tela de Login (Figma)
+
   inputLightBlue: '#E5F2F8',
   inputPlaceholder: '#78909C',
 
-  // Avatares Pastel do Figma
+
   avatarBlue: '#A0D2EB',
   avatarGold: '#FCE184',
   avatarPurple: '#D0BFE8',
   avatarDark: '#07182C',
 
-  // Status & Badges
   statusConfirmado: '#10B981',
   statusConfirmed: '#10B981',
   statusConfirmedBg: '#E6F8F0',
@@ -62,7 +61,7 @@ export const CORES = {
 
 export const COLORS = CORES;
 
-// A família tipográfica segue o arquivo do Figma: Inter.
+
 export const FONTES = {
   titulo: 'Inter_700Bold',
   corpo: 'Inter_400Regular',

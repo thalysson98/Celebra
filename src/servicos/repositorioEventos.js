@@ -1,5 +1,4 @@
 // src/servicos/repositorioEventos.js
-
 import { arrayUnion, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, addDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
 import { enviarConvitesEvento } from './servicoEscala';
@@ -44,9 +43,11 @@ function converterDataEvento(data, hora) {
   const dataBrasileira = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   const textoData = dataBrasileira ? `${dataBrasileira[3]}-${dataBrasileira[2]}-${dataBrasileira[1]}` : texto;
   const horario = String(hora || '00:00').trim();
+
   if (!/^\d{1,2}:\d{2}$/.test(horario)) throw new Error('Informe o horário no formato HH:MM.');
   const [horas = '00', minutos = '00'] = horario.split(':');
   const resultado = new Date(`${textoData}T${horas.padStart(2, '0')}:${minutos.padStart(2, '0')}:00`);
+
   if (!texto || Number.isNaN(resultado.getTime())) {
     throw new Error('Informe uma data válida para o evento (DD/MM/AAAA).');
   }
@@ -56,14 +57,18 @@ function converterDataEvento(data, hora) {
 async function buscarOuCriarCadastro(colecao, campoId, empresaId, nome, camposAdicionais = {}) {
   const nomeLimpo = String(nome || '').trim();
   if (!nomeLimpo) throw new Error('Preencha os dados obrigatórios do evento.');
+
   const consulta = query(collection(bancoDados, colecao), where('id_empresa', '==', empresaId));
   const existentes = await getDocs(consulta);
+
   const existente = existentes.docs.find((item) => {
     const dados = item.data();
     const mesmoNome = normalizarTexto(dados.nome) === normalizarTexto(nomeLimpo);
     return dados.ativo !== false && mesmoNome;
   });
+
   if (existente) return existente.id;
+
   const referencia = doc(collection(bancoDados, colecao));
   await setDoc(referencia, {
     [campoId]: referencia.id,
@@ -92,8 +97,8 @@ function mapearEvento(snapshot, relacionados = {}) {
   const membros = evento.membros_escalados || [];
   const pendentes = convites.filter((convite) => convite.situacao === 'pendente').length;
   const nomeEquipa = membros.length ? 'Equipe confirmada' : 'Equipe pendente';
-  
   let dataFormatada = '';
+
   if (dataInicio) {
     const dia = String(dataInicio.getDate()).padStart(2, '0');
     const mes = String(dataInicio.getMonth() + 1).padStart(2, '0');
@@ -101,7 +106,6 @@ function mapearEvento(snapshot, relacionados = {}) {
     dataFormatada = `${dia}/${mes}/${ano}`;
   }
 
-  // Garantindo que locais leiam corretamente enderecoLocal e tipoLocal
   const locaisSalvos = (evento.locais_detalhados || relacionados.locaisAntigos || []).map(l => ({
     ...l,
     enderecoLocal: l.enderecoLocal || l.endereco_completo || l.endereco || '',
@@ -122,7 +126,7 @@ function mapearEvento(snapshot, relacionados = {}) {
     numConvidados: Number(evento.quantidade_convidados) || 0,
     cliente: cliente ? { id: evento.id_cliente, nome: cliente.nome, documento: cliente.documento || '', email: cliente.email || '', telefone: cliente.telefone || '' } : null,
     locais: locaisSalvos,
-    equipa: [
+    equipe: [
       ...convites.map((convite) => ({
         id: convite.id,
         idConvite: convite.id,
@@ -158,12 +162,12 @@ async function buscarRelacionadosEvento(snapshot) {
     const locaisSnaps = await Promise.all(locaisPromessas);
     locaisAntigos = locaisSnaps.filter(s => s.exists()).map(s => {
         const data = s.data();
-        return { 
-          id: s.id, 
-          nomeDoLocal: data.nome || '', 
-          enderecoLocal: data.endereco_completo || '', 
-          tipoLocal: data.nome_tipo_local || '' 
-        };
+        return {
+           id: s.id,
+           nomeDoLocal: data.nome || '',
+           enderecoLocal: data.endereco_completo || '',
+           tipoLocal: data.nome_tipo_local || '' 
+         };
     });
   }
 
@@ -173,7 +177,7 @@ async function buscarRelacionadosEvento(snapshot) {
     ...item.data(),
     tipoProfissional: item.data().id_tipo_profissional ? (await getDoc(doc(bancoDados, 'tipos_profissional', item.data().id_tipo_profissional))).data() : null,
   })));
-  
+
   return {
     cliente: clienteSnap?.exists() ? clienteSnap.data() : null,
     locaisAntigos,
@@ -195,13 +199,11 @@ export const repositorioEventos = {
     const eventos = await mapearSnapshotsEventos(resultado.docs);
     return eventos.sort((a, b) => (paraDataJavaScript(b.data_inicio)?.getTime() || 0) - (paraDataJavaScript(a.data_inicio)?.getTime() || 0));
   },
-  
   obterEvento: async (idEvento) => {
     const snapshot = await getDoc(doc(bancoDados, 'eventos', idEvento));
     if (!snapshot.exists()) return null;
     return mapearEvento(snapshot, await buscarRelacionadosEvento(snapshot));
   },
-  
   obterOpcoesSelect: async (tipoEntidade, empresaId, incluirArquivados = false) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     if (!nomeColecao || !empresaId) return [];
@@ -209,7 +211,6 @@ export const repositorioEventos = {
     const resultado = await getDocs(consulta);
     return resultado.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => incluirArquivados || item.ativo !== false);
   },
-  
   adicionarNovoItemSelect: async (tipoEntidade, dadosNovoItem, empresaId) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     const referencia = doc(collection(bancoDados, nomeColecao));
@@ -217,26 +218,22 @@ export const repositorioEventos = {
     await setDoc(referencia, cadastro);
     return { id: referencia.id, ...cadastro };
   },
-  
   atualizarItemSelect: async (tipoEntidade, id, dadosAtualizados, empresaId) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     const dados = { ...normalizarCadastro(tipoEntidade, dadosAtualizados), [CAMPOS_ID_ADMINISTRACAO[tipoEntidade]]: id, id_empresa: empresaId };
     await updateDoc(doc(bancoDados, nomeColecao, id), dados);
     return { id, ...dados };
   },
-  
   arquivarItemSelect: async (tipoEntidade, id, empresaId) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     await updateDoc(doc(bancoDados, nomeColecao, id), { ativo: false });
     return { id, ativo: false };
   },
-  
   reativarItemSelect: async (tipoEntidade, id, empresaId) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     await updateDoc(doc(bancoDados, nomeColecao, id), { ativo: true });
     return { id, ativo: true };
   },
-
   verificarUsoEmEvento: async (tipoEntidade, id, empresaId) => {
     try {
       const eventosQuery = query(collection(bancoDados, 'eventos'), where('id_empresa', '==', empresaId));
@@ -274,13 +271,16 @@ export const repositorioEventos = {
       return false; 
     }
   },
-
   concluirEvento: async (idEvento) => {
     const empresaId = await obterIdEmpresaAtual();
     if (!empresaId) throw new Error('Vincule sua conta.');
     await updateDoc(doc(bancoDados, 'eventos', idEvento), { situacao: 'concluido' });
   },
-  
+  reabrirEvento: async (idEvento) => {
+    const empresaId = await obterIdEmpresaAtual();
+    if (!empresaId) throw new Error('Vincule sua conta.');
+    await updateDoc(doc(bancoDados, 'eventos', idEvento), { situacao: 'aberto' });
+  },
   adicionarEvento: async (dadosNovoEvento) => {
     const empresaId = await obterIdEmpresaAtual();
     if (!empresaId) throw new Error('Vincule sua conta a uma empresa.');
@@ -330,6 +330,7 @@ export const repositorioEventos = {
       financeiro: dadosNovoEvento.financeiro || {},
       situacao: 'aberto', observacoes: String(dadosNovoEvento.notasProducao || '').trim(), criado_em: serverTimestamp(),
     };
+
     await setDoc(referencia, dadosEvento);
     
     let erroConvites = '';
@@ -340,7 +341,6 @@ export const repositorioEventos = {
     const eventoCriado = await repositorioEventos.obterEvento(referencia.id);
     return { ...eventoCriado, erroConvites };
   },
-
   adicionarProfissionaisEvento: async (idEvento, profissionais = []) => {
     const empresaId = await obterIdEmpresaAtual();
     const referenciaEvento = doc(bancoDados, 'eventos', idEvento);
@@ -368,7 +368,6 @@ export const repositorioEventos = {
     
     return repositorioEventos.obterEvento(idEvento);
   },
-
   atualizarEvento: async (idEvento, dadosAtualizados) => {
     const empresaId = await obterIdEmpresaAtual();
     const referencia = doc(bancoDados, 'eventos', idEvento);
@@ -405,16 +404,15 @@ export const repositorioEventos = {
     }
 
     await updateDoc(referencia, {
-      titulo, id_tipo_evento: idTipoEvento, nome_tipo_evento: dadosAtualizados.tipoEvento, id_cliente: idCliente, 
-      locais_detalhados: locaisDetalhados, 
-      data_inicio: dataInicio, quantidade_convidados: Number(dadosAtualizados.numConvidados) || 0,
+      titulo, id_tipo_evento: idTipoEvento, nome_tipo_evento: dadosAtualizados.tipoEvento, id_cliente: idCliente,
+       locais_detalhados: locaisDetalhados,
+       data_inicio: dataInicio, quantidade_convidados: Number(dadosAtualizados.numConvidados) || 0,
       observacoes: String(dadosAtualizados.notasProducao || '').trim(),
       financeiro: dadosAtualizados.financeiro || {},
     });
     
     return repositorioEventos.obterEvento(idEvento);
   },
-  
   criarUsuarioTecnicoFantasma: async (nome, empresaId) => {
     const referencia = doc(collection(bancoDados, 'usuarios'));
     const novoUsuario = {
