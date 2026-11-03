@@ -740,7 +740,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
       </Modal>
 
-      <View style={[estilosNavegacao.hotbarContainer, { paddingBottom: Math.max(insets.bottom, 16), height: 60 + Math.max(insets.bottom, 16) }]}>
+      <View style={obterEstiloHotbar(insets.bottom)}>
         {renderTabButton('home', 'Início', 'home')}
         {renderTabButton('events', 'Eventos', 'tag')}
         {renderTabButton('profile', 'Perfil', 'user')}
