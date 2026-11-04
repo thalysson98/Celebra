@@ -1,4 +1,5 @@
 // src/componentes/ModalAdicionarProfissional.js
+import { verificarIndisponibilidadeTecnicoNaData } from '../servicos/servicoIndisponibilidade';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,7 +9,7 @@ import { listarTecnicosDaEmpresa } from '../servicos/servicoEscala';
 import { estilosModalAdicionarProfissional as styles } from '../estilos/estilosModalAdicionarProfissional';
 import ModalSelecao from './ModalSelecao';
 
-export default function ModalAdicionarProfissional({ visible, empresaId, equipeAtual = [], onClose, onAdd, esconderOpcaoConvite = false }) {
+export default function ModalAdicionarProfissional({ visible, empresaId, dataEvento, equipeAtual = [], onClose, onAdd, esconderOpcaoConvite = false }) {
   const [tipos, setTipos] = useState([]);
   const [tecnicos, setTecnicos] = useState([]);
   const [tipoSelecionado, setTipoSelecionado] = useState(null);
@@ -77,16 +78,24 @@ export default function ModalAdicionarProfissional({ visible, empresaId, equipeA
   const salvar = async () => {
     if (!tipoSelecionado || !tecnicoSelecionado) { setErro('Selecione o tipo e o profissional.'); return; }
     if (idsJaAdicionados.has(tecnicoSelecionado.id)) { setErro('Esta pessoa já foi adicionada.'); return; }
-    
+
     setSalvando(true);
     setErro('');
     try {
+      if (dataEvento) {
+        const indisponivel = await verificarIndisponibilidadeTecnicoNaData(tecnicoSelecionado.id, dataEvento);
+        if (indisponivel) {
+          setErro(`O profissional ${tecnicoSelecionado.nome} marcou indisponibilidade na agenda para a data deste evento (${dataEvento}).`);
+          setSalvando(false);
+          return;
+        }
+      }
+
       await onAdd({
         id: tecnicoSelecionado.id, idUsuario: tecnicoSelecionado.id, nomeProfissional: tecnicoSelecionado.nome,
         idTipoProfissional: tipoSelecionado.id, funcao: tipoSelecionado.nome,
         enviarConvite: esconderOpcaoConvite ? true : enviarConvite, statusConfirmacao: 'Convite pendente',
       });
-      // ALERTA REMOVIDO PARA DEIXAR APENAS O MODAL DA TELA PRINCIPAL
     } catch (error) {
       setErro(error?.message || 'Erro ao adicionar.');
     } finally { setSalvando(false); }

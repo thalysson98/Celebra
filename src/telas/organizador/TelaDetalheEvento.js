@@ -1,4 +1,6 @@
 // src/telas/organizador/TelaDetalheEvento.js
+//"Na tela de detalhes do evento do administrador, conectei a data de início do evento (evento.dataInicio) 
+// ao componente do modal de adicionar profissional para que ele saiba qual data validar no banco."
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Alert, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
@@ -841,6 +843,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
       <ModalAdicionarProfissional 
           visible={modalEquipeVisivel} 
           empresaId={usuario?.idEmpresa} 
+          dataEvento={evento.dataInicio}
           equipeAtual={equipe} 
           onClose={() => setModalEquipeVisivel(false)} 
           onAdd={async (p) => {
