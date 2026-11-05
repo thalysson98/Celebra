@@ -18,7 +18,7 @@ export default function TelaDashboard({ navigation }) {
     const lista = await repositorioEventos.listarEventos();
     if (lista != null) {
       setTotalEventos(lista.length);
-      setProximosEventos(lista.slice(0, 3)); // Pega os primeiros para exibição de exemplo
+      setProximosEventos(lista.slice(0, 3)); 
     } else {
       setTotalEventos(0);
       setProximosEventos([]);
@@ -27,7 +27,7 @@ export default function TelaDashboard({ navigation }) {
 
   return (
     <View style={estilos.containerGeral}>
-      {/* CABEÇALHO AZUL ESCURO */}
+
       <View style={estilos.headerTopo}>
         <View style={{ flex: 1 }}>
           <Text style={estilos.saudacao}>Olá, Organizador!</Text>
@@ -43,7 +43,7 @@ export default function TelaDashboard({ navigation }) {
 
       <ScrollView style={estilos.conteudoScroll} contentContainerStyle={{ paddingBottom: 40 }}>
         
-        {/* CARDS DE ESTATÍSTICAS (LADO A LADO) */}
+   
         <View style={estilos.linhaEstatisticas}>
           <View style={estilos.cardEstatistica}>
             <View style={estilos.cabecalhoCardStat}>
@@ -59,7 +59,7 @@ export default function TelaDashboard({ navigation }) {
           </View>
         </View>
 
-        {/* SEÇÃO: PRECISAM DA SUA ATENÇÃO */}
+
         <Text style={estilos.tituloSecao}>Precisam da sua atenção</Text>
         <Text style={estilos.subtituloSecao}>Resolva hoje e deixe os próximos eventos prontos.</Text>
 
@@ -79,10 +79,9 @@ export default function TelaDashboard({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* SEÇÃO: PRÓXIMOS 15 DIAS */}
+   
         <Text style={estilos.tituloSecao}>Próximos 15 dias</Text>
 
-        {/* CARD PRINCIPAL COM FOTO (EX: ANA & PEDRO) */}
         <TouchableOpacity 
           style={estilos.cardEventoDestaque}
           onPress={() => navigation.navigate('ListaEventos')}
@@ -105,7 +104,7 @@ export default function TelaDashboard({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* ITENS SECUNDÁRIOS DA LISTA */}
+
         <TouchableOpacity 
           style={estilos.cardItemLista}
           onPress={() => navigation.navigate('ListaEventos')}

@@ -1,4 +1,4 @@
-// src/telas/tecnico/TelaPainelTecnico.js
+
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -657,7 +657,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         {activeTab === 'profile' && renderProfile()}
       </ScrollView>
 
-      {/* MODAIS GERAIS (Substitutos de Alerts) */}
+      
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
@@ -684,7 +684,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
       </Modal>
 
-      {/* MODAL DE EDIÇÃO DE PERFIL */}
+  
       <Modal visible={isProfileEditorVisible} transparent animationType="fade" onRequestClose={() => setProfileEditorVisible(false)}>
         <KeyboardAvoidingView style={styles.profileModalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.profileEditorCard}>
@@ -715,7 +715,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL DE INDISPONIBILIDADE */}
+  
       <Modal visible={isAvailabilityDialogVisible} transparent animationType="fade" onRequestClose={() => setAvailabilityDialogVisible(false)}>
         <View style={styles.profileModalOverlay}>
           <View style={styles.availabilityDialogCard}>
