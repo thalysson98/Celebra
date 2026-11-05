@@ -35,14 +35,14 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      
       <View style={styles.header}>
         <Text style={styles.title}>Minha empresa</Text>
         <Text style={styles.subtitle}>Perfil e preferências do seu negócio</Text>
       </View>
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
-        {/* Card da Empresa */}
+
         <Card style={styles.companyCard}>
           <Card.Content style={styles.companyContent}>
             <View style={styles.avatarRow}>
@@ -63,7 +63,7 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
               <Text style={styles.companyInfo}>{[localEmpresa, usuario?.companyPhone || usuario?.telefone].filter(Boolean).join(' • ')}</Text>
             )}
 
-            {/* Código / ID da empresa com botão de copiar */}
+            
             {!!codigoVinculo && (
               <View style={styles.codigoContainer}>
                 <Text style={styles.codigoLabel}>Código / ID para vínculo da equipe</Text>
@@ -96,7 +96,7 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
           </Card.Content>
         </Card>
 
-        {/* Notificações */}
+
         <Text style={styles.sectionTitle}>Notificações</Text>
         <Card style={styles.notificationCard}>
           <Card.Content style={styles.notifContent}>
@@ -120,7 +120,7 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
           </Card.Content>
         </Card>
 
-        {/* Botão Sair da Conta */}
+       
         <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.8}>
           <Feather name="log-out" size={18} color="#FFFFFF" style={styles.iconWithGap} />
           <Text style={styles.logoutText}>Sair da conta</Text>

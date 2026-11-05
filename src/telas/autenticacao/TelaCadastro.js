@@ -58,8 +58,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
         password: senha,
       });
 
-      // Não aguarda Alert.alert para avançar: no web ele pode não apresentar
-      // a confirmação, deixando a conta criada parada nesta tela.
+      
       onRegisterSuccess?.(novoUsuario);
     } catch (erro) {
       Alert.alert('Erro ao Cadastrar', erro.message);
@@ -83,7 +82,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={estilosAutenticacao.contentWrapper}>
-          {/* Cabeçalho da Marca Celebra */}
+  
           <View style={estilosAutenticacao.brandHeader}>
             <View style={estilosAutenticacao.brandTitleRow}>
               <Text style={estilosAutenticacao.brandTitle}>Celebra</Text>
@@ -94,11 +93,11 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
             </Text>
           </View>
 
-          {/* Card Principal de Cadastro */}
+          
           <View style={estilosAutenticacao.card}>
             <Text style={estilosAutenticacao.cardTitle}>Criar conta</Text>
 
-            {/* Campo Nome completo */}
+         
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>Nome completo</Text>
               <View style={estilosAutenticacao.inputWrapper}>
@@ -120,7 +119,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
               </View>
             </View>
 
-            {/* Campo E-mail */}
+        
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>E-mail</Text>
               <View style={estilosAutenticacao.inputWrapper}>
@@ -143,7 +142,6 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
               </View>
             </View>
 
-            {/* Campo Senha */}
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>Senha</Text>
               <View style={estilosAutenticacao.inputWrapper}>
@@ -174,7 +172,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
               </View>
             </View>
 
-            {/* Campo Confirmar Senha */}
+           
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>Confirmar senha</Text>
               <View style={estilosAutenticacao.inputWrapper}>
@@ -205,7 +203,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
               </View>
             </View>
 
-            {/* Botão Finalizar Cadastro */}
+            
             <TouchableOpacity
               style={estilosAutenticacao.submitButton}
               onPress={lidarComCadastro}
@@ -219,7 +217,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
               )}
             </TouchableOpacity>
 
-            {/* Rodapé: Voltar ao Login */}
+            
             <View style={estilosAutenticacao.footerRow}>
               <Text style={estilosAutenticacao.footerText}>Já tem uma conta? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>

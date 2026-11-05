@@ -1,4 +1,4 @@
-// src/telas/organizador/TelaInicioOrganizador.js
+
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -56,14 +56,13 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     const mesMap = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11 };
     const [dia, mesTexto, ano] = dataStr.split('/');
     if (dia && mesTexto && ano) {
-      return new Date(ano, mesTexto - 1, dia); // Assumindo dd/mm/yyyy
+      return new Date(ano, mesTexto - 1, dia); 
     }
-    const [d, mT, a] = dataStr.split(' '); // Tenta parse do formato "12 out 2026"
+    const [d, mT, a] = dataStr.split(' ');
     if (d && mT && a) return new Date(a, mesMap[mT.toLowerCase()], d);
     return new Date();
   };
 
-  // Cálculo Financeiro
   const { totalBruto, pendenteReceber } = useMemo(() => {
     let tBruto = 0;
     let pReceber = 0;
@@ -89,7 +88,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     }).sort((a, b) => {
         const da = converterStringParaData(a.dataInicio);
         const db = converterStringParaData(b.dataInicio);
-        return (da?.getTime() || 0) - (db?.getTime() || 0); // Ordem Cronológica
+        return (da?.getTime() || 0) - (db?.getTime() || 0); 
     });
   }, [eventos, diasFiltro]);
 
@@ -122,7 +121,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
         
-        {/* CARDS FINANCEIROS - AGORA EM COLUNA (UM POR LINHA) */}
+  
         <View style={{ flexDirection: 'column', gap: 12, marginBottom: 20 }}>
           <CartaoMetrica valor={totalBruto} rotulo="Total Bruto (R$)" />
           <CartaoMetrica valor={pendenteReceber} rotulo="Pendente a receber" />

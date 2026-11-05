@@ -1,4 +1,4 @@
-// src/telas/organizador/TelaDetalheEvento.js
+
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Alert, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
@@ -12,7 +12,7 @@ import { repositorioEventos } from '../../servicos/repositorioEventos';
 import { reenviarConvite, removerConvite, removerProfissionalInformativo, atualizarFuncaoConvite } from '../../servicos/servicoEscala';
 import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 import ModalSelecao from '../../componentes/ModalSelecao';
-import CartaoLocal from '../../componentes/CartaoLocal'; // O NOVO COMPONENTE DE LOCAL
+import CartaoLocal from '../../componentes/CartaoLocal'; 
 import { formatarCpfCnpj, formatarTelefone, formatarMoedaInput } from './TelaCriarEvento'; 
 
 const ABAS = ['Geral', 'Equipe', 'Financeiro'];
@@ -408,7 +408,6 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const equipe = evento.equipe || [];
   const financeiro = evento.financeiro || {};
   
-  // Ordena cronologicamente para a visualização
   const locaisOrdenados = [...evento.locais].sort((a, b) => (a.horaLocal || evento.horaInicio || '').localeCompare(b.horaLocal || evento.horaInicio || ''));
 
   let tituloSelecaoUI = 'Selecionar';
@@ -700,7 +699,6 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
 
       </ScrollView>
 
-      {/* MODAIS CUSTOMIZADOS DE AÇÕES */}
       <Modal visible={modalConcluirVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
@@ -768,7 +766,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
         </View>
       </Modal>
 
-      {/* NOVO MODAL DE ERRO */}
+
       <Modal visible={modalErroVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>

@@ -1,4 +1,4 @@
-// src/telas/organizador/TelaCriarEvento.js
+
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
@@ -140,7 +140,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const [modalClienteVisivel, setModalClienteVisivel] = useState(false);
   const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', instagram: '' });
   
-  // Substituindo Alert e Erro Inline
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -545,7 +544,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         </View>
       </Modal>
 
-      {/* MODAL DE ERRO */}
+     
       <Modal visible={modalErroVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>

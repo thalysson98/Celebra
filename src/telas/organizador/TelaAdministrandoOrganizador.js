@@ -1,4 +1,4 @@
-// src/telas/organizador/TelaAdministrandoOrganizador.js
+
 import React, { useCallback, useState } from 'react';
 import { FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -43,7 +43,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [modalCadastroVisivel, setModalCadastroVisivel] = useState(false);
   const [modalInativarVisivel, setModalInativarVisivel] = useState(false);
   
-  // Modais Padronizados
+
   const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
   const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
@@ -335,7 +335,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL SUCESSO E ERRO GERAIS */}
+
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>

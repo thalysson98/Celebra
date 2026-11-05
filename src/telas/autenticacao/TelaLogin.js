@@ -71,7 +71,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={estilosAutenticacao.contentWrapper}>
-          {/* Cabeçalho da Marca Celebra */}
+          
           <View style={estilosAutenticacao.brandHeader}>
             <View style={estilosAutenticacao.brandTitleRow}>
               <Text style={estilosAutenticacao.brandTitle}>Celebra</Text>
@@ -82,11 +82,11 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
             </Text>
           </View>
 
-          {/* Card Principal de Login */}
+        
           <View style={estilosAutenticacao.card}>
             <Text style={estilosAutenticacao.cardTitle}>Acesse sua conta</Text>
 
-            {/* Campo E-mail */}
+       
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>E-mail</Text>
               <View style={estilosAutenticacao.inputWrapper}>
@@ -108,7 +108,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
               </View>
             </View>
 
-            {/* Campo Senha */}
+    
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>Senha</Text>
               <View style={estilosAutenticacao.inputWrapper}>
@@ -139,7 +139,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
               </View>
             </View>
 
-            {/* Lembrar senha / Esqueci a senha */}
+    
             <View style={estilosAutenticacao.rowBetween}>
               <Pressable
                 onPress={() => setLembrarSenha((prev) => !prev)}
@@ -168,7 +168,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
               </TouchableOpacity>
             </View>
 
-            {/* Botão Acessar Conta */}
+      
             <TouchableOpacity
               style={estilosAutenticacao.submitButton}
               onPress={lidarComLogin}
@@ -182,7 +182,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
               )}
             </TouchableOpacity>
 
-            {/* Rodapé: Troca para Cadastro */}
+         
             <View style={estilosAutenticacao.footerRow}>
               <Text style={estilosAutenticacao.footerText}>Não possui conta? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Register')}>
