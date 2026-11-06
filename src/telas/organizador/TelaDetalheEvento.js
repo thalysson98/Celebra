@@ -193,26 +193,58 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
     setEditando(null);
   };
 
-  const salvarEdicao = async () => {
-    setSalvando(true);
-    try {
-      let dataFormatadaFirebase = formulario.dataInicio;
-      if (formulario.dataInicio && formulario.dataInicio.includes('/')) {
-         const [d, m, y] = formulario.dataInicio.split('/');
-         dataFormatadaFirebase = `${y}-${m}-${d}`;
-      }
-      const payloadFinanceiro = {
-          valorTotal: formulario.valorTotal, metodoPagamento: formulario.metodoPagamento, observacaoFinanceiro: formulario.observacaoFinanceiro,
-          qtdParcelas: Number(formulario.qtdParcelas) || 0, parcelasDetalhadas: formulario.parcelasDetalhadas
-      };
-      const locaisValidos = locais.filter(l => l.nomeDoLocal.trim() && l.tipoLocal.trim());
-      
-      await repositorioEventos.atualizarEvento(idEvento, { ...formulario, dataInicio: dataFormatadaFirebase, financeiro: payloadFinanceiro, cliente: { nome: formulario.cliente }, locaisArray: locaisValidos });
-      await carregarEvento();
-      setEditando(null);
-      mostrarSucesso("Sucesso!", "Dados do evento atualizados.");
-    } catch (error) { mostrarErro("Não foi possível salvar as alterações."); } finally { setSalvando(false); }
-  };
+const salvarEdicao = async () => {
+  
+  if (editando === 'financeiro' || formulario.valorTotal) {
+    const valTotalStr = formulario.valorTotal ? String(formulario.valorTotal).replace(/\D/g, '') : '0';
+    const valTotal = Number(valTotalStr) / 100;
+
+    let somaParcelas = 0;
+    (formulario.parcelasDetalhadas || []).forEach((p) => {
+      const valParcelaStr = p.valor ? String(p.valor).replace(/\D/g, '') : '0';
+      somaParcelas += Number(valParcelaStr) / 100;
+    });
+
+    
+    if (somaParcelas > valTotal) {
+      mostrarErro(`A soma das parcelas (R$ ${somaParcelas.toFixed(2).replace('.', ',')}) não pode ser maior que o valor total do evento (R$ ${valTotal.toFixed(2).replace('.', ',')}).`);
+      return; 
+    }
+  }
+
+  setSalvando(true);
+  try {
+    let dataFormatadaFirebase = formulario.dataInicio;
+    if (formulario.dataInicio && formulario.dataInicio.includes('/')) {
+      const [d, m, y] = formulario.dataInicio.split('/');
+      dataFormatadaFirebase = `${y}-${m}-${d}`;
+    }
+    const payloadFinanceiro = {
+      valorTotal: formulario.valorTotal,
+      metodoPagamento: formulario.metodoPagamento,
+      observacaoFinanceiro: formulario.observacaoFinanceiro,
+      qtdParcelas: Number(formulario.qtdParcelas) || 0,
+      parcelasDetalhadas: formulario.parcelasDetalhadas
+    };
+    const locaisValidos = locais.filter(l => l.nomeDoLocal.trim() && l.tipoLocal.trim());
+    
+    await repositorioEventos.atualizarEvento(idEvento, { 
+      ...formulario, 
+      dataInicio: dataFormatadaFirebase, 
+      financeiro: payloadFinanceiro, 
+      cliente: { nome: formulario.cliente }, 
+      locaisArray: locaisValidos 
+    });
+    
+    await carregarEvento();
+    setEditando(null);
+    mostrarSucesso("Sucesso!", "Dados do evento atualizados.");
+  } catch (error) { 
+    mostrarErro("Não foi possível salvar as alterações."); 
+  } finally { 
+    setSalvando(false); 
+  }
+};
 
   const tentarConcluirEvento = () => {
     const fn = evento.financeiro || {};
@@ -621,9 +653,9 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
             
             <CampoEdicao icone="dollar-sign" label="Valor total do evento" valor={formulario.valorTotal} aoMudar={(valor) => atualizarCampo('valorTotal', formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="numeric" />
             <CampoSelecaoDetalhes label="Método de pagamento" campo="metodoPagamento" valor={formulario.metodoPagamento} placeholder="Selecionar pagamento" icone="credit-card" aoClicar={abrirSelecao} />
-            <CampoEdicao icone="align-left" label="Observação do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(valor) => atualizarCampo('observacaoFinanceiro', valor)} placeholder="Anotações extras..." multiline={true} />
             <CampoEdicao icone="layers" label="Quantidade de parcelas (Até 12x)" valor={formulario.qtdParcelas} aoMudar={(valor) => atualizarCampo('qtdParcelas', valor)} placeholder="Ex: 2" teclado="numeric" />
-            
+            <CampoEdicao icone="align-left" label="Observação do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(valor) => atualizarCampo('observacaoFinanceiro', valor)} placeholder="Anotações extras..." multiline={true} />
+
             {formulario.parcelasDetalhadas.length > 0 && formulario.parcelasDetalhadas.map((parc, i) => (
               <View key={i} style={{marginTop: 10, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0'}}>
                   <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
@@ -632,8 +664,8 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
                       <Text style={{color: parc.status === 'paga' ? '#FFF' : '#64748B', fontWeight: 'bold', fontSize: 12}}>{parc.status === 'paga' ? 'Paga' : 'Pendente'}</Text>
                     </TouchableOpacity>
                   </View>
-                  <CampoEdicao label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarParcela(i, 'valor', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="numeric" />
-                  <CampoEdicao label="Observações" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex: Assinatura do contrato" />
+                                      <CampoEdicao label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarParcela(i, 'valor', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="numeric" />
+                    <CampoEdicao label="Observações" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex: Assinatura do contrato" />
               </View>
             ))}
 
@@ -817,8 +849,8 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
               <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 15 }}>Cadastrar Novo Cliente</Text>
               <CampoEdicao label="Nome Completo *" valor={formNovoCliente.nome} aoMudar={v => setFormNovoCliente({...formNovoCliente, nome: v})} placeholder="Ex: Ana Costa" />
               <CampoEdicao label="CPF ou CNPJ *" valor={formNovoCliente.documento} aoMudar={v => setFormNovoCliente({...formNovoCliente, documento: formatarCpfCnpj(v)})} placeholder="000.000.000-00" teclado="numeric" />
-              <CampoEdicao label="Telefone (Opcional)" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="(00) 00000-0000" teclado="phone-pad" />
-              <CampoEdicao label="Instagram (Opcional)" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
+              <CampoEdicao label="Telefone" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="(00) 00000-0000" teclado="phone-pad" />
+              <CampoEdicao label="Instagram" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
               
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
                  <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalClienteVisivel(false)} textColor={CORES.textNavy} disabled={carregandoOpcoes}>Cancelar</Button>
