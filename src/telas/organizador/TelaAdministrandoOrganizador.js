@@ -38,7 +38,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [itens, setItens] = useState([]);
   const [inativos, setInativos] = useState([]);
   const [busca, setBusca] = useState('');
-  
+
   const [modalInativosVisivel, setModalInativosVisivel] = useState(false);
   const [modalCadastroVisivel, setModalCadastroVisivel] = useState(false);
   const [modalInativarVisivel, setModalInativarVisivel] = useState(false);
@@ -48,7 +48,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState('');
-  
+
   const [itemParaInativar, setItemParaInativar] = useState(null);
   const [modoLeitura, setModoLeitura] = useState(false);
   const [itemEditando, setItemEditando] = useState(null);
@@ -101,7 +101,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
     setNome(item ? obterNome(item) : '');
     setDadosComplementares({
       documento: item?.documento || '', email: item?.email || '', telefone: item?.telefone || '',
-      observacoes: item?.observacoes || item?.descricao || '', 
+      observacoes: item?.observacoes || item?.descricao || '',
       rua: item?.rua || '', numero: item?.numero || '', bairro: item?.bairro || '', cidade: item?.cidade || '', estado: item?.estado || '',
     });
     if (categoriaAtiva.chave === 'locaisSalvos') {
@@ -121,24 +121,24 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
 
     setSalvando(true);
     try {
-      const enderecoCompleto = categoriaAtiva.chave === 'locaisSalvos' 
-         ? `${dadosComplementares.rua}, ${dadosComplementares.numero} - ${dadosComplementares.bairro}, ${dadosComplementares.cidade} - ${dadosComplementares.estado}`
-         : '';
+      const enderecoCompleto = categoriaAtiva.chave === 'locaisSalvos'
+        ? `${dadosComplementares.rua}, ${dadosComplementares.numero} - ${dadosComplementares.bairro}, ${dadosComplementares.cidade} - ${dadosComplementares.estado}`
+        : '';
 
       const dados = {
         nome: valor,
         ...(categoriaAtiva.chave === 'clientes' && { documento: dadosComplementares.documento.trim(), email: dadosComplementares.email.trim(), telefone: dadosComplementares.telefone.trim(), observacoes: dadosComplementares.observacoes.trim() }),
         ...(['tiposEvento', 'tiposProfissional', 'tiposLocal'].includes(categoriaAtiva.chave) && { descricao: dadosComplementares.observacoes.trim() }),
-        ...(categoriaAtiva.chave === 'locaisSalvos' && { 
-             endereco_completo: enderecoCompleto,
-             rua: dadosComplementares.rua, numero: dadosComplementares.numero, bairro: dadosComplementares.bairro, cidade: dadosComplementares.cidade, estado: dadosComplementares.estado,
-             observacoes: dadosComplementares.observacoes.trim() 
-         }),
+        ...(categoriaAtiva.chave === 'locaisSalvos' && {
+          endereco_completo: enderecoCompleto,
+          rua: dadosComplementares.rua, numero: dadosComplementares.numero, bairro: dadosComplementares.bairro, cidade: dadosComplementares.cidade, estado: dadosComplementares.estado,
+          observacoes: dadosComplementares.observacoes.trim()
+        }),
       };
-      
+
       if (itemEditando) await repositorioEventos.atualizarItemSelect(categoriaAtiva.chave, itemEditando.id, dados, empresaId);
       else await repositorioEventos.adicionarNovoItemSelect(categoriaAtiva.chave, dados, empresaId);
-      
+
       setModalCadastroVisivel(false);
       setNome('');
       await carregarItens();
@@ -156,8 +156,8 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
     try {
       const emUso = await repositorioEventos.verificarUsoEmEvento(categoriaAtiva.chave, itemParaInativar.id, empresaId);
       if (emUso) {
-         mostrarErro("Este registro está em uso e não pode ser inativado.");
-         return;
+        mostrarErro("Este registro está em uso e não pode ser inativado.");
+        return;
       }
       await repositorioEventos.arquivarItemSelect(categoriaAtiva.chave, itemParaInativar.id, empresaId);
       carregarItens();
@@ -210,7 +210,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
             <>
               <Text style={styles.sectionTitle}>Cadastros da empresa</Text>
               <Text style={styles.sectionSubtitle}>{categoriaAtiva.descricao}</Text>
-              
+
               <Card style={styles.listCard}>
                 <Card.Content style={styles.cardContent}>
                   <View style={styles.searchRow}>
@@ -261,23 +261,28 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
 
             <Text style={styles.inputLabel}>Nome</Text>
             <TextInput editable={!modoLeitura} value={nome} onChangeText={setNome} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
-            
+
             {categoriaAtiva.chave === 'locaisSalvos' && <>
               <Text style={styles.inputLabel}>Rua / Endereço</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.rua} onChangeText={(v) => setDadosComplementares((a) => ({...a, rua: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.rua} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, rua: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Número</Text><TextInput editable={!modoLeitura} value={dadosComplementares.numero} onChangeText={(v) => setDadosComplementares((a) => ({...a, numero: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
-                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Bairro</Text><TextInput editable={!modoLeitura} value={dadosComplementares.bairro} onChangeText={(v) => setDadosComplementares((a) => ({...a, bairro: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Número</Text><TextInput editable={!modoLeitura} value={dadosComplementares.numero} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, numero: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Bairro</Text><TextInput editable={!modoLeitura} value={dadosComplementares.bairro} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, bairro: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Cidade</Text><TextInput editable={!modoLeitura} value={dadosComplementares.cidade} onChangeText={(v) => setDadosComplementares((a) => ({...a, cidade: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
-                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Estado</Text><TextInput editable={!modoLeitura} value={dadosComplementares.estado} onChangeText={(v) => setDadosComplementares((a) => ({...a, estado: v}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Cidade</Text><TextInput editable={!modoLeitura} value={dadosComplementares.cidade} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, cidade: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Estado</Text><TextInput editable={!modoLeitura} value={dadosComplementares.estado} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, estado: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
               </View>
             </>}
 
             {categoriaAtiva.chave === 'clientes' && <>
               <Text style={styles.inputLabel}>CPF ou CNPJ *</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((a) => ({...a, documento: formatarCpfCnpj(v)}))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
+              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, documento: formatarCpfCnpj(v) }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
+            </>}
+
+            {categoriaAtiva.chave === 'clientes' && <>
+              <Text style={styles.inputLabel}> E-mail</Text>
+              <TextInput editable={!modoLeitura} value={dadosComplementares.email} onChangeText={(v) => setDadosComplementares((a) => ({ ...a }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="email" />
             </>}
 
             <View style={styles.modalActions}>
@@ -296,7 +301,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
             </View>
             <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>Inativar Cadastro?</Text>
             <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
-              Deseja realmente inativar <Text style={{fontWeight: 'bold'}}>{itemParaInativar?.nome}</Text>?
+              Deseja realmente inativar <Text style={{ fontWeight: 'bold' }}>{itemParaInativar?.nome}</Text>?
             </Text>
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
               <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} textColor={CORES.textNavy} onPress={() => setModalInativarVisivel(false)}>Cancelar</Button>
@@ -309,28 +314,28 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
       <Modal visible={modalInativosVisivel} transparent animationType="slide" onRequestClose={() => setModalInativosVisivel(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { maxHeight: '70%', padding: 0 }]}>
-             <View style={[styles.modalHeader, { padding: 20, marginBottom: 0, borderBottomWidth: 1, borderColor: '#EEE' }]}>
-                <Text style={styles.modalTitle}>Cadastros Inativos</Text>
-                <TouchableOpacity onPress={() => setModalInativosVisivel(false)}>
-                  <MaterialCommunityIcons name="close" size={24} color={CORES.textMuted} />
-                </TouchableOpacity>
-             </View>
-             {inativos.length === 0 ? (
-                <View style={{ padding: 30, alignItems: 'center' }}><Text>Nenhum registro inativo.</Text></View>
-             ) : (
-                <FlatList
-                   data={inativos}
-                  keyExtractor={i => i.id}
-                  renderItem={({item}) => (
-                    <View style={[styles.itemRow, { paddingRight: 16 }]}>
-                       <View style={{ flex: 1 }}>
-                          <Text style={styles.itemName}>{obterNome(item)}</Text>
-                       </View>
-                       <Button mode="contained" onPress={() => reativar(item)} buttonColor="#10B981" textColor="#FFF" compact>Reativar</Button>
+            <View style={[styles.modalHeader, { padding: 20, marginBottom: 0, borderBottomWidth: 1, borderColor: '#EEE' }]}>
+              <Text style={styles.modalTitle}>Cadastros Inativos</Text>
+              <TouchableOpacity onPress={() => setModalInativosVisivel(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {inativos.length === 0 ? (
+              <View style={{ padding: 30, alignItems: 'center' }}><Text>Nenhum registro inativo.</Text></View>
+            ) : (
+              <FlatList
+                data={inativos}
+                keyExtractor={i => i.id}
+                renderItem={({ item }) => (
+                  <View style={[styles.itemRow, { paddingRight: 16 }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName}>{obterNome(item)}</Text>
                     </View>
-                  )}
-                />
-             )}
+                    <Button mode="contained" onPress={() => reativar(item)} buttonColor="#10B981" textColor="#FFF" compact>Reativar</Button>
+                  </View>
+                )}
+              />
+            )}
           </View>
         </View>
       </Modal>

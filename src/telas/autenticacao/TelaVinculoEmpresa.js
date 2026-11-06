@@ -22,7 +22,7 @@ export default function TelaVinculoEmpresa({ user, onLogout, onVinculoConcluido 
       setMensagemErro('Digite o código fornecido pelo administrador da empresa.');
       return;
     }
-    
+     
     setMensagemErro('');
     setSalvando(true);
     try {
