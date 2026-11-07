@@ -174,6 +174,46 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     return unsubscribe;
   }, [user.uid]);
 
+  // --- INÍCIO DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
+  const [notificacoesSistema, setNotificacoesSistema] = useState([]);
+
+  // Conta quantas notificações não lidas existem para mostrar no sininho
+  const totalNaoLidas = useMemo(
+    () => notificacoesSistema.filter((n) => !n.lida).length,
+    [notificacoesSistema]
+  );
+
+  // 1. Registra o celular para notificações externas e escuta a coleção 'notificacoes' em tempo real
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    inicializarNotificacoesDispositivo(user.uid);
+
+    const cancelarAssinatura = assinarNotificacoesUsuario(
+      user.uid,
+      (lista) => setNotificacoesSistema(lista),
+      (erro) => console.log('Erro ao carregar notificações:', erro)
+    );
+
+    return () => {
+      if (typeof cancelarAssinatura === 'function') cancelarAssinatura();
+    };
+  }, [user?.uid]);
+
+  // 2. Quando a lista 'assignments' carregar, checa automaticamente a regra de 7 dias e 3 dias antes
+  useEffect(() => {
+    if (user?.uid && assignments?.length > 0 && eventsNotificationsEnabled) {
+      const listaFormatada = assignments.map((a) => ({
+        id: a.eventId || a.id,
+        nome: a.eventTitle || 'Evento',
+        dataInicio: a.eventDate,
+        statusConfirmacao: a.status,
+      }));
+      processarLembretesListaEventos(user.uid, listaFormatada);
+    }
+  }, [user?.uid, assignments, eventsNotificationsEnabled]);
+  // --- FIM DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
+
   const pendingAssignments = useMemo(() => assignments.filter((assignment) => assignment.status === 'pending'), [assignments]);
   const confirmedAssignments = useMemo(() => assignments.filter((assignment) => assignment.status === 'accepted'), [assignments]);
   const allAssignmentsForAgenda = useMemo(() => assignments.filter((a) => a.status === 'accepted' || a.status === 'pending'), [assignments]);
@@ -354,20 +394,21 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                   }
                 }}
               >
+                // Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado
                 <View style={[
                   styles.agendaDayCircle,
                   !day.inCurrentMonth && styles.agendaDayOutsideMonth,
-                  day.isToday && !day.selected && styles.agendaDayToday,
-                  day.unavailable && !day.selected && styles.agendaDayUnavailable,
-                  day.hasConfirmed && !day.selected && styles.agendaDayConfirmed,
-                  day.hasPending && !day.selected && styles.agendaDayPending,
+                  day.isToday && styles.agendaDayToday,
+                  day.unavailable && styles.agendaDayUnavailable,
+                  day.hasPending && styles.agendaDayPending,
+                  day.hasConfirmed && styles.agendaDayConfirmed,
                   day.selected && styles.agendaDaySelected, 
                 ]}>
                   <Text style={[
                     styles.agendaDayNumber, 
                     !day.inCurrentMonth && styles.agendaDayNumberOutside, 
-                    (day.hasConfirmed || day.hasPending || day.unavailable) && !day.selected && styles.agendaDayNumberEvent, 
-                    day.selected && styles.agendaDayNumberSelected
+                    day.selected && styles.agendaDayNumberSelected,
+                    (day.hasConfirmed || day.hasPending || day.unavailable) && styles.agendaDayNumberEvent, 
                   ]}>
                     {day.date.getDate()}
                   </Text>
@@ -652,11 +693,19 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   return (
     <View style={styles.screen}>
+     // Exibe a bolinha com o total não lido e envia o ID e os eventos ao abrir o sininho
       <Cabecalho 
         titulo={activeTab === 'home' ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!` : { events: 'Eventos', profile: 'Perfil' }[activeTab]} 
         subtitulo={activeTab === 'home' ? 'Seu painel de eventos' : ''}
         mostrarSino={true}
-        aoClicarSino={() => navigation.navigate('Notificacoes')}
+        quantidadeNotificacoes={totalNaoLidas}
+        badgeCount={totalNaoLidas}
+        aoClicarSino={() =>
+          navigation.navigate('Notificacoes', {
+            idUsuario: user?.uid,
+            assignments: assignments,
+          })
+        }
       />
       
       <ScrollView style={styles.mainContent} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
