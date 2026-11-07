@@ -1,3 +1,4 @@
+import { notificarNovoEventoParaTecnico } from '../../servicos/servicoNotificacoes';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Alert, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
@@ -835,19 +836,36 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
          onAdicionarNovo={tipoSelecao === 'metodoPagamento' ? null : salvarNovoItemNaSelecao}
       />
 
-      <ModalAdicionarProfissional 
-          visible={modalEquipeVisivel} 
-          empresaId={usuario?.idEmpresa} 
-          dataEvento={evento.dataInicio}
-          equipeAtual={equipe} 
-          onClose={() => setModalEquipeVisivel(false)} 
-          onAdd={async (p) => {
-             await repositorioEventos.adicionarProfissionaisEvento(idEvento, [p]);
-             carregarEvento();
-             setModalEquipeVisivel(false);
-             mostrarSucesso('Profissional adicionado', p.enviarConvite ? 'Convite enviado com sucesso!' : 'Profissional adicionado à equipe.');
-          }} 
-       />
-    </View>
+      <ModalAdicionarProfissional
+        visible={modalEquipeVisivel}
+        empresaId={usuario?.idEmpresa}
+        dataEvento={evento.dataInicio}
+        equipeAtual={equipe}
+        onClose={() => setModalEquipeVisivel(false)}
+        onAdd={async (p) => {
+          // 1. Salva o profissional na equipe do evento no Firestore
+          await repositorioEventos.adicionarProfissionaisEvento(idEvento, [p]);
+
+          // 2. Se for um convite real, dispara a notificação de Novo Evento e checa a regra de 7 e 3 dias
+          if (p.enviarConvite) {
+            await notificarNovoEventoParaTecnico({
+              idUsuario: p.idUsuario || p.id,
+              idEvento: idEvento,
+              nomeEvento: evento.nome || evento.titulo,
+              dataEvento: evento.dataInicio,
+              funcao: p.funcao,
+            });
+          }
+
+          // 3. Atualiza a tela, fecha o modal e mostra mensagem de confirmação
+          carregarEvento();
+          setModalEquipeVisivel(false);
+          mostrarSucesso(
+            'Profissional adicionado',
+            p.enviarConvite ? 'Convite enviado com sucesso!' : 'Profissional adicionado à equipe.'
+          );
+        }}
+      />
+      </View>
   );
 }

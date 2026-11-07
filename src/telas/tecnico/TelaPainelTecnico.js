@@ -1,6 +1,14 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  inicializarNotificacoesDispositivo,
+  processarLembretesListaEventos,
+  verificarLembretesProximidadeEvento,
+  notificarEventoCancelado,
+  assinarNotificacoesUsuario,
+  marcarNotificacaoComoLida,
+} from '../../servicos/servicoNotificacoes';
+import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
