@@ -1,4 +1,4 @@
-// src/telas/tecnico/TelaDetalhesEventoTecnico.js
+
 import React, { useCallback, useState } from 'react';
 import {
   Linking,
@@ -234,7 +234,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         </View>
       )}
 
-      {/* MODAIS GERAIS */}
+      
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>

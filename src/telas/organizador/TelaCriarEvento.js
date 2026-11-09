@@ -1,4 +1,4 @@
-// src/telas/organizador/TelaCriarEvento.js
+
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
@@ -188,7 +188,6 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const [modalTipoEventoVisivel, setModalTipoEventoVisivel] = useState(false);
   const [formNovoTipoEvento, setFormNovoTipoEvento] = useState({ nome: '', descricao: '' });
   
-  // Substituindo Alert e Erro Inline
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState('');
   const [salvando, setSalvando] = useState(false);

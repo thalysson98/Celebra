@@ -1,4 +1,4 @@
-// src/telas/organizador/TelaInicioOrganizador.js
+
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -236,7 +236,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     }).sort((a, b) => {
         const da = converterStringParaData(a.dataInicio);
         const db = converterStringParaData(b.dataInicio);
-        return (da?.getTime() || 0) - (db?.getTime() || 0); // Ordem Cronológica
+        return (da?.getTime() || 0) - (db?.getTime() || 0); 
     });
   }, [eventos, diasFiltro]);
 

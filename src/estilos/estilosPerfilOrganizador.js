@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import {COLORS, FONTES} from '../tema/cores';
+import { StyleSheet, Platform } from 'react-native';
+import { COLORS, FONTES } from '../tema/cores';
 
 export const styles = StyleSheet.create({
   flexColumn: { flex: 1 },
@@ -21,6 +21,59 @@ export const styles = StyleSheet.create({
   companySlogan: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   divider: { height: 1, backgroundColor: COLORS.cardDivider, marginVertical: 12 },
   companyInfo: { fontFamily: FONTES.body, fontSize: 13, color: COLORS.textMuted, marginBottom: 4 },
+  codigoContainer: {
+    marginTop: 8,
+    marginBottom: 6,
+    padding: 12,
+    backgroundColor: COLORS.sheetBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cardLightBlueBorder || '#CDE5F2',
+  },
+  codigoLabel: {
+    fontFamily: FONTES.bold,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textNavy,
+    marginBottom: 6,
+  },
+  codigoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  codigoText: {
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    fontSize: 13,
+    color: COLORS.textNavy,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
+  },
+  botaoCopiar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.cardWhite,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonGold,
+  },
+  botaoCopiarCopiado: {
+    backgroundColor: '#E6F8F0',
+    borderColor: '#10B981',
+  },
+  botaoCopiarTexto: {
+    fontFamily: FONTES.bold,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textNavy,
+    marginLeft: 4,
+  },
+  botaoCopiarTextoCopiado: {
+    color: '#059669',
+  },
   editButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.buttonGold, borderRadius: 12, paddingVertical: 12, marginTop: 14 },
   editButtonText: { fontFamily: FONTES.bold, fontSize: 14, fontWeight: '700', color: COLORS.textNavy },
   sectionTitle: { fontFamily: FONTES.bold, fontSize: 17, fontWeight: '700', color: COLORS.textNavy, marginBottom: 10, marginTop: 4 },

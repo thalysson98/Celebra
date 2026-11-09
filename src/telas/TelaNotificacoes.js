@@ -50,7 +50,7 @@ export default function TelaNotificacoes({ navigation }) {
 
   return (
     <View style={estilos.containerGeral}>
-      {/* TOPO */}
+
       <View style={estilos.headerFigma}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon source="arrow-left" size={22} color="#FFF" />
@@ -61,7 +61,7 @@ export default function TelaNotificacoes({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ABAS */}
+
       <View style={estilos.linhaAbas}>
         <TouchableOpacity 
           style={[estilos.abaPill, abaAtiva === 'NaoLidas' && estilos.abaPillAtiva]} 
@@ -78,7 +78,6 @@ export default function TelaNotificacoes({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* LISTA DE NOTIFICAÇÕES */}
       <FlatList
         data={listaFiltrada}
         keyExtractor={(item) => item.id}
