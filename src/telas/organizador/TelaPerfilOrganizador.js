@@ -41,7 +41,32 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
             {!!(localEmpresa || usuario?.companyPhone || usuario?.telefone) && (
               <Text style={styles.companyInfo}>{[localEmpresa, usuario?.companyPhone || usuario?.telefone].filter(Boolean).join(' • ')}</Text>
             )}
-            {!!usuario?.codigoVinculo && <Text selectable style={styles.companyInfo}>Código/ID para vínculo da equipe: {usuario.codigoVinculo}</Text>}
+
+            
+            {!!codigoVinculo && (
+              <View style={styles.codigoContainer}>
+                <Text style={styles.codigoLabel}>Código / ID para vínculo da equipe</Text>
+                <View style={styles.codigoRow}>
+                  <Text selectable style={styles.codigoText} numberOfLines={1} ellipsizeMode="middle">
+                    {codigoVinculo}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.botaoCopiar, copiado && styles.botaoCopiarCopiado]}
+                    onPress={copiarCodigo}
+                    activeOpacity={0.7}
+                  >
+                    <Feather
+                      name={copiado ? 'check' : 'copy'}
+                      size={14}
+                      color={copiado ? '#059669' : COLORS.textNavy}
+                    />
+                    <Text style={[styles.botaoCopiarTexto, copiado && styles.botaoCopiarTextoCopiado]}>
+                      {copiado ? 'Copiado!' : 'Copiar'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             <TouchableOpacity style={styles.editButton} activeOpacity={0.8} onPress={() => navigation.navigate('EditarEmpresa')}>
               <Feather name="edit-2" size={16} color={COLORS.textNavy} style={styles.iconWithGap} />

@@ -1,5 +1,5 @@
 // src/servicos/repositorioEventos.js
-import { arrayUnion, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, addDoc } from 'firebase/firestore';
+import { arrayUnion, collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where, addDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
 import { enviarConvitesEvento } from './servicoEscala';
 
@@ -7,6 +7,7 @@ const COLECOES_ADMINISTRACAO = {
   tiposEvento: 'tipos_evento',
   tiposProfissional: 'tipos_profissional',
   tiposLocal: 'tipos_local',
+  tiposDespesa: 'tipos_despesa',
   locaisSalvos: 'locais',
   clientes: 'clientes',
 };
@@ -15,6 +16,7 @@ const CAMPOS_ID_ADMINISTRACAO = {
   tiposEvento: 'id_tipo_evento',
   tiposProfissional: 'id_tipo_profissional',
   tiposLocal: 'id_tipo_local',
+  tiposDespesa: 'id_tipo_despesa',
   locaisSalvos: 'id_local',
   clientes: 'id_cliente',
 };
@@ -68,6 +70,13 @@ async function buscarOuCriarCadastro(colecao, campoId, empresaId, nome, camposAd
   });
 
   if (existente) return existente.id;
+  const cadastroInativo = existentes.docs.find((item) => {
+    const dados = item.data();
+    return dados.ativo === false && normalizarTexto(dados.nome) === normalizarTexto(nomeLimpo);
+  });
+  if (cadastroInativo) {
+    throw new Error(`O cadastro "${nomeLimpo}" está inativo. Reative-o antes de usá-lo em um novo evento.`);
+  }
 
   const referencia = doc(collection(bancoDados, colecao));
   await setDoc(referencia, {
@@ -79,6 +88,22 @@ async function buscarOuCriarCadastro(colecao, campoId, empresaId, nome, camposAd
     criado_em: serverTimestamp(),
   });
   return referencia.id;
+}
+
+async function buscarCadastroVinculadoOuCriar(colecao, campoId, empresaId, nome, idVinculado) {
+  if (idVinculado) {
+    const snapshot = await getDoc(doc(bancoDados, colecao, idVinculado));
+    if (snapshot.exists()) {
+      const cadastro = snapshot.data();
+      if (
+        cadastro.id_empresa === empresaId &&
+        normalizarTexto(cadastro.nome) === normalizarTexto(nome)
+      ) {
+        return snapshot.id;
+      }
+    }
+  }
+  return buscarOuCriarCadastro(colecao, campoId, empresaId, nome);
 }
 
 function paraDataJavaScript(valor) {
@@ -95,6 +120,7 @@ function mapearEvento(snapshot, relacionados = {}) {
   const tipoEvento = relacionados.tipoEvento || null;
   const convites = relacionados.convites || [];
   const membros = evento.membros_escalados || [];
+  const despesasEquipe = evento.despesas_equipe || [];
   const pendentes = convites.filter((convite) => convite.situacao === 'pendente').length;
   const nomeEquipa = membros.length ? 'Equipe confirmada' : 'Equipe pendente';
   let dataFormatada = '';
@@ -136,6 +162,7 @@ function mapearEvento(snapshot, relacionados = {}) {
         funcao: convite.nome_tipo_profissional || convite.tipoProfissional?.nome || '',
         statusConfirmacao: convite.situacao === 'aceito' ? 'Confirmado' : convite.situacao === 'recusado' ? 'Recusado' : convite.situacao === 'cancelado' ? 'Cancelado' : 'Pendente',
         enviarConvite: true,
+        despesas: despesasEquipe.find((item) => item.id_profissional === convite.id || item.id_profissional === convite.id_usuario)?.despesas || [],
       })),
       ...(evento.equipe_informativa || []).map((profissional, index) => ({
         id: profissional.id_usuario || `${snapshot.id}_informativo_${index}`,
@@ -145,6 +172,7 @@ function mapearEvento(snapshot, relacionados = {}) {
         funcao: profissional.nome_tipo_profissional || '',
         statusConfirmacao: 'Informativo',
         enviarConvite: false,
+        despesas: despesasEquipe.find((item) => item.id_profissional === (profissional.id_usuario || `${snapshot.id}_informativo_${index}`))?.despesas || [],
       })),
     ],
     financeiro: evento.financeiro || {},
@@ -204,6 +232,36 @@ export const repositorioEventos = {
     if (!snapshot.exists()) return null;
     return mapearEvento(snapshot, await buscarRelacionadosEvento(snapshot));
   },
+  atualizarDespesasEquipe: async (idEvento, idProfissional, despesas) => {
+    const referencia = doc(bancoDados, 'eventos', idEvento);
+    await runTransaction(bancoDados, async (transacao) => {
+      const referenciaConvite = doc(bancoDados, 'convites', idProfissional);
+      const [snapshot, conviteSnapshot] = await Promise.all([
+        transacao.get(referencia),
+        transacao.get(referenciaConvite),
+      ]);
+      if (!snapshot.exists()) throw new Error('Evento não encontrado.');
+      const existentes = snapshot.data().despesas_equipe || [];
+      const despesasProfissionalExistentes = existentes.find((item) => item.id_profissional === idProfissional)?.despesas || [];
+      const conviteCancelado =
+        conviteSnapshot.exists() &&
+        conviteSnapshot.data().id_evento === idEvento &&
+        conviteSnapshot.data().situacao === 'cancelado';
+      const idsDespesasExistentes = new Set(despesasProfissionalExistentes.map((despesa) => despesa.id));
+      const adicionaDespesa = despesas.some((despesa) => !despesa.id || !idsDespesasExistentes.has(despesa.id));
+      if (conviteCancelado && adicionaDespesa) {
+        throw new Error('Não é possível adicionar despesas para um profissional com convite cancelado.');
+      }
+      const atualizadas = existentes.filter((item) => item.id_profissional !== idProfissional);
+      atualizadas.push({ id_profissional: idProfissional, despesas });
+      transacao.update(referencia, { despesas_equipe: atualizadas });
+    });
+    return despesas;
+  },
+  atualizarParcelasEvento: async (idEvento, parcelasDetalhadas) => {
+    const referencia = doc(bancoDados, 'eventos', idEvento);
+    await updateDoc(referencia, { 'financeiro.parcelasDetalhadas': parcelasDetalhadas });
+  },
   obterOpcoesSelect: async (tipoEntidade, empresaId, incluirArquivados = false) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     if (!nomeColecao || !empresaId) return [];
@@ -214,7 +272,18 @@ export const repositorioEventos = {
   adicionarNovoItemSelect: async (tipoEntidade, dadosNovoItem, empresaId) => {
     const nomeColecao = COLECOES_ADMINISTRACAO[tipoEntidade];
     const referencia = doc(collection(bancoDados, nomeColecao));
-    const cadastro = { ...normalizarCadastro(tipoEntidade, dadosNovoItem), [CAMPOS_ID_ADMINISTRACAO[tipoEntidade]]: referencia.id, id_empresa: empresaId, ativo: true, criado_em: serverTimestamp() };
+    const dadosCadastro = normalizarCadastro(tipoEntidade, dadosNovoItem);
+    const consulta = query(collection(bancoDados, nomeColecao), where('id_empresa', '==', empresaId));
+    const existentes = await getDocs(consulta);
+    const cadastroInativo = existentes.docs.find((item) => {
+      const dados = item.data();
+      return dados.ativo === false && normalizarTexto(dados.nome) === normalizarTexto(dadosCadastro.nome);
+    });
+    if (cadastroInativo) {
+      throw new Error(`O cadastro "${dadosCadastro.nome}" está inativo. Reative-o antes de usá-lo em um novo evento.`);
+    }
+
+    const cadastro = { ...dadosCadastro, [CAMPOS_ID_ADMINISTRACAO[tipoEntidade]]: referencia.id, id_empresa: empresaId, ativo: true, criado_em: serverTimestamp() };
     await setDoc(referencia, cadastro);
     return { id: referencia.id, ...cadastro };
   },
@@ -251,6 +320,10 @@ export const repositorioEventos = {
         if (tipoEntidade === 'tiposProfissional') {
            const eq = ev.equipe_informativa || [];
            if (eq.some(p => p.id_tipo_profissional === id)) emUso = true;
+        }
+        if (tipoEntidade === 'tiposDespesa') {
+          const despesasEquipe = ev.despesas_equipe || [];
+          if (despesasEquipe.some((profissional) => (profissional.despesas || []).some((despesa) => despesa.id_tipo_despesa === id))) emUso = true;
         }
       });
       
@@ -327,6 +400,15 @@ export const repositorioEventos = {
       equipe_informativa: (dadosNovoEvento.equipe || []).filter(p => p.enviarConvite === false).map(p => ({
         id_usuario: p.idUsuario || p.id, id_tipo_profissional: p.idTipoProfissional, nome_profissional: p.nomeProfissional, nome_tipo_profissional: p.funcao,
       })),
+      despesas_equipe: (dadosNovoEvento.equipe || [])
+        .filter((profissional) => profissional.despesas?.length)
+        .map((profissional) => {
+          const idUsuario = profissional.idUsuario || profissional.id;
+          return {
+            id_profissional: profissional.enviarConvite === false ? idUsuario : `${referencia.id}_${idUsuario}`,
+            despesas: profissional.despesas,
+          };
+        }),
       financeiro: dadosNovoEvento.financeiro || {},
       situacao: 'aberto', observacoes: String(dadosNovoEvento.notasProducao || '').trim(), criado_em: serverTimestamp(),
     };
@@ -371,19 +453,43 @@ export const repositorioEventos = {
   atualizarEvento: async (idEvento, dadosAtualizados) => {
     const empresaId = await obterIdEmpresaAtual();
     const referencia = doc(bancoDados, 'eventos', idEvento);
+    const eventoAtualSnap = await getDoc(referencia);
+    if (!eventoAtualSnap.exists()) throw new Error('Evento não encontrado.');
+    const eventoAtual = eventoAtualSnap.data();
     const titulo = String(dadosAtualizados.titulo || '').trim();
     const dataInicio = converterDataEvento(dadosAtualizados.dataInicio, dadosAtualizados.horaInicio);
     
     const [idTipoEvento, idCliente] = await Promise.all([
-      buscarOuCriarCadastro('tipos_evento', 'id_tipo_evento', empresaId, dadosAtualizados.tipoEvento),
-      buscarOuCriarCadastro('clientes', 'id_cliente', empresaId, dadosAtualizados.cliente?.nome),
+      buscarCadastroVinculadoOuCriar('tipos_evento', 'id_tipo_evento', empresaId, dadosAtualizados.tipoEvento, eventoAtual.id_tipo_evento),
+      buscarCadastroVinculadoOuCriar('clientes', 'id_cliente', empresaId, dadosAtualizados.cliente?.nome, eventoAtual.id_cliente),
     ]);
 
     const locaisDetalhados = [];
     if (dadosAtualizados.locaisArray) {
         for (const loc of dadosAtualizados.locaisArray) {
-            const idTipoLocal = await buscarOuCriarCadastro('tipos_local', 'id_tipo_local', empresaId, loc.tipoLocal);
-            const idL = await buscarOuCriarCadastro('locais', 'id_local', empresaId, loc.nomeDoLocal);
+            const idLocalAtual = loc.id_local || loc.id;
+            const localVinculado = (eventoAtual.locais_detalhados || []).find((local) => local.id_local === idLocalAtual)
+              || (eventoAtual.id_locais?.includes(idLocalAtual) ? { id_local: idLocalAtual } : null);
+            const localAtualSnap = localVinculado?.id_local
+              ? await getDoc(doc(bancoDados, 'locais', localVinculado.id_local))
+              : null;
+            const tipoLocalVinculado = localAtualSnap?.exists()
+              ? localAtualSnap.data().id_tipo_local
+              : null;
+            const idTipoLocal = await buscarCadastroVinculadoOuCriar(
+              'tipos_local',
+              'id_tipo_local',
+              empresaId,
+              loc.tipoLocal,
+              tipoLocalVinculado
+            );
+            const idL = await buscarCadastroVinculadoOuCriar(
+              'locais',
+              'id_local',
+              empresaId,
+              loc.nomeDoLocal,
+              localVinculado?.id_local
+            );
             
             await updateDoc(doc(bancoDados, 'locais', idL), {
                 id_tipo_local: idTipoLocal, 

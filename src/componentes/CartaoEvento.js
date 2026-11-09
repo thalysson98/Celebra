@@ -14,7 +14,7 @@ export default function CartaoEvento({ evento, aoPressionar }) {
         <View style={estilos.linhaTopo}>
           <Text style={estilos.tipoBadge}>{evento.tipoEvento || 'Evento'}</Text>
           <Text style={estilos.dataTexto}>
-            {evento.dataInicio || 'Data a definir'} {evento.horaInicio ? ` • ${evento.horaInicio}` : ''}
+            {evento.dataInicio || 'Data a definir'}
           </Text>
         </View>
 
