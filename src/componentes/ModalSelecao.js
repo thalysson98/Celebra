@@ -5,7 +5,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityInd
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { CORES, FONTES } from '../tema/cores';
 
-export default function ModalSelecao({ visible, onClose, titulo, opcoes = [], onSelecionar, onAdicionarNovo, carregando }) {
+export default function ModalSelecao({ visible, onClose, titulo, opcoes = [], onSelecionar, onAdicionarNovo, onEditar, carregando }) {
   const [busca, setBusca] = useState('');
 
   const opcoesFiltradas = useMemo(() => {
@@ -55,18 +55,31 @@ export default function ModalSelecao({ visible, onClose, titulo, opcoes = [], on
           ) : opcoesFiltradas.length > 0 ? (
             <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
               {opcoesFiltradas.map((item) => (
-                <TouchableOpacity key={item.id} onPress={() => { setBusca(''); onSelecionar(item); }} style={styles.row}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={styles.itemText}>{item.nome}</Text>
-                    {/* Exibe o endereço ou a descrição caso existam */}
-                    {(item.endereco_completo || item.descricao) && (
-                      <Text style={styles.itemSubText} numberOfLines={1}>
-                        {item.endereco_completo || item.descricao}
-                      </Text>
+                <View key={item.id} style={styles.row}>
+                  <TouchableOpacity onPress={() => { setBusca(''); onSelecionar(item); }} style={styles.option}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={styles.itemText}>{item.nome}</Text>
+                      {(item.endereco_completo || item.descricao) && (
+                        <Text style={styles.itemSubText} numberOfLines={1}>
+                          {item.endereco_completo || item.descricao}
+                        </Text>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={CORES.textMuted} />
+                  </TouchableOpacity>
+                  <View style={styles.rowActions}>
+                    {onEditar && (
+                      <TouchableOpacity
+                        onPress={() => onEditar(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Editar ${item.nome}`}
+                        style={styles.editButton}
+                      >
+                        <MaterialCommunityIcons name="pencil-outline" size={18} color={CORES.textNavy} />
+                      </TouchableOpacity>
                     )}
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={CORES.textMuted} />
-                </TouchableOpacity>
+                </View>
               ))}
             </ScrollView>
           ) : (
@@ -89,7 +102,10 @@ const styles = StyleSheet.create({
   btnNovo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', padding: 14, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#A7F3D0' },
   textoNovo: { color: '#047857', fontFamily: FONTES.bold, fontSize: 15 },
   list: { maxHeight: 350 },
-  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 8 },
+  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 8 },
+  option: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  editButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   itemText: { fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 15 },
   itemSubText: { fontFamily: FONTES.body, color: '#64748B', fontSize: 12, marginTop: 2 },
   empty: { fontFamily: FONTES.body, paddingVertical: 24, color: CORES.textMuted, fontSize: 14, textAlign: 'center' }

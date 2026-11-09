@@ -6,19 +6,26 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  StyleSheet
+  StyleSheet,
+  Modal,
+  TextInput
 } from 'react-native';
 import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import CartaoMetrica from '../../componentes/CartaoMetrica';
 import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import Cabecalho from '../../componentes/Cabecalho';
 
 const parseMoeda = (valor) => {
-  const v = Number(String(valor || '0').replace(/\D/g, '')) / 100;
-  return isNaN(v) ? 0 : v;
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+  const texto = String(valor || '').trim().replace(/[^\d,.-]/g, '');
+  if (!texto) return 0;
+  const normalizado = texto.includes(',')
+    ? texto.replace(/\./g, '').replace(',', '.')
+    : texto;
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
 }
 
 const formatarMonetario = (num) => {
@@ -29,6 +36,14 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
   const [atualizando, setAtualizando] = useState(false);
   const [diasFiltro, setDiasFiltro] = useState(15); 
+  const [periodoFiltro, setPeriodoFiltro] = useState('esteMes');
+  const [valoresVisiveis, setValoresVisiveis] = useState(true);
+  const [tipoDetalhamento, setTipoDetalhamento] = useState(null);
+  const [modalPeriodoVisivel, setModalPeriodoVisivel] = useState(false);
+  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState('');
+  const [dataFimPersonalizada, setDataFimPersonalizada] = useState('');
+  const [periodoPersonalizado, setPeriodoPersonalizado] = useState(null);
+  const [erroPeriodoPersonalizado, setErroPeriodoPersonalizado] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -53,6 +68,17 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
   const converterStringParaData = (dataStr) => {
     if (!dataStr) return null;
+    const texto = String(dataStr).trim();
+    const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      const [, anoTexto, mesTexto, diaTexto] = iso;
+      const ano = Number(anoTexto);
+      const mes = Number(mesTexto) - 1;
+      const dia = Number(diaTexto);
+      const data = new Date(ano, mes, dia);
+      if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia) return null;
+      return data;
+    }
     const mesMap = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11 };
     const [dia, mesTexto, ano] = dataStr.split('/');
     if (dia && mesTexto && ano) {
@@ -66,14 +92,136 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
   const { totalBruto, pendenteReceber } = useMemo(() => {
     let tBruto = 0;
     let pReceber = 0;
-    eventos.forEach(ev => {
+    let valorRealizado = 0;
+    let parcelasPagas = 0;
+    let parcelasPendentes = 0;
+    let totalDespesasEquipe = 0;
+    let profissionaisConfirmados = 0;
+    let profissionaisConvocados = 0;
+    let valorParcelasPendentes = 0;
+    const faturamentoPorTipo = Object.create(null);
+    const despesasPorTipo = Object.create(null);
+    const despesasPorCategoria = Object.create(null);
+
+    eventosDoPeriodo.forEach(ev => {
       tBruto += parseMoeda(ev.financeiro?.valorTotal);
       (ev.financeiro?.parcelasDetalhadas || []).forEach(p => {
-         if (p.status !== 'paga') pReceber += parseMoeda(p.valor);
+        if (p.status === 'paga') {
+          parcelasPagas += 1;
+          valorRealizado += parseMoeda(p.valor);
+        } else {
+          parcelasPendentes += 1;
+          const valorParcela = parseMoeda(p.valor);
+          pReceber += valorParcela;
+          valorParcelasPendentes += valorParcela;
+        }
+      });
+      const tipo = ev.tipoEvento || 'Outros';
+      faturamentoPorTipo[tipo] = (faturamentoPorTipo[tipo] || 0) + parseMoeda(ev.financeiro?.valorTotal);
+      (ev.equipe || []).forEach((profissional) => {
+        (profissional.despesas || []).forEach((despesa) => {
+          const valorDespesa = parseMoeda(despesa.valor);
+          totalDespesasEquipe += valorDespesa;
+          despesasPorTipo[tipo] = (despesasPorTipo[tipo] || 0) + valorDespesa;
+          const categoria = despesa.tipo || 'Sem categoria';
+          despesasPorCategoria[categoria] = (despesasPorCategoria[categoria] || 0) + valorDespesa;
+        });
+        if (profissional.statusConfirmacao === 'Informativo' || profissional.statusConfirmacao === 'Cancelado') return;
+        profissionaisConvocados += 1;
+        if (profissional.statusConfirmacao === 'Confirmado') profissionaisConfirmados += 1;
       });
     });
-    return { totalBruto: formatarMonetario(tBruto), pendenteReceber: formatarMonetario(pReceber) };
-  }, [eventos]);
+
+    const totalTipos = Object.values(faturamentoPorTipo).reduce((total, valor) => total + valor, 0);
+    const faturamentoTipos = Object.entries(faturamentoPorTipo)
+      .map(([tipo, valor]) => ({ tipo, valor, percentual: totalTipos ? (valor / totalTipos) * 100 : 0 }))
+      .sort((a, b) => b.valor - a.valor);
+    const totalDespesas = Object.values(despesasPorTipo).reduce((total, valor) => total + valor, 0);
+    const despesasTipos = Object.entries(despesasPorTipo)
+      .map(([tipo, valor]) => ({ tipo, valor, percentual: totalDespesas ? (valor / totalDespesas) * 100 : 0 }))
+      .sort((a, b) => b.valor - a.valor);
+    const totalDespesasCategorias = Object.values(despesasPorCategoria).reduce((total, valor) => total + valor, 0);
+    const despesasCategorias = Object.entries(despesasPorCategoria)
+      .map(([tipo, valor]) => ({ tipo, valor, percentual: totalDespesasCategorias ? (valor / totalDespesasCategorias) * 100 : 0 }))
+      .sort((a, b) => b.valor - a.valor);
+    const taxaConfirmacao = profissionaisConvocados
+      ? Math.round((profissionaisConfirmados / profissionaisConvocados) * 100)
+      : 0;
+
+    return {
+      totalBruto: formatarMonetario(tBruto),
+      pendenteReceber: formatarMonetario(pReceber),
+      valorRealizado: formatarMonetario(valorRealizado),
+      despesasEquipe: formatarMonetario(totalDespesasEquipe),
+      parcelasPagas,
+      parcelasPendentes,
+      faturamentoTipos,
+      despesasTipos,
+      despesasCategorias,
+      valorParcelasPendentes: formatarMonetario(valorParcelasPendentes),
+      taxaConfirmacao,
+      profissionaisConfirmados,
+      profissionaisConvocados,
+    };
+  }, [eventosDoPeriodo]);
+
+  const parcelasDetalhadas = useMemo(() => {
+    if (!['pagas', 'pendentes', 'aPagar'].includes(tipoDetalhamento)) return [];
+    const statusAlvo = tipoDetalhamento === 'pagas' ? 'paga' : null;
+    return eventosDoPeriodo.flatMap((evento) => (
+      (evento.financeiro?.parcelasDetalhadas || [])
+        .map((parcela, index) => ({ evento, parcela, numeroParcela: index + 1 }))
+        .filter(({ parcela }) => statusAlvo ? parcela.status === statusAlvo : parcela.status !== 'paga')
+    )).sort((a, b) => {
+      const dataA = converterStringParaData(a.parcela.vencimento)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const dataB = converterStringParaData(b.parcela.vencimento)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return dataA - dataB;
+    });
+  }, [eventosDoPeriodo, tipoDetalhamento]);
+
+  const equipeDetalhada = useMemo(() => (
+    tipoDetalhamento === 'equipe'
+      ? eventosDoPeriodo.flatMap((evento) => (
+        (evento.equipe || []).map((profissional, index) => ({
+          evento,
+          profissional,
+          chave: profissional.id || profissional.idUsuario || `${evento.idEvento || evento.id}_${index}`,
+        })).filter(({ profissional }) => profissional.statusConfirmacao === 'Pendente')
+      ))
+      : []
+  ), [eventosDoPeriodo, tipoDetalhamento]);
+
+  const abrirDetalheEvento = (idEvento) => {
+    setTipoDetalhamento(null);
+    navigation.navigate('Eventos', {
+      screen: 'DetalheEvento',
+      params: { idEvento },
+    });
+  };
+
+  const opcoesPeriodo = [
+    ['esteMes', 'Este Mês'],
+    ['proximosTresMeses', 'Próx. 3 Meses'],
+    ['anoAtual', 'Ano Atual'],
+  ];
+
+  const aplicarPeriodoPersonalizado = () => {
+    const inicio = converterStringParaData(dataInicioPersonalizada);
+    const fim = converterStringParaData(dataFimPersonalizada);
+    if (!inicio || !fim) {
+      setErroPeriodoPersonalizado('Informe as datas inicial e final no formato DD/MM/AAAA.');
+      return;
+    }
+    fim.setHours(23, 59, 59, 999);
+    if (inicio > fim) {
+      setErroPeriodoPersonalizado('A data inicial deve ser anterior à data final.');
+      return;
+    }
+    setPeriodoPersonalizado({ inicio, fim });
+    setPeriodoFiltro('personalizado');
+    setErroPeriodoPersonalizado('');
+    setModalPeriodoVisivel(false);
+  };
 
   const eventosProximos = useMemo(() => {
     const hoje = new Date();
@@ -83,7 +231,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     return eventos.filter(e => {
       if (e.statusTempo !== 'futuros') return false;
       const dataEv = e.dataInicio ? converterStringParaData(e.dataInicio) : null;
-      if (!dataEv) return true;
+      if (!dataEv) return false;
       return dataEv >= hoje && dataEv <= limiteData;
     }).sort((a, b) => {
         const da = converterStringParaData(a.dataInicio);
@@ -114,9 +262,20 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
             {usuario?.companyName || 'Sua produtora'} • {obterDataFormatada()}
           </Text>
         </View>
-        <TouchableOpacity style={styles.bellButton} onPress={() => navigation.navigate('Notificacoes')} activeOpacity={0.7}>
-          <Feather name="bell" size={20} color={COLORS.textWhite} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => setValoresVisiveis((visiveis) => !visiveis)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={valoresVisiveis ? 'Ocultar valores financeiros' : 'Mostrar valores financeiros'}
+          >
+            <Feather name={valoresVisiveis ? 'eye' : 'eye-off'} size={20} color={COLORS.textWhite} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bellButton} onPress={() => navigation.navigate('Notificacoes')} activeOpacity={0.7}>
+            <Feather name="bell" size={20} color={COLORS.textWhite} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
@@ -148,6 +307,8 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                   style={styles.eventListItem}
                   onPress={() => navigation.navigate('Eventos', { screen: 'DetalheEvento', params: { idEvento: ev.id } })}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Abrir detalhes do evento ${ev.titulo}`}
                 >
                   <View style={styles.eventListIconBox}>
                     <MaterialCommunityIcons name="calendar-blank-outline" size={20} color={COLORS.textNavy} />
@@ -177,6 +338,146 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      <Modal
+        visible={tipoDetalhamento !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTipoDetalhamento(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.detailModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {tipoDetalhamento === 'equipe'
+                  ? 'Confirmação da equipe'
+                  : tipoDetalhamento === 'pagas'
+                    ? 'Parcelas pagas'
+                    : tipoDetalhamento === 'aPagar'
+                      ? 'Parcelas a serem pagas'
+                      : 'Parcelas pendentes'}
+              </Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setTipoDetalhamento(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar detalhes"
+              >
+                <Feather name="x" size={22} color={COLORS.textNavy} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.modalList}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {tipoDetalhamento === 'equipe' ? (
+                equipeDetalhada.length ? equipeDetalhada.map(({ evento, profissional, chave }) => (
+                  <TouchableOpacity
+                    key={`${evento.idEvento || evento.id}_${chave}`}
+                    style={styles.detailItem}
+                    onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.detailItemText}>
+                      <Text style={styles.detailItemTitle}>{profissional.nomeProfissional || 'Profissional'}</Text>
+                      <Text style={styles.detailItemDescription}>
+                        {profissional.funcao || 'Função não informada'} · {evento.titulo || 'Evento'}
+                      </Text>
+                      <View style={styles.pendingInvitationDetails}>
+                        <View style={styles.pendingInvitationBadge}>
+                          <Feather name="clock" size={12} color="#92400E" />
+                          <Text style={styles.pendingInvitationBadgeText}>Pendente</Text>
+                        </View>
+                        <Text style={styles.detailItemMeta}>
+                          {evento.dataInicio || 'Data a definir'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
+                  </TouchableOpacity>
+                )) : <Text style={styles.modalEmptyText}>Nenhum convite pendente neste período.</Text>
+              ) : (
+                parcelasDetalhadas.length ? parcelasDetalhadas.map(({ evento, parcela, numeroParcela }, index) => (
+                  <TouchableOpacity
+                    key={`${evento.idEvento || evento.id}_parcela_${numeroParcela}_${index}`}
+                    style={styles.detailItem}
+                    onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.detailItemText}>
+                      <Text style={styles.detailItemTitle}>{evento.titulo || 'Evento'}</Text>
+                      <Text style={styles.detailItemDescription}>
+                        {evento.cliente?.nome || 'Cliente não informado'} · {evento.dataInicio || 'Data a definir'}
+                      </Text>
+                      <Text style={styles.detailItemMeta}>Parcela {numeroParcela}</Text>
+                      <Text style={styles.detailItemMeta}>
+                        Vencimento: {parcela.vencimento || 'Não informado'}
+                      </Text>
+                    </View>
+                    <Text style={styles.detailItemAmount}>
+                      {valoresVisiveis ? formatarMonetario(parseMoeda(parcela.valor)) : 'R$ ••••••'}
+                    </Text>
+                  </TouchableOpacity>
+                )) : <Text style={styles.modalEmptyText}>Nenhuma parcela neste status para o período selecionado.</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalPeriodoVisivel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalPeriodoVisivel(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.customPeriodModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Período personalizado</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setModalPeriodoVisivel(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar filtro de período"
+              >
+                <Feather name="x" size={22} color={COLORS.textNavy} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.customPeriodHint}>Informe o intervalo de datas para filtrar os eventos do dashboard.</Text>
+            <Text style={styles.customPeriodLabel}>Data inicial</Text>
+            <TextInput
+              value={dataInicioPersonalizada}
+              onChangeText={(valor) => setDataInicioPersonalizada(formatarDataInput(valor))}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor={COLORS.textSubtle}
+              keyboardType="numeric"
+              style={styles.customPeriodInput}
+              accessibilityLabel="Data inicial do período"
+            />
+            <Text style={styles.customPeriodLabel}>Data final</Text>
+            <TextInput
+              value={dataFimPersonalizada}
+              onChangeText={(valor) => setDataFimPersonalizada(formatarDataInput(valor))}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor={COLORS.textSubtle}
+              keyboardType="numeric"
+              style={styles.customPeriodInput}
+              accessibilityLabel="Data final do período"
+            />
+            {!!erroPeriodoPersonalizado && <Text style={styles.customPeriodError}>{erroPeriodoPersonalizado}</Text>}
+            <View style={styles.customPeriodActions}>
+              <TouchableOpacity style={styles.customPeriodCancel} onPress={() => setModalPeriodoVisivel(false)}>
+                <Text style={styles.customPeriodCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.customPeriodApply} onPress={aplicarPeriodoPersonalizado}>
+                <Text style={styles.customPeriodApplyText}>Aplicar filtro</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -185,11 +486,93 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgHeaderDark },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 22, backgroundColor: COLORS.bgHeaderDark },
   headerTextContainer: { flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerGreeting: { fontSize: 26, fontWeight: '700', color: COLORS.textWhite, fontFamily: FONTS.heading },
   headerCompany: { fontFamily: FONTES.body, fontSize: 14, color: COLORS.headerSubtitle, marginTop: 4 },
   bellButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
   sheet: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 20 },
+  periodSection: { marginBottom: 16 },
+  periodTitle: { fontFamily: FONTES.semibold, fontSize: 14, color: COLORS.textNavy, marginBottom: 9 },
+  periodRow: { flexDirection: 'row', gap: 8 },
+  periodChip: { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, borderRadius: 18, backgroundColor: '#DFE7EE' },
+  periodChipSelected: { backgroundColor: COLORS.textNavy },
+  periodChipText: { fontFamily: FONTES.semibold, fontSize: 12, color: COLORS.textMuted },
+  periodChipTextSelected: { color: COLORS.textWhite },
+  customPeriodButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: COLORS.cardWhite, borderWidth: 1, borderColor: '#DFE7EE', borderRadius: 12 },
+  customPeriodButtonSelected: { backgroundColor: COLORS.textNavy, borderColor: COLORS.textNavy },
+  customPeriodButtonText: { flex: 1, fontFamily: FONTES.semibold, fontSize: 12, color: COLORS.textNavy },
+  customPeriodButtonTextSelected: { color: COLORS.textWhite },
+  interactionHint: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10, paddingHorizontal: 2 },
+  interactionHintText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 11 },
+  dashboardSection: { marginBottom: 6 },
+  dashboardSectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 12, paddingHorizontal: 2 },
+  dashboardSectionTitle: { fontFamily: FONTES.bold, fontSize: 17, fontWeight: '700', color: COLORS.textNavy },
+  metricCards: { flexDirection: 'column', gap: 0 },
+  dashboardCard: { backgroundColor: COLORS.cardWhite, borderRadius: 18, marginBottom: 14, elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  dashboardCardContent: { padding: 16 },
+  dashboardCardTitle: { fontFamily: FONTES.bold, fontSize: 15, fontWeight: '700', color: COLORS.textNavy },
+  summaryMetricContent: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  summaryMetricIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: COLORS.cardLightBlue, alignItems: 'center', justifyContent: 'center' },
+  pendingMetricIcon: { backgroundColor: '#FEF3D6' },
+  paidMetricIcon: { backgroundColor: '#D1FAE5' },
+  summaryMetricText: { flex: 1 },
+  summaryMetricLabel: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted },
+  summaryMetricValue: { fontFamily: FONTES.bold, fontSize: 18, fontWeight: '700', color: COLORS.textNavy, marginTop: 3 },
+  dashboardEmptyText: { fontFamily: FONTES.body, fontSize: 13, color: COLORS.textMuted, marginTop: 12 },
+  paymentCountsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
+  paymentCountItem: { flex: 1, alignItems: 'center', paddingVertical: 10, marginHorizontal: 5, borderRadius: 12, backgroundColor: COLORS.sheetBgSubtle, borderWidth: 1, borderColor: '#DFE7EE' },
+  paymentCountTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  paymentCountValue: { fontFamily: FONTES.bold, fontSize: 24, fontWeight: '700', color: COLORS.textNavy },
+  paymentCountLabel: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted, marginTop: 3 },
+  paymentCountAction: { fontFamily: FONTES.semibold, fontSize: 10, color: COLORS.textNavy, marginTop: 5 },
+  paymentCountDivider: { width: 1, height: 38, backgroundColor: COLORS.cardDivider },
+  duePaymentsContent: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  duePaymentsIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#FEF3D6', alignItems: 'center', justifyContent: 'center' },
+  duePaymentsText: { flex: 1 },
+  duePaymentsAction: { alignItems: 'flex-end', gap: 4 },
+  duePaymentsTitle: { fontFamily: FONTES.bold, fontSize: 14, fontWeight: '700', color: '#92400E' },
+  duePaymentsSubtitle: { fontFamily: FONTES.body, fontSize: 12, color: '#B45309', marginTop: 3 },
+  duePaymentsValue: { fontFamily: FONTES.bold, fontSize: 14, fontWeight: '700', color: '#92400E' },
+  cardActionHint: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  cardActionHintText: { fontFamily: FONTES.semibold, fontSize: 11, color: COLORS.textNavy },
+  typeRevenueItem: { marginTop: 14 },
+  typeRevenueHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 },
+  typeRevenueName: { flex: 1, fontFamily: FONTES.semibold, fontSize: 13, color: COLORS.textNavy },
+  typeRevenueValue: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: '#DFE7EE', overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 4, backgroundColor: COLORS.buttonGold },
+  expenseProgressFill: { height: '100%', borderRadius: 4, backgroundColor: '#059669' },
+  teamConfirmationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  teamConfirmationPercent: { fontFamily: FONTES.bold, fontSize: 20, fontWeight: '700', color: COLORS.textNavy },
+  teamConfirmationText: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted, marginTop: 8 },
+  teamConfirmationAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3, marginTop: 10 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  detailModal: { maxHeight: '80%', backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 18 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  modalTitle: { flex: 1, fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 18, fontWeight: '700' },
+  modalCloseButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.sheetBg },
+  modalList: { flexGrow: 0, flexShrink: 1 },
+  detailItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.cardDivider },
+  detailItemText: { flex: 1 },
+  detailItemTitle: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 14, fontWeight: '700' },
+  detailItemDescription: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 12, marginTop: 4 },
+  detailItemMeta: { fontFamily: FONTES.semibold, color: COLORS.textMuted, fontSize: 11, marginTop: 4 },
+  pendingInvitationDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  pendingInvitationBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: '#FEF3D6' },
+  pendingInvitationBadgeText: { fontFamily: FONTES.bold, color: '#92400E', fontSize: 11, fontWeight: '700' },
+  detailItemAmount: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
+  modalEmptyText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19, paddingVertical: 18 },
+  customPeriodModal: { backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 20 },
+  customPeriodHint: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  customPeriodLabel: { fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 13, marginBottom: 6 },
+  customPeriodInput: { minHeight: 46, borderWidth: 1, borderColor: '#D8E2EB', borderRadius: 11, paddingHorizontal: 12, marginBottom: 13, backgroundColor: '#F8FAFC', fontFamily: FONTES.body, color: COLORS.textNavy, fontSize: 14 },
+  customPeriodError: { fontFamily: FONTES.body, color: '#B42318', fontSize: 12, marginBottom: 8 },
+  customPeriodActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 6 },
+  customPeriodCancel: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 10, backgroundColor: COLORS.sheetBg },
+  customPeriodCancelText: { fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 13 },
+  customPeriodApply: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 10, backgroundColor: COLORS.buttonGold },
+  customPeriodApplyText: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
   metricRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   sectionHeader: { marginBottom: 10, marginTop: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textNavy, fontFamily: FONTS.heading },

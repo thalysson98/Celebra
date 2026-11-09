@@ -104,6 +104,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const locaisOrdenados = [...locaisBase].sort((a, b) => (a.horaLocal || horaFormatada).localeCompare(b.horaLocal || horaFormatada));
   
   const equipe = (eventoDetalhado?.equipe || []).filter(p => p.statusConfirmacao === 'Confirmado' || p.statusConfirmacao === 'Informativo' || p.enviarConvite === false);
+  const quantidadeConvidados = Number(eventoDetalhado?.numConvidados ?? 0);
 
   return (
     <View style={styles.screen}>
@@ -164,6 +165,19 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
                    <View>
                       <Text style={{ fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 12 }}>Horário</Text>
                       <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15 }}>{horaFormatada}</Text>
+                   </View>
+                 </View>
+                 <View
+                   accessible
+                   accessibilityLabel={`Quantidade de convidados: ${quantidadeConvidados}`}
+                   style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}
+                 >
+                   <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#EAF3F7', alignItems: 'center', justifyContent: 'center', marginRight: 12}}>
+                     <Feather name="users" size={16} color={CORES.textNavy} />
+                   </View>
+                   <View>
+                     <Text style={{ fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 12 }}>Convidados</Text>
+                     <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15 }}>{quantidadeConvidados}</Text>
                    </View>
                  </View>
               </View>

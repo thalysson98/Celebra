@@ -23,11 +23,18 @@ export const formatarCpfCnpj = (valor) => {
 }
 
 export const formatarTelefone = (valor) => {
-  const v = String(valor).replace(/\D/g, '');
-  if (v.length <= 2) return v;
-  if (v.length <= 6) return `(${v.slice(0, 2)}) ${v.slice(2)}`;
-  if (v.length <= 10) return `(${v.slice(0, 2)}) ${v.slice(2, 6)}-${v.slice(6)}`;
-  return `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`;
+  const texto = String(valor || '');
+  let digitos = texto.replace(/\D/g, '');
+  if (/^\s*\+55/.test(texto) || (digitos.startsWith('55') && digitos.length >= 12)) digitos = digitos.slice(2);
+  digitos = digitos.slice(0, 11);
+  if (!digitos) return '';
+  const ddd = digitos.slice(0, 2);
+  if (digitos.length <= 2) return `+55 (${ddd}`;
+  const numero = digitos.slice(2);
+  const tamanhoPrefixo = numero.startsWith('9') ? 5 : 4;
+  const parteInicial = numero.slice(0, tamanhoPrefixo);
+  const parteFinal = numero.slice(tamanhoPrefixo, tamanhoPrefixo + 4);
+  return `+55 (${ddd}) ${parteInicial}${parteFinal ? `-${parteFinal}` : ''}`;
 }
 
 export const formatarMoedaInput = (valor) => {
@@ -37,6 +44,33 @@ export const formatarMoedaInput = (valor) => {
   const valorMonetario = (Number(numeros) / 100).toFixed(2);
   return 'R$ ' + valorMonetario.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
+
+const formatarDataParcelaInput = (valor) => {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
+};
+
+const dataParcelaValida = (valor) => {
+  const correspondencia = String(valor || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!correspondencia) return false;
+  const [, diaTexto, mesTexto, anoTexto] = correspondencia;
+  const data = new Date(Number(anoTexto), Number(mesTexto) - 1, Number(diaTexto));
+  return data.getFullYear() === Number(anoTexto) &&
+    data.getMonth() === Number(mesTexto) - 1 &&
+    data.getDate() === Number(diaTexto);
+};
+
+const converterValorMonetario = (valor) => {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+  const texto = String(valor || '').trim().replace(/[^\d,.-]/g, '');
+  if (!texto) return 0;
+  const numero = texto.includes(',')
+    ? Number(texto.replace(/\./g, '').replace(',', '.'))
+    : Number(texto.replace(/\D/g, '')) / 100;
+  return Number.isFinite(numero) ? numero : 0;
+};
 
 function formatarData(data) {
   if (!data) return '';
@@ -130,6 +164,17 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const [equipe, setEquipe] = useState([]);
   
   const [modalEquipeVisivel, setModalEquipeVisivel] = useState(false);
+  const [modalDespesasVisivel, setModalDespesasVisivel] = useState(false);
+  const [profissionalDespesas, setProfissionalDespesas] = useState(null);
+  const [mostrarSeletorDespesa, setMostrarSeletorDespesa] = useState(false);
+  const [opcoesTiposDespesa, setOpcoesTiposDespesa] = useState([]);
+  const [carregandoTiposDespesa, setCarregandoTiposDespesa] = useState(false);
+  const [buscaTipoDespesa, setBuscaTipoDespesa] = useState('');
+  const [tipoDespesa, setTipoDespesa] = useState('');
+  const [idTipoDespesa, setIdTipoDespesa] = useState('');
+  const [valorDespesa, setValorDespesa] = useState('');
+  const [idDespesaEditando, setIdDespesaEditando] = useState(null);
+  const [idDespesaExcluindo, setIdDespesaExcluindo] = useState(null);
   const [selecaoVisivel, setSelecaoVisivel] = useState(false);
   const [tipoSelecao, setTipoSelecao] = useState('');
   const [opcoesSelecao, setOpcoesSelecao] = useState([]);
@@ -138,7 +183,10 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const [modalLocalVisivel, setModalLocalVisivel] = useState(false);
   const [formNovoLocal, setFormNovoLocal] = useState({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
   const [modalClienteVisivel, setModalClienteVisivel] = useState(false);
-  const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', instagram: '' });
+  const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', email: '', instagram: '' });
+  const [itemEditandoSelecao, setItemEditandoSelecao] = useState(null);
+  const [modalTipoEventoVisivel, setModalTipoEventoVisivel] = useState(false);
+  const [formNovoTipoEvento, setFormNovoTipoEvento] = useState({ nome: '', descricao: '' });
   
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState('');
@@ -158,7 +206,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     if (campo === 'qtdParcelas') {
        const qtd = Number(valor) || 0;
        const qtdSegura = Math.min(qtd, 12);
-       const novasParcelas = Array.from({length: qtdSegura}).map((_, i) => parcelas[i] || { valor: '', observacao: '', status: 'pendente' });
+       const novasParcelas = Array.from({length: qtdSegura}).map((_, i) => parcelas[i] || { valor: '', observacao: '', status: 'pendente', vencimento: '' });
        setParcelas(novasParcelas);
     }
   };
@@ -225,6 +273,24 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     setSelecaoVisivel(false);
   };
 
+  const editarOpcaoSelecao = (item) => {
+    setItemEditandoSelecao({ tipo: tipoSelecao, item });
+    setSelecaoVisivel(false);
+    if (tipoSelecao === 'cliente') {
+      setFormNovoCliente({
+        nome: item.nome || '',
+        documento: item.documento || item.cpf_cnpj || item.cpf || '',
+        telefone: formatarTelefone(item.telefone || ''),
+        email: item.email || '',
+        instagram: item.instagram || '',
+      });
+      setModalClienteVisivel(true);
+    } else {
+      setFormNovoTipoEvento({ nome: item.nome || '', descricao: item.descricao || '' });
+      setModalTipoEventoVisivel(true);
+    }
+  };
+
   const salvarNovoItemNaSelecao = async (novoNome) => {
     if (!novoNome.trim()) return;
     
@@ -235,9 +301,17 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       return;
     }
     if (tipoSelecao === 'cliente') {
-      setFormNovoCliente({ ...formNovoCliente, nome: novoNome.trim() });
+      setItemEditandoSelecao(null);
+      setFormNovoCliente({ nome: novoNome.trim(), documento: '', telefone: '', email: '', instagram: '' });
       setSelecaoVisivel(false);
       setModalClienteVisivel(true);
+      return;
+    }
+    if (tipoSelecao === 'tipoEvento') {
+      setItemEditandoSelecao(null);
+      setFormNovoTipoEvento({ nome: novoNome.trim(), descricao: '' });
+      setSelecaoVisivel(false);
+      setModalTipoEventoVisivel(true);
       return;
     }
     setCarregandoOpcoes(true);
@@ -246,7 +320,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       const novo = await repositorioEventos.adicionarNovoItemSelect(tipoReal, { nome: novoNome.trim() }, usuario?.idEmpresa);
       escolherOpcao(novo);
     } catch (error) {
-      console.log(error);
+      mostrarErro(error?.message || 'Não foi possível adicionar o cadastro.');
     } finally {
       setCarregandoOpcoes(false);
     }
@@ -280,27 +354,154 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   };
 
   const salvarNovoClienteDetalhado = async () => {
-    if (!formNovoCliente.nome || !formNovoCliente.documento) { 
-       mostrarErro("Preencha o nome e o CPF/CNPJ do cliente."); 
-       return; 
+    if (!formNovoCliente.nome.trim() || !formNovoCliente.documento.trim()) {
+       mostrarErro('Preencha o nome e o CPF/CNPJ do cliente.');
+       return;
+    }
+    if (formNovoCliente.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formNovoCliente.email.trim())) {
+      mostrarErro('Informe um e-mail válido, como nome@dominio.com.');
+      return;
+    }
+    const textoTelefone = formNovoCliente.telefone;
+    let digitosTelefone = textoTelefone.replace(/\D/g, '');
+    if (/^\s*\+55/.test(textoTelefone) || (digitosTelefone.startsWith('55') && digitosTelefone.length >= 12)) {
+      digitosTelefone = digitosTelefone.slice(2);
+    }
+    if (digitosTelefone && digitosTelefone.length !== 10 && digitosTelefone.length !== 11) {
+      mostrarErro('Informe um telefone com DDD e número completo.');
+      return;
     }
     setCarregandoOpcoes(true);
     try {
-      const novo = await repositorioEventos.adicionarNovoItemSelect('clientes', {
-          nome: formNovoCliente.nome.trim(),
-          documento: formNovoCliente.documento.trim(),
-         telefone: formNovoCliente.telefone.trim(),
-         instagram: formNovoCliente.instagram.trim()
-      }, usuario?.idEmpresa);
+      const dadosCliente = {
+        nome: formNovoCliente.nome.trim(),
+        documento: formNovoCliente.documento.trim(),
+        telefone: formatarTelefone(formNovoCliente.telefone),
+        email: formNovoCliente.email.trim(),
+        instagram: formNovoCliente.instagram.trim(),
+      };
+      if (itemEditandoSelecao?.tipo === 'cliente') {
+        await repositorioEventos.atualizarItemSelect('clientes', itemEditandoSelecao.item.id, dadosCliente, usuario?.idEmpresa || usuario?.companyId);
+        if (formulario.cliente === itemEditandoSelecao.item.nome) atualizar('cliente', dadosCliente.nome);
+        setModalClienteVisivel(false);
+        setItemEditandoSelecao(null);
+        await carregarOpcoesSelect('cliente');
+        setSelecaoVisivel(true);
+        return;
+      }
+      const novo = await repositorioEventos.adicionarNovoItemSelect('clientes', dadosCliente, usuario?.idEmpresa || usuario?.companyId);
       setModalClienteVisivel(false);
-      setFormNovoCliente({ nome: '', documento: '', telefone: '', instagram: '' });
+      setFormNovoCliente({ nome: '', documento: '', telefone: '', email: '', instagram: '' });
       escolherOpcao(novo);
-    } catch (e) {} finally { setCarregandoOpcoes(false); }
+    } catch (error) {
+      mostrarErro(error?.message || 'Não foi possível salvar o cliente.');
+    } finally { setCarregandoOpcoes(false); }
+  };
+
+  const salvarTipoEvento = async () => {
+    if (!formNovoTipoEvento.nome.trim()) {
+      mostrarErro('Informe o nome do tipo de evento.');
+      return;
+    }
+    setCarregandoOpcoes(true);
+    try {
+      const dados = { nome: formNovoTipoEvento.nome.trim(), descricao: formNovoTipoEvento.descricao.trim() };
+      if (itemEditandoSelecao?.tipo === 'tipoEvento') {
+        await repositorioEventos.atualizarItemSelect('tiposEvento', itemEditandoSelecao.item.id, dados, usuario?.idEmpresa || usuario?.companyId);
+        if (formulario.tipoEvento === itemEditandoSelecao.item.nome) atualizar('tipoEvento', dados.nome);
+        setModalTipoEventoVisivel(false);
+        setItemEditandoSelecao(null);
+        await carregarOpcoesSelect('tipoEvento');
+        setSelecaoVisivel(true);
+        return;
+      }
+      const novo = await repositorioEventos.adicionarNovoItemSelect('tiposEvento', dados, usuario?.idEmpresa || usuario?.companyId);
+      setModalTipoEventoVisivel(false);
+      setFormNovoTipoEvento({ nome: '', descricao: '' });
+      escolherOpcao(novo);
+    } catch (error) {
+      mostrarErro(error?.message || 'Não foi possível salvar o tipo de evento.');
+    } finally {
+      setCarregandoOpcoes(false);
+    }
   };
 
   const adicionarProfissional = (profissional) => {
     setEquipe((anterior) => [...anterior, profissional]);
     setModalEquipeVisivel(false);
+  };
+
+  const abrirDespesasProfissional = async (profissional) => {
+    setProfissionalDespesas(profissional);
+    setTipoDespesa('');
+    setIdTipoDespesa('');
+    setValorDespesa('');
+    setIdDespesaEditando(null);
+    setIdDespesaExcluindo(null);
+    setMostrarSeletorDespesa(false);
+    setBuscaTipoDespesa('');
+    setModalDespesasVisivel(true);
+    setCarregandoTiposDespesa(true);
+    try {
+      const opcoes = await repositorioEventos.obterOpcoesSelect('tiposDespesa', usuario?.idEmpresa || usuario?.companyId);
+      setOpcoesTiposDespesa(opcoes);
+    } catch (error) {
+      mostrarErro(error?.message || 'Não foi possível carregar os tipos de despesa.');
+    } finally {
+      setCarregandoTiposDespesa(false);
+    }
+  };
+
+  const atualizarDespesasLocaisProfissional = (despesas) => {
+    const chaveProfissional = profissionalDespesas.idUsuario || profissionalDespesas.id;
+    setEquipe((atual) => atual.map((pessoa) => (
+      (pessoa.idUsuario || pessoa.id) === chaveProfissional ? { ...pessoa, despesas } : pessoa
+    )));
+    setProfissionalDespesas((atual) => ({ ...atual, despesas }));
+  };
+
+  const editarDespesaProfissional = (despesa) => {
+    setIdDespesaEditando(despesa.id);
+    setTipoDespesa(despesa.tipo || '');
+    setIdTipoDespesa(despesa.id_tipo_despesa || '');
+    setValorDespesa(despesa.valor || '');
+  };
+
+  const salvarDespesaProfissional = () => {
+    const tipo = tipoDespesa.trim();
+    if (!tipo || !idTipoDespesa || converterValorMonetario(valorDespesa) <= 0) {
+      mostrarErro('Selecione o tipo da despesa e informe um valor maior que zero.');
+      return;
+    }
+    const novaDespesa = {
+      id: idDespesaEditando || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id_tipo_despesa: idTipoDespesa,
+      tipo,
+      valor: formatarMoedaInput(valorDespesa),
+    };
+    const despesas = idDespesaEditando
+      ? (profissionalDespesas.despesas || []).map((despesa) => despesa.id === idDespesaEditando ? novaDespesa : despesa)
+      : [...(profissionalDespesas.despesas || []), novaDespesa];
+    atualizarDespesasLocaisProfissional(despesas);
+    setTipoDespesa('');
+    setIdTipoDespesa('');
+    setValorDespesa('');
+    setIdDespesaEditando(null);
+  };
+
+  const excluirDespesaProfissional = (despesa) => {
+    setIdDespesaExcluindo(despesa.id);
+  };
+
+  const confirmarExclusaoDespesa = () => {
+    atualizarDespesasLocaisProfissional((profissionalDespesas.despesas || []).filter((item) => item.id !== idDespesaExcluindo));
+    if (idDespesaEditando === idDespesaExcluindo) {
+      setIdDespesaEditando(null);
+      setTipoDespesa('');
+      setIdTipoDespesa('');
+      setValorDespesa('');
+    }
+    setIdDespesaExcluindo(null);
   };
 
   const irParaSecao = (nomeSecao) => {
@@ -330,6 +531,13 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     if (locaisValidos.length === 0) {
       mostrarErro('Preencha corretamente as informações de pelo menos um local.');
       irParaSecao('Geral');
+      return;
+    }
+
+    const parcelaComVencimentoInvalido = parcelas.findIndex((parcela) => parcela.vencimento && !dataParcelaValida(parcela.vencimento));
+    if (parcelaComVencimentoInvalido !== -1) {
+      mostrarErro(`Informe um vencimento válido para a parcela ${parcelaComVencimentoInvalido + 1} no formato DD/MM/AAAA.`);
+      irParaSecao('Financeiro');
       return;
     }
 
@@ -410,7 +618,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
 
             </View>
           ))}
-          <Button mode="contained" icon="plus" onPress={adicionarLocal} textColor="#FFF" buttonColor="#F97316" style={{ borderRadius: 10, marginBottom: 20 }}>Adicionar mais um local</Button>
+          <Button mode="contained" icon="plus" onPress={adicionarLocal} textColor={CORES.textNavy} buttonColor={CORES.buttonGold} style={styles.addLocationButton}>Adicionar mais um local</Button>
 
           <CampoInput label="Notas gerais da produção" valor={formulario.notasProducao} aoMudar={(v) => atualizar('notasProducao', v)} placeholder="Escrever notas importantes para toda a equipe..." multilinha />
         </View>
@@ -422,7 +630,22 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         <Text style={styles.sectionHeading}>Equipe de campo</Text>
         <Text style={styles.sectionHint}>Adicione as funções e os profissionais previstos para o evento.</Text>
         <View style={styles.teamCard}>
-          {equipe.map((pessoa) => <View key={pessoa.id} style={styles.personRow}><View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={20} color={CORES.textNavy} /></View><View style={styles.personInfo}><Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15, fontWeight: '700' }}>{pessoa.nomeProfissional}</Text><Text style={styles.personMeta}>{pessoa.funcao}</Text></View><TouchableOpacity onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))}><MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} /></TouchableOpacity></View>)}
+          {equipe.map((pessoa) => (
+            <View key={pessoa.id} style={styles.personRow}>
+              <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={20} color={CORES.textNavy} /></View>
+              <View style={styles.personInfo}>
+                <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15, fontWeight: '700' }}>{pessoa.nomeProfissional}</Text>
+                <Text style={styles.personMeta}>{pessoa.funcao}</Text>
+                {!!pessoa.despesas?.length && <Text style={styles.personExpenseCount}>{pessoa.despesas.length} {pessoa.despesas.length === 1 ? 'despesa' : 'despesas'}</Text>}
+              </View>
+              <TouchableOpacity style={styles.expenseIconButton} onPress={() => abrirDespesasProfissional(pessoa)} accessibilityRole="button" accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}>
+                <Feather name="dollar-sign" size={18} color={CORES.statusConfirmado} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))} accessibilityRole="button" accessibilityLabel={`Remover ${pessoa.nomeProfissional} do evento`}>
+                <MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ))}
           {!equipe.length && <Text style={styles.emptyTeam}>Nenhum profissional adicionado.</Text>}
         </View>
         <Button mode="contained" icon="plus" onPress={() => setModalEquipeVisivel(true)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addTeamButton}>Adicionar profissional de campo</Button>
@@ -437,14 +660,26 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         <CampoInput icone="dollar-sign" label="Valor total do evento" valor={formulario.valorTotal} aoMudar={(v) => atualizar('valorTotal', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="decimal-pad" />
         <CampoSelecao label="Método de pagamento" campo="metodoPagamento" valor={formulario.metodoPagamento} placeholder="Ex.: Pix, Boleto, Cartão" icone="credit-card" onPress={() => abrirSelecao('metodoPagamento')} />
         
-        <CampoInput icone="align-left" label="Observações do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(v) => atualizar('observacaoFinanceiro', v)} placeholder="Anotações extras..." multilinha />
-        
         <CampoInput icone="layers" label="Quantidade de parcelas (Até 12x)" valor={formulario.qtdParcelas} aoMudar={(v) => atualizar('qtdParcelas', v)} placeholder="Ex.: 2" teclado="numeric" />
+
+        <CampoInput icone="align-left" label="Observações do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(v) => atualizar('observacaoFinanceiro', v)} placeholder="Anotações extras..." multilinha />
         
         {parcelas.length > 0 && parcelas.map((parc, i) => (
            <View key={i} style={{marginTop: 10, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#D8E2EB', marginBottom: 10}}>
               <Text style={[styles.label, {marginBottom: 10, color: CORES.textNavy, fontFamily: FONTES.bold}]}>Parcela {i + 1}</Text>
               <CampoInput label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarParcela(i, 'valor', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="decimal-pad" />
+              <View style={styles.field}>
+                <Text style={styles.label}>Vencimento</Text>
+                <TextInput
+                  value={parc.vencimento || ''}
+                  onChangeText={(valor) => atualizarParcela(i, 'vencimento', formatarDataParcelaInput(valor))}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor={CORES.textSubtle}
+                  keyboardType="numeric"
+                  style={styles.input}
+                  accessibilityLabel={`Vencimento da parcela ${i + 1}`}
+                />
+              </View>
               <CampoInput label="Observações" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex: Assinatura do contrato" />
            </View>
         ))}
@@ -505,6 +740,93 @@ export default function TelaCriarEvento({ navigation, usuario }) {
          onAdicionarNovo={tipoSelecao === 'metodoPagamento' ? null : salvarNovoItemNaSelecao}
       />
 
+      <Modal visible={modalDespesasVisivel} transparent animationType="fade" onRequestClose={() => setModalDespesasVisivel(false)}>
+        <View style={styles.expenseModalOverlay}>
+          <ScrollView style={styles.expenseModalCard} keyboardShouldPersistTaps="handled">
+            <View style={styles.expenseModalHeader}>
+              <Text style={styles.expenseModalTitle}>
+                {mostrarSeletorDespesa ? 'Selecionar tipo de despesa' : `Despesas de ${profissionalDespesas?.nomeProfissional || 'profissional'}`}
+              </Text>
+              <TouchableOpacity onPress={() => mostrarSeletorDespesa ? setMostrarSeletorDespesa(false) : setModalDespesasVisivel(false)} accessibilityRole="button" accessibilityLabel="Fechar despesas">
+                <MaterialCommunityIcons name="close" size={23} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {mostrarSeletorDespesa ? (
+              <>
+                <View style={styles.expenseModalSearch}>
+                  <Feather name="search" size={17} color={CORES.textMuted} />
+                  <TextInput value={buscaTipoDespesa} onChangeText={setBuscaTipoDespesa} placeholder="Buscar tipo de despesa" placeholderTextColor={CORES.textMuted} style={styles.expenseModalSearchInput} />
+                </View>
+                {carregandoTiposDespesa ? (
+                  <ActivityIndicator size="large" color={CORES.buttonGold} style={{ marginVertical: 24 }} />
+                ) : opcoesTiposDespesa.filter((item) => item.nome?.toLocaleLowerCase('pt-BR').includes(buscaTipoDespesa.trim().toLocaleLowerCase('pt-BR'))).length ? (
+                  opcoesTiposDespesa
+                    .filter((item) => item.nome?.toLocaleLowerCase('pt-BR').includes(buscaTipoDespesa.trim().toLocaleLowerCase('pt-BR')))
+                    .map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        onPress={() => {
+                          setTipoDespesa(item.nome || '');
+                          setIdTipoDespesa(item.id || '');
+                          setBuscaTipoDespesa('');
+                          setMostrarSeletorDespesa(false);
+                        }}
+                        style={styles.expenseModalOption}
+                      >
+                        <Text style={styles.expenseModalOptionText}>{item.nome}</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color={CORES.textMuted} />
+                      </TouchableOpacity>
+                    ))
+                ) : (
+                  <Text style={styles.expenseModalHint}>
+                    Nenhum tipo de despesa encontrado. Cadastre tipos na tela Administrando.
+                  </Text>
+                )}
+              </>
+            ) : (
+              <>
+                {(profissionalDespesas?.despesas || []).map((despesa, index) => (
+                  <View key={despesa.id || index} style={styles.expenseModalItem}>
+                    <View style={styles.expenseModalItemInfo}>
+                      <Text style={styles.expenseModalItemName}>{despesa.tipo}</Text>
+                      <Text style={styles.expenseModalItemValue}>{despesa.valor}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => editarDespesaProfissional(despesa)} style={styles.expenseModalItemAction} accessibilityRole="button" accessibilityLabel={`Editar despesa ${despesa.tipo}`}>
+                      <MaterialCommunityIcons name="pencil-outline" size={19} color={CORES.textNavy} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => excluirDespesaProfissional(despesa)} style={styles.expenseModalItemAction} accessibilityRole="button" accessibilityLabel={`Excluir despesa ${despesa.tipo}`}>
+                      <MaterialCommunityIcons name="trash-can-outline" size={19} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {!profissionalDespesas?.despesas?.length && <Text style={styles.expenseModalEmptyHint}>Ainda não há despesas registradas para este profissional.</Text>}
+                {!!idDespesaExcluindo && (
+                  <View style={styles.expenseDeleteConfirmation}>
+                    <Text style={styles.expenseDeleteText}>Confirmar exclusão desta despesa?</Text>
+                    <View style={styles.expenseDeleteActions}>
+                      <Button mode="text" onPress={() => setIdDespesaExcluindo(null)} textColor={CORES.textMuted}>Cancelar</Button>
+                      <Button mode="contained" onPress={confirmarExclusaoDespesa} buttonColor="#EF4444" textColor="#FFFFFF">Excluir</Button>
+                    </View>
+                  </View>
+                )}
+                <CampoSelecao label="Tipo da despesa" campo="tipoDespesa" valor={tipoDespesa} placeholder="Selecione o tipo de despesa" icone="tag-outline" onPress={() => { setBuscaTipoDespesa(''); setMostrarSeletorDespesa(true); }} />
+                <CampoInput label="Valor" valor={valorDespesa} aoMudar={(valor) => setValorDespesa(formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="decimal-pad" icone="dollar-sign" />
+                <View style={styles.expenseModalActions}>
+                  <Button mode="contained" onPress={salvarDespesaProfissional} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.expenseSaveButton}>
+                    {idDespesaEditando ? 'Salvar alterações' : 'Adicionar despesa'}
+                  </Button>
+                  {!!idDespesaEditando && (
+                    <Button mode="outlined" onPress={() => { setIdDespesaEditando(null); setTipoDespesa(''); setIdTipoDespesa(''); setValorDespesa(''); }} textColor={CORES.textNavy} style={{ borderRadius: 10 }}>
+                      Cancelar
+                    </Button>
+                  )}
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
       <Modal visible={modalLocalVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
            <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
@@ -530,14 +852,17 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       <Modal visible={modalClienteVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
            <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
-              <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 15 }}>Cadastrar Novo Cliente</Text>
+              <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 15 }}>
+                {itemEditandoSelecao?.tipo === 'cliente' ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
+              </Text>
               <CampoInput label="Nome Completo *" valor={formNovoCliente.nome} aoMudar={v => setFormNovoCliente({...formNovoCliente, nome: v})} placeholder="Ex: Ana Costa" />
               <CampoInput label="CPF ou CNPJ *" valor={formNovoCliente.documento} aoMudar={v => setFormNovoCliente({...formNovoCliente, documento: formatarCpfCnpj(v)})} placeholder="000.000.000-00" teclado="numeric" />
-              <CampoInput label="Telefone (Opcional)" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="(00) 00000-0000" teclado="phone-pad" />
+              <CampoInput label="Telefone (Opcional)" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="+55 (00) 00000-0000" teclado="phone-pad" />
+              <CampoInput label="E-mail (Opcional)" valor={formNovoCliente.email} aoMudar={v => setFormNovoCliente({...formNovoCliente, email: v})} placeholder="nome@dominio.com" teclado="email-address" />
               <CampoInput label="Instagram (Opcional)" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
               
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
-                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalClienteVisivel(false)} textColor={CORES.textNavy}>Cancelar</Button>
+                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => { setModalClienteVisivel(false); setItemEditandoSelecao(null); }} textColor={CORES.textNavy}>Cancelar</Button>
                  <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoClienteDetalhado}>Salvar</Button>
               </View>
            </ScrollView>
