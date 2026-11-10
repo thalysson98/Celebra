@@ -1,12 +1,8 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   inicializarNotificacoesDispositivo,
   processarLembretesListaEventos,
-  verificarLembretesProximidadeEvento,
-  notificarEventoCancelado,
   assinarNotificacoesUsuario,
-  marcarNotificacaoComoLida,
 } from '../../servicos/servicoNotificacoes';
 import {
   ActivityIndicator,
@@ -24,7 +20,7 @@ import { Card, Button } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, CORES, FONTES } from '../../tema/cores';
-import { subscribeToTechnicianAssignments, respondToAssignment } from '../../servicos/servicoEscala';
+import { subscribeToTechnicianAssignments } from '../../servicos/servicoEscala';
 import { requestPasswordReset } from '../../servicos/servicoAutenticacao';
 import { setUserEventsNotificationPreference, updateUserProfile } from '../../servicos/servicoUsuario';
 import { markTechnicianUnavailable, removeTechnicianUnavailability, subscribeToTechnicianUnavailability } from '../../servicos/servicoIndisponibilidade';
@@ -83,6 +79,7 @@ function formatShortDate(value) {
   return `${d}/${m}/${y}`;
 }
 
+// Formata o horário do evento no padrão 14:30h (usado no card de eventos)
 function formatEventTime(value) {
   const date = toDate(value);
   if (!date) return 'Horário a confirmar';
@@ -120,7 +117,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   });
   const [isAgendaDaySelected, setAgendaDaySelected] = useState(false);
   const [unavailableDates, setUnavailableDates] = useState([]);
-  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [, setAvailabilityLoading] = useState(true);
   const [availabilityError, setAvailabilityError] = useState('');
   const [isUpdatingAvailability, setUpdatingAvailability] = useState(false);
   const [isAvailabilityDialogVisible, setAvailabilityDialogVisible] = useState(false);
@@ -394,7 +391,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                   }
                 }}
               >
-                // Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado
+              {/* Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado */}
                 <View style={[
                   styles.agendaDayCircle,
                   !day.inCurrentMonth && styles.agendaDayOutsideMonth,
@@ -566,8 +563,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
             <Text style={styles.tipoBadge}>
               {assignment.eventTypeName || assignment.professionalTypeName || 'Evento'}
             </Text>
+            {/* Mostra a data e o horário do evento no card (ex: 10/11/2026 • 14:30h) */}
             <Text style={styles.dataTexto}>
-              {formatShortDate(assignment.eventDate)} 
+              {formatShortDate(assignment.eventDate)} • {formatEventTime(assignment.eventDate)}
             </Text>
           </View>
 
@@ -693,7 +691,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   return (
     <View style={styles.screen}>
-     // Exibe a bolinha com o total não lido e envia o ID e os eventos ao abrir o sininho
+      {/* Exibe a bolinha com o total não lido e envia o ID e os eventos ao abrir o sininho */}
       <Cabecalho 
         titulo={activeTab === 'home' ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!` : { events: 'Eventos', profile: 'Perfil' }[activeTab]} 
         subtitulo={activeTab === 'home' ? 'Seu painel de eventos' : ''}
