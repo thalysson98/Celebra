@@ -3,17 +3,19 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const configuracaoFirebase = {
-  apiKey: 'AIzaSyADBXwE5oe3VNLgU_2pPuvG8ybpPxaasHU',
-  authDomain: 'celebra-c8f9e.firebaseapp.com',
-  projectId: 'celebra-c8f9e',
-  storageBucket: 'celebra-c8f9e.firebasestorage.app',
-  messagingSenderId: '564146291409',
-  appId: '1:564146291409:web:0dd4a7f9b531ee83cbbbf0',
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Verifica se as chaves do Firebase estão devidamente preenchidas
-export const firebaseEstaConfigurado =
-  configuracaoFirebase.apiKey && configuracaoFirebase.apiKey !== 'SUA_API_KEY_AQUI';
+// Validação para checar se as variáveis foram carregadas
+export const firebaseEstaConfigurado = Boolean(
+  configuracaoFirebase.apiKey &&
+  configuracaoFirebase.projectId
+);
 export const isFirebaseConfigured = firebaseEstaConfigurado;
 
 // Evita inicializar o Firebase repetidas vezes durante o Fast Refresh do Expo
@@ -24,4 +26,5 @@ export const auth = autenticacao;
 
 export const bancoDados = getFirestore(app);
 export const db = bancoDados;
+
 export default app;
