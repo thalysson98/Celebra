@@ -43,3 +43,4 @@ yarn-error.*
 # Variáveis de ambiente
 .env
 .env*.local
+Celebra/

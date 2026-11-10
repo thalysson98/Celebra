@@ -4,7 +4,15 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { CORES, FONTES } from '../tema/cores';
 
-export default function Cabecalho({ titulo, subtitulo, mostrarVoltar = false, aoVoltar, mostrarSino = true, aoClicarSino }) {
+export default function Cabecalho({ 
+  titulo, 
+  subtitulo, 
+  mostrarVoltar = false, 
+  aoVoltar, 
+  mostrarSino = true, 
+  aoClicarSino,
+  quantidadeNotificacoes = 0 // <-- Adicionada a propriedade
+}) {
   return (
     <View style={estilos.header}>
       <View style={estilos.row}>
@@ -21,6 +29,15 @@ export default function Cabecalho({ titulo, subtitulo, mostrarVoltar = false, ao
       {mostrarSino && (
         <TouchableOpacity style={estilos.sinoBtn} onPress={aoClicarSino}>
           <Feather name="bell" size={19} color="#FFFFFF" />
+          
+          {/* Renderiza a bolinha vermelha se houver notificações */}
+          {quantidadeNotificacoes > 0 && (
+            <View style={estilos.badge}>
+              <Text style={estilos.badgeText}>
+                {quantidadeNotificacoes > 99 ? '99+' : quantidadeNotificacoes}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       )}
     </View>
@@ -29,7 +46,7 @@ export default function Cabecalho({ titulo, subtitulo, mostrarVoltar = false, ao
 
 const estilos = StyleSheet.create({
   header: {
-    backgroundColor: CORES.bgHeaderDark, // <-- AJUSTE AQUI: Puxando o azul escuro padrão do app
+    backgroundColor: CORES.bgHeaderDark,
     paddingHorizontal: 20,
     paddingTop: 16, 
     paddingBottom: 22,
@@ -67,5 +84,25 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Estilos do badge (bolinha vermelha)
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: CORES.bgHeaderDark,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: FONTES.bold,
   },
 });
