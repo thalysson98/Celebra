@@ -3,6 +3,7 @@ import {
   inicializarNotificacoesDispositivo,
   processarLembretesListaEventos,
   assinarNotificacoesUsuario,
+  dispararNotificacaoBarraCelular,
 } from '../../servicos/servicoNotificacoes';
 import {
   ActivityIndicator,
@@ -136,6 +137,13 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     setMsgErro({ titulo, descricao });
     setModalErroVisivel(true);
   };
+
+  useEffect(() => {
+  if (user?.uid) {
+    // Pede permissão no celular e salva o Push Token no usuário para receber notificações externas
+    inicializarNotificacoesDispositivo(user.uid);
+    }
+  }, [user?.uid]);
 
   useEffect(() => {
     setLoading(true);
@@ -662,6 +670,26 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.profileSecurityCard, { marginTop: 12 }]} 
+        onPress={() => {
+          dispararNotificacaoBarraCelular(
+            'Celebra: Notificação de Teste',
+            'Isso é um aviso externo na barra de notificações!'
+          );
+        }}
+        activeOpacity={0.8}
+      >
+      <View style={[styles.profileSecurityIcon, { backgroundColor: '#FEF3C7' }]}>
+        <Feather name="bell" size={17} color="#D97706" />
+      </View>
+      <View style={styles.profilePreferenceCopy}>
+        <Text style={styles.profilePreferenceTitle}>Testar Notificação Externa</Text>
+        <Text style={styles.profilePreferenceSubtitle}>Dispara aviso na barra do celular</Text>
+      </View>
+      <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
+    </TouchableOpacity>
 
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />

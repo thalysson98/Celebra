@@ -1,6 +1,7 @@
 
 import { arrayUnion, arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch, updateDoc } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
+import { notificarNovoEventoParaTecnico } from './servicoNotificacoes';
 
 function valorData(valor) {
   if (!valor) return Number.MAX_SAFE_INTEGER;
@@ -31,22 +32,61 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
   const docEmpresa = await getDoc(doc(bancoDados, 'empresas', idEmpresa));
   const nomeEmpresa = docEmpresa.exists() ? docEmpresa.data().nome_fantasia : 'O Organizador';
 
+  // Busca os dados do evento para compor o texto da notificação externa
+  const docEvento = await getDoc(doc(bancoDados, 'eventos', idEvento));
+  const dadosEvento = docEvento.exists() ? docEvento.data() : {};
+  const tituloEvento = dadosEvento.titulo || 'Novo Evento';
+  
+  let dataFormatada = '';
+  if (dadosEvento.data_inicio) {
+    const d = typeof dadosEvento.data_inicio.toDate === 'function' 
+      ? dadosEvento.data_inicio.toDate() 
+      : new Date(dadosEvento.data_inicio);
+    dataFormatada = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  }
+
   for (const profissional of convidados) {
     const idUsuario = profissional.idUsuario || profissional.id;
     const idConvite = `${idEvento}_${idUsuario}`;
     const referencia = doc(bancoDados, 'convites', idConvite);
     const existente = await getDoc(referencia);
 
-    if (existente.exists() && existente.data().situacao !== 'cancelado') throw new Error(`O profissional já possui convite ativo.`);
+    if (existente.exists() && existente.data().situacao !== 'cancelado') {
+      throw new Error(`O profissional já possui convite ativo.`);
+    }
     
     lote.set(referencia, {
-      id_convite: idConvite, id_empresa: idEmpresa, id_evento: idEvento, id_usuario: idUsuario,
-      id_tipo_profissional: profissional.idTipoProfissional, nome_profissional: profissional.nomeProfissional || '',
-      nome_tipo_profissional: profissional.funcao || '', nomeEmpresa: nomeEmpresa,
-      situacao: 'pendente', enviado_em: serverTimestamp(),
+      id_convite: idConvite,
+      id_empresa: idEmpresa,
+      id_evento: idEvento,
+      id_usuario: idUsuario,
+      id_tipo_profissional: profissional.idTipoProfissional,
+      nome_profissional: profissional.nomeProfissional || '',
+      nome_tipo_profissional: profissional.funcao || '',
+      nomeEmpresa: nomeEmpresa,
+      situacao: 'pendente',
+      enviado_em: serverTimestamp(),
     });
   }
+
+  // 1. Salva todos os convites no Firestore
   await lote.commit();
+
+  // 2. Dispara a notificação externa para cada técnico escalado
+  for (const profissional of convidados) {
+    const idUsuario = profissional.idUsuario || profissional.id;
+    try {
+      await notificarNovoEventoParaTecnico({
+        idUsuario,
+        idEvento,
+        nomeEvento: tituloEvento,
+        dataEvento: dataFormatada,
+        funcao: profissional.funcao || 'Técnico',
+      });
+    } catch (e) {
+      console.log('Erro ao enviar notificação externa para o técnico:', e?.message);
+    }
+  }
 }
 
 export async function reenviarConvite(idConvite) {
