@@ -50,8 +50,8 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
     setErroGeral('');
 
     if (!nomeLimpo) {
-      setErroNome('Informe seu nome completo.');
-      valido = false;
+      //setErroNome('Informe seu nome completo.');
+      valido = true;
     } else if (nomeLimpo.length < 3) {
       setErroNome('O nome deve ter pelo menos 3 caracteres.');
       valido = false;
@@ -106,7 +106,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
       setCarregando(true);
       setErroGeral('');
       const novoUsuario = await registrarUsuario({
-        name: nomeCompleto,
+        nomeCompleto,
         email,
         password: senha,
       });

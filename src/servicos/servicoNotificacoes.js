@@ -161,6 +161,7 @@ export function calcularDiasAteEvento(dataEvento) {
 
 // 6. Grava notificação no Firestore
 async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
+  try {
   const ref = doc(bancoDados, 'notificacoes', idNotificacao);
   const snap = await getDoc(ref);
 
@@ -180,10 +181,17 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
   if (opcoes.dispararBannerLocal) {
     await dispararNotificacaoBarraCelular(dados.titulo, dados.mensagem);
   }
-  if (opcoes.enviarPushRemoto) {
-    await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);
+    if (opcoes.enviarPushRemoto) {
+      await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);
+    }
+    return true;
+  } catch (erro) {
+    if (erro?.code === 'permission-denied') {
+      console.warn('Sem permissão no Firestore para gravar notificação:', erro.message);
+      return false;
+    }
+    throw erro;
   }
-  return true;
 }
 
 // 7. Gatilho de Novo Evento
