@@ -9,13 +9,13 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Modal,
+  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { estilosAutenticacao, CORES_AUTENTICACAO } from '../../estilos/estilosAutenticacao';
-import { autenticarUsuario, solicitarRedefinicaoSenha } from '../../servicos/servicoAutenticacao';
+import { autenticarUsuario } from '../../servicos/servicoAutenticacao';
 
 export default function TelaLogin({ navigation, onLoginSuccess }) {
   const [identificador, setIdentificador] = useState('');
@@ -29,12 +29,6 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
   const [erroEmail, setErroEmail] = useState('');
   const [erroSenha, setErroSenha] = useState('');
   const [erroGeral, setErroGeral] = useState('');
-
-  // Modal de Recuperação de Senha (#83)
-  const [modalRecuperacaoVisivel, setModalRecuperacaoVisivel] = useState(false);
-  const [emailRecuperacao, setEmailRecuperacao] = useState('');
-  const [erroEmailRecuperacao, setErroEmailRecuperacao] = useState('');
-  const [enviandoRecuperacao, setEnviandoRecuperacao] = useState(false);
 
   useEffect(() => {
     const eventoMostrar = Keyboard.addListener('keyboardDidShow', () => setTecladoVisivel(true));
@@ -112,43 +106,6 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
       });
     } finally {
       setCarregando(false);
-    }
-  };
-
-  const abrirModalRecuperacao = () => {
-    setEmailRecuperacao(identificador.trim());
-    setErroEmailRecuperacao('');
-    setModalRecuperacaoVisivel(true);
-  };
-
-  const lidarComRecuperarSenha = async () => {
-    const emailLimpo = emailRecuperacao.trim();
-    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailLimpo) {
-      setErroEmailRecuperacao('Informe o e-mail cadastrado.');
-      return;
-    }
-    if (!regexEmail.test(emailLimpo)) {
-      setErroEmailRecuperacao('Informe um e-mail válido.');
-      return;
-    }
-
-    try {
-      setEnviandoRecuperacao(true);
-      setErroEmailRecuperacao('');
-      await solicitarRedefinicaoSenha(emailLimpo);
-      setModalRecuperacaoVisivel(false);
-      Toast.show({
-        type: 'success',
-        text1: 'E-mail enviado!',
-        text2: 'Verifique sua caixa de entrada para redefinir sua senha.',
-        visibilityTime: 4000,
-      });
-    } catch (erro) {
-      setErroEmailRecuperacao(erro.message || 'Não foi possível enviar o e-mail de recuperação.');
-    } finally {
-      setEnviandoRecuperacao(false);
     }
   };
 
@@ -285,7 +242,14 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
                 <Text style={estilosAutenticacao.checkboxLabel}>Lembrar senha</Text>
               </Pressable>
 
-              <TouchableOpacity onPress={abrirModalRecuperacao}>
+              <TouchableOpacity
+                onPress={() =>
+                  Alert.alert(
+                    'Recuperação de Senha',
+                    'Para redefinir sua senha, solicite suporte ou entre em contato com o administrador da sua empresa.'
+                  )
+                }
+              >
                 <Text style={estilosAutenticacao.forgotPasswordText}>Esqueci a senha</Text>
               </TouchableOpacity>
             </View>
@@ -314,92 +278,6 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
           </View>
         </View>
       </ScrollView>
-
-      {/* Modal de Recuperação de Senha (#83, #71) */}
-      <Modal
-        visible={modalRecuperacaoVisivel}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalRecuperacaoVisivel(false)}
-      >
-        <View style={estilosAutenticacao.modalOverlay}>
-          <View style={estilosAutenticacao.modalCard}>
-            <View style={estilosAutenticacao.modalTopo}>
-              <View
-                style={[
-                  estilosAutenticacao.modalIconeWrap,
-                  { backgroundColor: '#FEF3C7' },
-                ]}
-              >
-                <Feather name="key" size={20} color={CORES_AUTENTICACAO.buttonYellow} />
-              </View>
-              <TouchableOpacity onPress={() => setModalRecuperacaoVisivel(false)}>
-                <Feather name="x" size={20} color={CORES_AUTENTICACAO.placeholder} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={estilosAutenticacao.modalTitulo}>Recuperar Senha</Text>
-            <Text style={estilosAutenticacao.modalDescricao}>
-              Digite o e-mail cadastrado para receber um link de redefinição de senha.
-            </Text>
-
-            <View style={estilosAutenticacao.fieldGroup}>
-              <Text style={estilosAutenticacao.inputLabel}>E-mail</Text>
-              <View
-                style={[
-                  estilosAutenticacao.inputWrapper,
-                  erroEmailRecuperacao && estilosAutenticacao.inputWrapperErro,
-                ]}
-              >
-                <Feather
-                  name="mail"
-                  size={18}
-                  color={erroEmailRecuperacao ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
-                  style={estilosAutenticacao.inputIcon}
-                />
-                <TextInput
-                  style={estilosAutenticacao.textInput}
-                  placeholder="seu@email.com"
-                  placeholderTextColor={CORES_AUTENTICACAO.placeholder}
-                  value={emailRecuperacao}
-                  onChangeText={(val) => {
-                    setEmailRecuperacao(val);
-                    if (erroEmailRecuperacao) setErroEmailRecuperacao('');
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                />
-              </View>
-              {!!erroEmailRecuperacao && (
-                <Text style={estilosAutenticacao.erroTexto}>{erroEmailRecuperacao}</Text>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={estilosAutenticacao.modalBotaoPrincipal}
-              onPress={lidarComRecuperarSenha}
-              disabled={enviandoRecuperacao}
-              activeOpacity={0.85}
-            >
-              {enviandoRecuperacao ? (
-                <ActivityIndicator color={CORES_AUTENTICACAO.textDark} />
-              ) : (
-                <Text style={estilosAutenticacao.modalBotaoPrincipalTexto}>
-                  Enviar link de recuperação
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={estilosAutenticacao.modalBotaoSecundario}
-              onPress={() => setModalRecuperacaoVisivel(false)}
-            >
-              <Text style={estilosAutenticacao.modalBotaoSecundarioTexto}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
