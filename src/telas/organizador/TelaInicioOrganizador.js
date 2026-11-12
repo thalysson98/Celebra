@@ -13,6 +13,7 @@ import {
 import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import CartaoMetrica from '../../componentes/CartaoMetrica';
 import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import Cabecalho from '../../componentes/Cabecalho';
@@ -31,6 +32,13 @@ const parseMoeda = (valor) => {
 const formatarMonetario = (num) => {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+const formatarDataInput = (valor) => {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
+};
 
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
@@ -88,6 +96,37 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     if (d && mT && a) return new Date(a, mesMap[mT.toLowerCase()], d);
     return new Date();
   };
+
+  const eventosDoPeriodo = useMemo(() => {
+    const hoje = new Date();
+    return eventos.filter((ev) => {
+      const dataEv = ev.dataInicio ? converterStringParaData(ev.dataInicio) : null;
+      if (!dataEv) return true;
+
+      if (periodoFiltro === 'esteMes') {
+        return (
+          dataEv.getMonth() === hoje.getMonth() &&
+          dataEv.getFullYear() === hoje.getFullYear()
+        );
+      }
+
+      if (periodoFiltro === 'proximosTresMeses') {
+        const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 3, 0, 23, 59, 59, 999);
+        return dataEv >= inicio && dataEv <= fim;
+      }
+
+      if (periodoFiltro === 'anoAtual') {
+        return dataEv.getFullYear() === hoje.getFullYear();
+      }
+
+      if (periodoFiltro === 'personalizado' && periodoPersonalizado?.inicio && periodoPersonalizado?.fim) {
+        return dataEv >= periodoPersonalizado.inicio && dataEv <= periodoPersonalizado.fim;
+      }
+
+      return true;
+    });
+  }, [eventos, periodoFiltro, periodoPersonalizado]);
 
   const { totalBruto, pendenteReceber } = useMemo(() => {
     let tBruto = 0;
@@ -212,6 +251,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       setErroPeriodoPersonalizado('Informe as datas inicial e final no formato DD/MM/AAAA.');
       return;
     }
+    inicio.setHours(0, 0, 0, 0);
     fim.setHours(23, 59, 59, 999);
     if (inicio > fim) {
       setErroPeriodoPersonalizado('A data inicial deve ser anterior à data final.');
@@ -281,9 +321,56 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
         
   
+        <View style={styles.periodSection}>
+          <Text style={styles.periodTitle}>Período</Text>
+          <View style={styles.periodRow}>
+            {opcoesPeriodo.map(([chave, rotulo]) => {
+              const selecionado = periodoFiltro === chave;
+              return (
+                <TouchableOpacity
+                  key={chave}
+                  style={[styles.periodChip, selecionado && styles.periodChipSelected]}
+                  onPress={() => setPeriodoFiltro(chave)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.periodChipText, selecionado && styles.periodChipTextSelected]}>
+                    {rotulo}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            style={[styles.customPeriodButton, periodoFiltro === 'personalizado' && styles.customPeriodButtonSelected]}
+            onPress={() => setModalPeriodoVisivel(true)}
+            activeOpacity={0.7}
+          >
+            <Feather
+              name="calendar"
+              size={16}
+              color={periodoFiltro === 'personalizado' ? COLORS.textWhite : COLORS.textNavy}
+            />
+            <Text
+              style={[
+                styles.customPeriodButtonText,
+                periodoFiltro === 'personalizado' && styles.customPeriodButtonTextSelected,
+              ]}
+            >
+              {periodoFiltro === 'personalizado' && periodoPersonalizado
+                ? `${dataInicioPersonalizada} até ${dataFimPersonalizada}`
+                : 'Personalizado'}
+            </Text>
+            <Feather
+              name="chevron-right"
+              size={16}
+              color={periodoFiltro === 'personalizado' ? COLORS.textWhite : COLORS.textSubtle}
+            />
+          </TouchableOpacity>
+        </View>
+
         <View style={{ flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-          <CartaoMetrica valor={totalBruto} rotulo="Total Bruto (R$)" />
-          <CartaoMetrica valor={pendenteReceber} rotulo="Pendente a receber" />
+          <CartaoMetrica valor={valoresVisiveis ? totalBruto : 'R$ ••••••'} rotulo="Total Bruto (R$)" />
+          <CartaoMetrica valor={valoresVisiveis ? pendenteReceber : 'R$ ••••••'} rotulo="Pendente a receber" />
         </View>
 
         <View style={styles.sectionHeader}>
