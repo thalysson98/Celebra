@@ -8,7 +8,8 @@ import {
   RefreshControl,
   StyleSheet,
   Modal,
-  TextInput
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
 import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
@@ -41,6 +42,7 @@ const formatarDataInput = (valor) => {
 
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
+  const [carregandoDados, setCarregandoDados] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [diasFiltro, setDiasFiltro] = useState(15); 
   const [periodoFiltro, setPeriodoFiltro] = useState('esteMes');
@@ -58,19 +60,25 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     }, [])
   );
 
-  const carregarDadosDashboard = async () => {
+  const carregarDadosDashboard = async (mostrarCarregamento = true) => {
+    if (mostrarCarregamento) setCarregandoDados(true);
     try {
       const lista = await repositorioEventos.listarEventos();
       setEventos(lista || []);
     } catch (error) {
       console.log('Erro ao carregar eventos no dashboard:', error);
+    } finally {
+      if (mostrarCarregamento) setCarregandoDados(false);
     }
   };
 
   const onRefresh = async () => {
     setAtualizando(true);
-    await carregarDadosDashboard();
-    setAtualizando(false);
+    try {
+      await carregarDadosDashboard(false);
+    } finally {
+      setAtualizando(false);
+    }
   };
 
   const converterStringParaData = (dataStr) => {
@@ -233,13 +241,30 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
   const equipeDetalhada = useMemo(() => (
     tipoDetalhamento === 'equipe'
-      ? eventosDoPeriodo.flatMap((evento) => (
-        (evento.equipe || []).map((profissional, index) => ({
-          evento,
-          profissional,
-          chave: profissional.id || profissional.idUsuario || `${evento.idEvento || evento.id}_${index}`,
-        })).filter(({ profissional }) => profissional.statusConfirmacao === 'Pendente')
-      ))
+      ? eventosDoPeriodo.reduce((grupos, evento) => {
+        (evento.equipe || [])
+          .filter((profissional) => profissional.statusConfirmacao === 'Pendente')
+          .forEach((profissional) => {
+            const nomeNormalizado = (profissional.nomeProfissional || 'Profissional')
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLocaleLowerCase('pt-BR');
+            const chave = profissional.idUsuario || `${nomeNormalizado}_${profissional.funcao || ''}`;
+            let grupo = grupos.find((item) => item.chave === chave);
+
+            if (!grupo) {
+              grupo = { chave, profissional, eventos: [] };
+              grupos.push(grupo);
+            }
+
+            const idEvento = evento.idEvento || evento.id;
+            if (!grupo.eventos.some((item) => (item.idEvento || item.id) === idEvento)) {
+              grupo.eventos.push(evento);
+            }
+          });
+        return grupos;
+      }, [])
       : []
   ), [eventosDoPeriodo, tipoDetalhamento]);
 
@@ -331,6 +356,12 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
         </View>
       </View>
 
+      {carregandoDados ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.buttonGold} />
+          <Text style={styles.loadingText}>Carregando dados do dashboard...</Text>
+        </View>
+      ) : (
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
         
   
@@ -650,6 +681,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      )}
 
       <Modal
         visible={tipoDetalhamento !== null}
@@ -684,30 +716,37 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
               keyboardShouldPersistTaps="handled"
             >
               {tipoDetalhamento === 'equipe' ? (
-                equipeDetalhada.length ? equipeDetalhada.map(({ evento, profissional, chave }) => (
-                  <TouchableOpacity
-                    key={`${evento.idEvento || evento.id}_${chave}`}
-                    style={styles.detailItem}
-                    onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
-                    activeOpacity={0.7}
-                  >
+                equipeDetalhada.length ? equipeDetalhada.map(({ profissional, eventos, chave }) => (
+                  <View key={chave} style={styles.detailItem}>
                     <View style={styles.detailItemText}>
                       <Text style={styles.detailItemTitle}>{profissional.nomeProfissional || 'Profissional'}</Text>
-                      <Text style={styles.detailItemDescription}>
-                        {profissional.funcao || 'Função não informada'} · {evento.titulo || 'Evento'}
-                      </Text>
                       <View style={styles.pendingInvitationDetails}>
                         <View style={styles.pendingInvitationBadge}>
                           <Feather name="clock" size={12} color="#92400E" />
                           <Text style={styles.pendingInvitationBadgeText}>Pendente</Text>
                         </View>
-                        <Text style={styles.detailItemMeta}>
-                          {evento.dataInicio || 'Data a definir'}
-                        </Text>
+                        {!!profissional.funcao && (
+                          <Text style={styles.detailItemMeta}>{profissional.funcao}</Text>
+                        )}
                       </View>
+                      <Text style={styles.detailItemDescription}>Eventos:</Text>
+                      {eventos.map((evento) => (
+                        <TouchableOpacity
+                          key={evento.idEvento || evento.id}
+                          style={styles.pendingTeamEvent}
+                          onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Abrir evento ${evento.titulo || 'Evento'}`}
+                        >
+                          <Text style={styles.pendingTeamEventText}>
+                            {evento.titulo || 'Evento'} · {evento.dataInicio || 'Data a definir'}
+                          </Text>
+                          <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
-                  </TouchableOpacity>
+                  </View>
                 )) : <Text style={styles.modalEmptyText}>Nenhum convite pendente neste período.</Text>
               ) : (
                 parcelasDetalhadas.length ? parcelasDetalhadas.map(({ evento, parcela, numeroParcela }, index) => (
@@ -804,6 +843,8 @@ const styles = StyleSheet.create({
   bellButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
   sheet: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 20 },
+  loadingContainer: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontFamily: FONTES.medium, color: COLORS.textMuted, fontSize: 13 },
   periodSection: { marginBottom: 16 },
   periodTitle: { fontFamily: FONTES.semibold, fontSize: 14, color: COLORS.textNavy, marginBottom: 9 },
   periodRow: { flexDirection: 'row', gap: 8 },
@@ -873,6 +914,8 @@ const styles = StyleSheet.create({
   pendingInvitationDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   pendingInvitationBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: '#FEF3D6' },
   pendingInvitationBadgeText: { fontFamily: FONTES.bold, color: '#92400E', fontSize: 11, fontWeight: '700' },
+  pendingTeamEvent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 8, paddingHorizontal: 10, marginTop: 6, backgroundColor: COLORS.sheetBg, borderRadius: 10 },
+  pendingTeamEventText: { flex: 1, fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 12 },
   detailItemAmount: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
   modalEmptyText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19, paddingVertical: 18 },
   customPeriodModal: { backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 20 },
