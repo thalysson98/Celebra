@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Button } from 'react-native-paper';
@@ -10,12 +10,20 @@ import CartaoEvento from '../../componentes/CartaoEvento';
 
 export default function TelaListaEventos({ navigation }) {
   const [eventos, setEventos] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState('futuros');
   const [busca, setBusca] = useState('');
 
   const carregarEventos = useCallback(async () => {
-    const lista = await repositorioEventos.listarEventos();
-    setEventos(lista || []);
+    setCarregando(true);
+    try {
+      const lista = await repositorioEventos.listarEventos();
+      setEventos(lista || []);
+    } catch (error) {
+      console.error('Erro ao carregar eventos:', error);
+    } finally {
+      setCarregando(false);
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { carregarEventos(); }, [carregarEventos]));
@@ -60,6 +68,12 @@ export default function TelaListaEventos({ navigation }) {
           </View>
         </View>
 
+        {carregando && eventos.length > 0 && (
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, paddingVertical: 10 }}>
+            <ActivityIndicator size="small" color={CORES.buttonGold} />
+            <Text style={{ color: CORES.textMuted }}>Atualizando eventos...</Text>
+          </View>
+        )}
         <FlatList
           data={eventosFiltrados}
           keyExtractor={(item) => item.id}
@@ -68,10 +82,19 @@ export default function TelaListaEventos({ navigation }) {
           renderItem={({ item }) => <CartaoEvento evento={item} aoPressionar={() => navigation.navigate('DetalheEvento', { idEvento: item.id })} />}
           ListEmptyComponent={(
             <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}><Feather name={busca ? 'search' : 'calendar'} size={25} color={CORES.textMuted} /></View>
-              <Text style={styles.emptyTitle}>{busca ? 'Nenhum evento encontrado' : filtro === 'futuros' ? 'Nenhum evento futuro' : 'Nenhum evento concluído'}</Text>
-              <Text style={styles.emptyText}>{busca ? 'Tente buscar por outro nome.' : 'Seus eventos aparecerão aqui quando forem cadastrados.'}</Text>
-              {!busca && filtro === 'futuros' && <Button mode="text" onPress={() => navigation.navigate('CriarEvento')} textColor={CORES.textNavy}>Adicionar primeiro evento</Button>}
+              {carregando ? (
+                <>
+                  <ActivityIndicator size="large" color={CORES.buttonGold} />
+                  <Text style={styles.emptyText}>Carregando eventos...</Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.emptyIcon}><Feather name={busca ? 'search' : 'calendar'} size={25} color={CORES.textMuted} /></View>
+                  <Text style={styles.emptyTitle}>{busca ? 'Nenhum evento encontrado' : filtro === 'futuros' ? 'Nenhum evento futuro' : 'Nenhum evento concluído'}</Text>
+                  <Text style={styles.emptyText}>{busca ? 'Tente buscar por outro nome.' : 'Seus eventos aparecerão aqui quando forem cadastrados.'}</Text>
+                  {!busca && filtro === 'futuros' && <Button mode="text" onPress={() => navigation.navigate('CriarEvento')} textColor={CORES.textNavy}>Adicionar primeiro evento</Button>}
+                </>
+              )}
             </View>
           )}
         />
