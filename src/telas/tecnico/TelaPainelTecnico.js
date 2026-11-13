@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   inicializarNotificacoesDispositivo,
   processarLembretesListaEventos,
@@ -181,6 +181,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   // --- INÍCIO DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
   const [notificacoesSistema, setNotificacoesSistema] = useState([]);
+  const notificacoesAnterioresRef = useRef(null);
 
   // Conta quantas notificações não lidas existem para mostrar no sininho
   const totalNaoLidas = useMemo(
@@ -196,7 +197,18 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
     const cancelarAssinatura = assinarNotificacoesUsuario(
       user.uid,
-      (lista) => setNotificacoesSistema(lista),
+      (lista) => {
+        // Quando uma nova notificação chega em tempo real, dispara o banner local no aparelho
+        if (notificacoesAnterioresRef.current !== null) {
+          const idsAnteriores = new Set(notificacoesAnterioresRef.current.map((n) => n.id));
+          const novas = lista.filter((n) => !idsAnteriores.has(n.id) && !n.lida);
+          for (const nova of novas) {
+            dispararNotificacaoBarraCelular(nova.titulo, nova.mensagem, nova.id);
+          }
+        }
+        notificacoesAnterioresRef.current = lista;
+        setNotificacoesSistema(lista);
+      },
       (erro) => console.log('Erro ao carregar notificações:', erro)
     );
 
@@ -205,11 +217,12 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     };
   }, [user?.uid]);
 
-  // 2. Quando a lista 'assignments' carregar, checa automaticamente a regra de 7 dias e 3 dias antes
+  // 2. Quando a lista 'assignments' carregar, checa automaticamente a regra de 7 dias, 3 dias antes e no dia do evento
   useEffect(() => {
     if (user?.uid && assignments?.length > 0 && eventsNotificationsEnabled) {
       const listaFormatada = assignments.map((a) => ({
-        id: a.eventId || a.id,
+        id: a.idEvento || a.eventId || a.id,
+        idEvento: a.idEvento || a.eventId || a.id,
         nome: a.eventTitle || 'Evento',
         dataInicio: a.eventDate,
         statusConfirmacao: a.status,
@@ -673,8 +686,11 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
       <TouchableOpacity 
         style={[styles.profileSecurityCard, { marginTop: 12 }]} 
-        onPress={() => {
-          dispararNotificacaoBarraCelular(
+        onPress={async () => {
+          if (user?.uid) {
+            await inicializarNotificacoesDispositivo(user.uid);
+          }
+          await dispararNotificacaoBarraCelular(
             'Celebra: Notificação de Teste',
             'Isso é um aviso externo na barra de notificações!'
           );

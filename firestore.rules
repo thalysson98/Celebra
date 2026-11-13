@@ -77,7 +77,7 @@ service cloud.firestore {
       );
       allow update: if autenticado() && request.auth.uid == userId
         && (
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone'])
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone', 'pushToken'])
             && request.resource.data.id_usuario == resource.data.id_usuario
             && request.resource.data.papel == resource.data.papel
             && request.resource.data.id_empresa == resource.data.id_empresa
@@ -131,7 +131,7 @@ service cloud.firestore {
     }
 
     match /indisponibilidade/{availabilityId} {
-      allow read: if autenticado() && resource.data.id_usuario == request.auth.uid;
+      allow read: if autenticado();
       allow create: if autenticado()
         && request.resource.data.id_indisponibilidade == availabilityId
         && request.resource.data.id_usuario == request.auth.uid
@@ -143,15 +143,16 @@ service cloud.firestore {
 
     match /convites/{inviteId} {
       allow read: if autenticado() && (
-        resource.data.id_usuario == request.auth.uid || membroDaEmpresa(resource.data.id_empresa)
+        resource == null || resource.data.id_usuario == request.auth.uid || membroDaEmpresa(resource.data.id_empresa)
       );
-      allow update: if autenticado() && resource.data.id_usuario == request.auth.uid
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        || (autenticado() && resource.data.id_usuario == request.auth.uid
         && request.resource.data.id_usuario == resource.data.id_usuario
         && request.resource.data.id_evento == resource.data.id_evento
         && resource.data.situacao == 'pendente'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'respondido_em'])
         && request.resource.data.situacao in ['aceito', 'recusado']
-        && request.resource.data.respondido_em is timestamp;
+        && request.resource.data.respondido_em is timestamp);
       allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
         && request.resource.data.id_convite == inviteId
         && inviteId == request.resource.data.id_evento + '_' + request.resource.data.id_usuario
@@ -275,6 +276,13 @@ service cloud.firestore {
         && request.resource.data.endereco_completo is string
         && tipoLocalDaEmpresa(request.resource.data.id_tipo_local, request.resource.data.id_empresa)
         && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /notificacoes/{notificacaoId} {
+      allow read: if autenticado();
+      allow create: if autenticado();
+      allow update: if autenticado() && resource.data.id_usuario == request.auth.uid;
       allow delete: if false;
     }
 
