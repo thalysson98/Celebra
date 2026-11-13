@@ -127,7 +127,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState({ titulo: '', descricao: '' });
-  
+
   const mostrarSucesso = (descricao, titulo = 'Sucesso') => {
     setMsgSucesso({ titulo, descricao });
     setModalSucessoVisivel(true);
@@ -137,13 +137,6 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     setMsgErro({ titulo, descricao });
     setModalErroVisivel(true);
   };
-
-  useEffect(() => {
-  if (user?.uid) {
-    // Pede permissão no celular e salva o Push Token no usuário para receber notificações externas
-    inicializarNotificacoesDispositivo(user.uid);
-    }
-  }, [user?.uid]);
 
   useEffect(() => {
     setLoading(true);
@@ -345,7 +338,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     const calendarDays = Array.from({ length: totalCells }, (_, index) => {
       const date = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), index - leadingDays + 1);
       const dateKey = getLocalDateKey(date);
-      
+
       const dayAssignments = allAssignmentsForAgenda.filter(a => {
         const evDate = toDate(a.eventDate);
         return evDate && getLocalDateKey(evDate) === dateKey;
@@ -399,7 +392,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                   }
                 }}
               >
-              {/* Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado */}
+                {/* Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado */}
                 <View style={[
                   styles.agendaDayCircle,
                   !day.inCurrentMonth && styles.agendaDayOutsideMonth,
@@ -407,13 +400,13 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                   day.unavailable && styles.agendaDayUnavailable,
                   day.hasPending && styles.agendaDayPending,
                   day.hasConfirmed && styles.agendaDayConfirmed,
-                  day.selected && styles.agendaDaySelected, 
+                  day.selected && styles.agendaDaySelected,
                 ]}>
                   <Text style={[
-                    styles.agendaDayNumber, 
-                    !day.inCurrentMonth && styles.agendaDayNumberOutside, 
+                    styles.agendaDayNumber,
+                    !day.inCurrentMonth && styles.agendaDayNumberOutside,
                     day.selected && styles.agendaDayNumberSelected,
-                    (day.hasConfirmed || day.hasPending || day.unavailable) && styles.agendaDayNumberEvent, 
+                    (day.hasConfirmed || day.hasPending || day.unavailable) && styles.agendaDayNumberEvent,
                   ]}>
                     {day.date.getDate()}
                   </Text>
@@ -431,7 +424,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
             <Text style={styles.agendaLegendText}>Indisponível</Text>
           </View>
         </View>
-        
+
         <TouchableOpacity
           style={[styles.agendaAvailabilityButton, selectedDayAssignments.some(a => a.status === 'accepted') && !selectedDateUnavailable && styles.agendaAvailabilityDisabled]}
           onPress={openAvailabilityDialog}
@@ -476,7 +469,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           <Text style={styles.summaryNumber}>{pendingAssignments.length}</Text>
           <Text style={styles.summaryLabel}>Eventos pendentes de aprovação</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.summaryCard} onPress={() => { setEventFilter('mine'); setActiveTab('events'); }} activeOpacity={0.8}>
           <Text style={styles.summaryNumber}>{confirmedAssignments.length}</Text>
           <Text style={styles.summaryLabel}>Seus eventos aceitos</Text>
@@ -493,7 +486,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     ];
     const statusByFilter = { mine: 'accepted', pending: 'pending' };
     const searchTerms = normalizeSearch(eventSearch).split(/\s+/).filter(Boolean);
-    
+
     const visibleAssignments = assignments
       .filter((assignment) => assignment.status === statusByFilter[eventFilter])
       .filter((assignment) => {
@@ -507,7 +500,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         return searchTerms.every(term => combinedString.includes(term));
       })
       .sort((first, second) => (toDate(first.eventDate)?.getTime() || 0) - (toDate(second.eventDate)?.getTime() || 0));
-    
+
     const monthLabel = visibleAssignments.length
       ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(toDate(visibleAssignments[0].eventDate) || new Date())
       : '';
@@ -628,13 +621,13 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           </View>
         </View>
         <View style={styles.profileDivider} />
-        
+
         <Text style={styles.userProfileDetail}>CPF: {profile.cpf ? formatCpf(profile.cpf) : 'Não informado'}</Text>
         <Text style={styles.userProfileDetail} numberOfLines={1}>{profile.email || 'E-mail não informado'}</Text>
         <Text style={styles.userProfileDetail} numberOfLines={1}>
           {[profile.city, profile.phone ? formatPhone(profile.phone) : null].filter(Boolean).join(' • ') || 'Cidade e telefone não informados'}
         </Text>
-        
+
         <TouchableOpacity style={styles.editProfileButton} onPress={openProfileEditor} activeOpacity={0.8}>
           <Feather name="edit-2" size={15} color={COLORS.textNavy} />
           <Text style={styles.editProfileButtonText}>Editar seus dados</Text>
@@ -671,8 +664,8 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={[styles.profileSecurityCard, { marginTop: 12 }]} 
+      <TouchableOpacity
+        style={[styles.profileSecurityCard, { marginTop: 12 }]}
         onPress={() => {
           dispararNotificacaoBarraCelular(
             'Celebra: Notificação de Teste',
@@ -681,15 +674,15 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         }}
         activeOpacity={0.8}
       >
-      <View style={[styles.profileSecurityIcon, { backgroundColor: '#FEF3C7' }]}>
-        <Feather name="bell" size={17} color="#D97706" />
-      </View>
-      <View style={styles.profilePreferenceCopy}>
-        <Text style={styles.profilePreferenceTitle}>Testar Notificação Externa</Text>
-        <Text style={styles.profilePreferenceSubtitle}>Dispara aviso na barra do celular</Text>
-      </View>
-      <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
-    </TouchableOpacity>
+        <View style={[styles.profileSecurityIcon, { backgroundColor: '#FEF3C7' }]}>
+          <Feather name="bell" size={17} color="#D97706" />
+        </View>
+        <View style={styles.profilePreferenceCopy}>
+          <Text style={styles.profilePreferenceTitle}>Testar Notificação Externa</Text>
+          <Text style={styles.profilePreferenceSubtitle}>Dispara aviso na barra do celular</Text>
+        </View>
+        <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />
@@ -720,8 +713,8 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   return (
     <View style={styles.screen}>
       {/* Exibe a bolinha com o total não lido e envia o ID e os eventos ao abrir o sininho */}
-      <Cabecalho 
-        titulo={activeTab === 'home' ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!` : { events: 'Eventos', profile: 'Perfil' }[activeTab]} 
+      <Cabecalho
+        titulo={activeTab === 'home' ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!` : { events: 'Eventos', profile: 'Perfil' }[activeTab]}
         subtitulo={activeTab === 'home' ? 'Seu painel de eventos' : ''}
         mostrarSino={true}
         quantidadeNotificacoes={totalNaoLidas}
@@ -733,14 +726,13 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           })
         }
       />
-      
+
       <ScrollView style={styles.mainContent} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'home' && renderHome()}
         {activeTab === 'events' && renderEvents()}
         {activeTab === 'profile' && renderProfile()}
       </ScrollView>
 
-      
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
@@ -767,7 +759,6 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
       </Modal>
 
-  
       <Modal visible={isProfileEditorVisible} transparent animationType="fade" onRequestClose={() => setProfileEditorVisible(false)}>
         <KeyboardAvoidingView style={styles.profileModalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.profileEditorCard}>
@@ -798,7 +789,6 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </KeyboardAvoidingView>
       </Modal>
 
-  
       <Modal visible={isAvailabilityDialogVisible} transparent animationType="fade" onRequestClose={() => setAvailabilityDialogVisible(false)}>
         <View style={styles.profileModalOverlay}>
           <View style={styles.availabilityDialogCard}>

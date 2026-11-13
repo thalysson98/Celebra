@@ -13,7 +13,6 @@ import {
 import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import CartaoMetrica from '../../componentes/CartaoMetrica';
 import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import Cabecalho from '../../componentes/Cabecalho';
@@ -128,7 +127,21 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     });
   }, [eventos, periodoFiltro, periodoPersonalizado]);
 
-  const { totalBruto, pendenteReceber } = useMemo(() => {
+  const {
+    totalBruto,
+    pendenteReceber,
+    valorRealizado,
+    despesasEquipe,
+    parcelasPagas,
+    parcelasPendentes,
+    faturamentoTipos,
+    despesasTipos,
+    despesasCategorias,
+    valorParcelasPendentes,
+    taxaConfirmacao,
+    profissionaisConfirmados,
+    profissionaisConvocados,
+  } = useMemo(() => {
     let tBruto = 0;
     let pReceber = 0;
     let valorRealizado = 0;
@@ -368,9 +381,221 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
           </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-          <CartaoMetrica valor={valoresVisiveis ? totalBruto : 'R$ ••••••'} rotulo="Total Bruto (R$)" />
-          <CartaoMetrica valor={valoresVisiveis ? pendenteReceber : 'R$ ••••••'} rotulo="Pendente a receber" />
+        <View style={styles.interactionHint}>
+          <Feather name="info" size={15} color={COLORS.textMuted} />
+          <Text style={styles.interactionHintText}>Itens com “Ver detalhes” abrem uma lista ao tocar.</Text>
+        </View>
+
+        <View style={styles.dashboardSection}>
+          <View style={styles.dashboardSectionHeading}>
+            <Feather name="trending-up" size={18} color={COLORS.textNavy} />
+            <Text style={styles.dashboardSectionTitle}>Faturamento</Text>
+          </View>
+
+          <View style={styles.metricCards}>
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.summaryMetricContent}>
+                <View style={styles.summaryMetricIcon}>
+                  <Feather name="dollar-sign" size={19} color={COLORS.textNavy} />
+                </View>
+                <View style={styles.summaryMetricText}>
+                  <Text style={styles.summaryMetricLabel}>Total bruto</Text>
+                  <Text style={styles.summaryMetricValue}>{valoresVisiveis ? totalBruto : 'R$ ••••••'}</Text>
+                </View>
+              </Card.Content>
+            </Card>
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.summaryMetricContent}>
+                <View style={[styles.summaryMetricIcon, styles.pendingMetricIcon]}>
+                  <Feather name="clock" size={19} color="#B45309" />
+                </View>
+                <View style={styles.summaryMetricText}>
+                  <Text style={styles.summaryMetricLabel}>Pendente a receber</Text>
+                  <Text style={styles.summaryMetricValue}>{valoresVisiveis ? pendenteReceber : 'R$ ••••••'}</Text>
+                </View>
+              </Card.Content>
+            </Card>
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.summaryMetricContent}>
+                <View style={[styles.summaryMetricIcon, styles.paidMetricIcon]}>
+                  <Feather name="check-circle" size={19} color="#047857" />
+                </View>
+                <View style={styles.summaryMetricText}>
+                  <Text style={styles.summaryMetricLabel}>Valor realizado/pago</Text>
+                  <Text style={styles.summaryMetricValue}>{valoresVisiveis ? valorRealizado : 'R$ ••••••'}</Text>
+                </View>
+              </Card.Content>
+            </Card>
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setTipoDetalhamento('aPagar')}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver ${parcelasPendentes} parcelas a serem pagas`}
+          >
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.duePaymentsContent}>
+                <View style={styles.duePaymentsIcon}>
+                  <Feather name="calendar" size={19} color="#B45309" />
+                </View>
+                <View style={styles.duePaymentsText}>
+                  <Text style={styles.duePaymentsTitle}>Parcelas a serem pagas</Text>
+                  <Text style={styles.duePaymentsSubtitle}>{parcelasPendentes} parcelas pendentes</Text>
+                </View>
+                <View style={styles.duePaymentsAction}>
+                  <Text style={styles.duePaymentsValue}>{valoresVisiveis ? valorParcelasPendentes : 'R$ ••••••'}</Text>
+                  <View style={styles.cardActionHint}>
+                    <Text style={styles.cardActionHintText}>Ver detalhes</Text>
+                    <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Status de pagamentos</Text>
+              <View style={styles.paymentCountsRow}>
+                <TouchableOpacity
+                  style={styles.paymentCountItem}
+                  onPress={() => setTipoDetalhamento('pagas')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${parcelasPagas} parcelas pagas`}
+                >
+                  <View style={styles.paymentCountTitleRow}>
+                    <Text style={styles.paymentCountValue}>{parcelasPagas}</Text>
+                    <Feather name="chevron-right" size={16} color={COLORS.textNavy} />
+                  </View>
+                  <Text style={styles.paymentCountLabel}>Parcelas pagas</Text>
+                  <Text style={styles.paymentCountAction}>Ver detalhes</Text>
+                </TouchableOpacity>
+                <View style={styles.paymentCountDivider} />
+                <TouchableOpacity
+                  style={styles.paymentCountItem}
+                  onPress={() => setTipoDetalhamento('pendentes')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${parcelasPendentes} parcelas pendentes`}
+                >
+                  <View style={styles.paymentCountTitleRow}>
+                    <Text style={styles.paymentCountValue}>{parcelasPendentes}</Text>
+                    <Feather name="chevron-right" size={16} color={COLORS.textNavy} />
+                  </View>
+                  <Text style={styles.paymentCountLabel}>Parcelas pendentes</Text>
+                  <Text style={styles.paymentCountAction}>Ver detalhes</Text>
+                </TouchableOpacity>
+              </View>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Faturamento por tipo de evento</Text>
+              {faturamentoTipos.length ? faturamentoTipos.map(({ tipo, valor, percentual }) => (
+                <View key={tipo} style={styles.typeRevenueItem}>
+                  <View style={styles.typeRevenueHeader}>
+                    <Text style={styles.typeRevenueName} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.typeRevenueValue}>
+                      {valoresVisiveis ? `${formatarMonetario(valor)} · ${Math.round(percentual)}%` : 'R$ ••••••'}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    {valoresVisiveis && <View style={[styles.progressFill, { width: `${percentual}%` }]} />}
+                  </View>
+                </View>
+              )) : <Text style={styles.dashboardEmptyText}>Nenhum evento neste período.</Text>}
+            </Card.Content>
+          </Card>
+        </View>
+
+        <View style={styles.dashboardSection}>
+          <View style={styles.dashboardSectionHeading}>
+            <Feather name="credit-card" size={18} color="#047857" />
+            <Text style={styles.dashboardSectionTitle}>Despesas</Text>
+          </View>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.summaryMetricContent}>
+              <View style={[styles.summaryMetricIcon, styles.paidMetricIcon]}>
+                <Feather name="dollar-sign" size={19} color="#047857" />
+              </View>
+              <View style={styles.summaryMetricText}>
+                <Text style={styles.summaryMetricLabel}>Despesas pagas à equipe</Text>
+                <Text style={styles.summaryMetricValue}>{valoresVisiveis ? despesasEquipe : 'R$ ••••••'}</Text>
+              </View>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Despesas pagas por categoria</Text>
+              {despesasCategorias.length ? despesasCategorias.map(({ tipo, valor, percentual }) => (
+                <View key={tipo} style={styles.typeRevenueItem}>
+                  <View style={styles.typeRevenueHeader}>
+                    <Text style={styles.typeRevenueName} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.typeRevenueValue}>
+                      {valoresVisiveis ? `${formatarMonetario(valor)} · ${Math.round(percentual)}%` : 'R$ ••••••'}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    {valoresVisiveis && <View style={[styles.expenseProgressFill, { width: `${percentual}%` }]} />}
+                  </View>
+                </View>
+              )) : <Text style={styles.dashboardEmptyText}>Nenhuma despesa neste período.</Text>}
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Despesas pagas por tipo de evento</Text>
+              {despesasTipos.length ? despesasTipos.map(({ tipo, valor, percentual }) => (
+                <View key={tipo} style={styles.typeRevenueItem}>
+                  <View style={styles.typeRevenueHeader}>
+                    <Text style={styles.typeRevenueName} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.typeRevenueValue}>
+                      {valoresVisiveis ? `${formatarMonetario(valor)} · ${Math.round(percentual)}%` : 'R$ ••••••'}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    {valoresVisiveis && <View style={[styles.expenseProgressFill, { width: `${percentual}%` }]} />}
+                  </View>
+                </View>
+              )) : <Text style={styles.dashboardEmptyText}>Nenhuma despesa neste período.</Text>}
+            </Card.Content>
+          </Card>
+        </View>
+
+        <View style={styles.dashboardSection}>
+          <View style={styles.dashboardSectionHeading}>
+            <Feather name="users" size={18} color={COLORS.textNavy} />
+            <Text style={styles.dashboardSectionTitle}>Equipe</Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setTipoDetalhamento('equipe')}
+            accessibilityRole="button"
+            accessibilityLabel="Ver detalhes da confirmação da equipe"
+          >
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.dashboardCardContent}>
+                <View style={styles.teamConfirmationHeader}>
+                  <Text style={styles.dashboardCardTitle}>Confirmação da equipe</Text>
+                  <Text style={styles.teamConfirmationPercent}>{taxaConfirmacao}%</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${taxaConfirmacao}%` }]} />
+                </View>
+                <Text style={styles.teamConfirmationText}>
+                  {profissionaisConfirmados} de {profissionaisConvocados} profissionais confirmados
+                </Text>
+                <View style={styles.teamConfirmationAction}>
+                  <Text style={styles.cardActionHintText}>Ver convites pendentes</Text>
+                  <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                </View>
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionHeader}>
