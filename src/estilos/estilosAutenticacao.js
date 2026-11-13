@@ -14,6 +14,7 @@ export const CORES_AUTENTICACAO = {
   inputBackground: '#F3F5F7',
   bordaInput: '#E2E8EC',
   inputBorder: '#E2E8EC',
+  bordaErro: '#EF4444',
   placeholder: '#8A99A8',
   botaoDourado: CORES.buttonGold || '#F4BA42',
   buttonYellow: CORES.buttonGold || '#F4BA42',
@@ -61,7 +62,8 @@ export const estilosAutenticacao = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  brandStar: { fontFamily: FONTES.body,
+  brandStar: {
+    fontFamily: FONTES.body,
     color: CORES_AUTENTICACAO.starGold,
     fontSize: 24,
     marginLeft: 6,
@@ -97,9 +99,30 @@ export const estilosAutenticacao = StyleSheet.create({
     marginBottom: 22,
   },
 
+  // Banner de alerta/erro no topo do card
+  alertaBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    gap: 8,
+  },
+  alertaTexto: {
+    flex: 1,
+    fontFamily: FONTES.body,
+    fontSize: 12,
+    color: '#DC2626',
+    lineHeight: 16,
+  },
+
   // Inputs
   fieldGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   inputLabel: {
     fontFamily: FONTES.semibold,
@@ -118,6 +141,10 @@ export const estilosAutenticacao = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+  inputWrapperErro: {
+    borderColor: CORES_AUTENTICACAO.bordaErro,
+    backgroundColor: '#FFF5F5',
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -127,9 +154,17 @@ export const estilosAutenticacao = StyleSheet.create({
     fontSize: 14,
     color: CORES_AUTENTICACAO.textDark,
     paddingVertical: 0,
+    outlineStyle: 'none',
   },
   eyeIcon: {
     padding: 6,
+  },
+  erroTexto: {
+    fontFamily: FONTES.body,
+    fontSize: 11,
+    color: '#DC2626',
+    marginTop: 4,
+    marginLeft: 2,
   },
 
   // Linha de ações auxiliares (Lembrar senha / Esqueci a senha)
@@ -210,6 +245,79 @@ export const estilosAutenticacao = StyleSheet.create({
     fontWeight: '700',
     color: CORES_AUTENTICACAO.textDark,
     textDecorationLine: 'underline',
+  },
+
+  // Modal genérico / Notificações / Recuperação
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 24, 44, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTopo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalIconeWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitulo: {
+    fontFamily: FONTES.heading,
+    fontSize: 18,
+    fontWeight: '700',
+    color: CORES_AUTENTICACAO.textDark,
+    marginBottom: 8,
+  },
+  modalDescricao: {
+    fontFamily: FONTES.body,
+    fontSize: 13,
+    color: CORES_AUTENTICACAO.placeholder,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  modalBotaoPrincipal: {
+    backgroundColor: CORES_AUTENTICACAO.buttonYellow,
+    borderRadius: 12,
+    height: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalBotaoPrincipalTexto: {
+    fontFamily: FONTES.bold,
+    fontSize: 14,
+    fontWeight: '700',
+    color: CORES_AUTENTICACAO.textDark,
+  },
+  modalBotaoSecundario: {
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  modalBotaoSecundarioTexto: {
+    fontFamily: FONTES.body,
+    fontSize: 13,
+    color: CORES_AUTENTICACAO.placeholder,
   },
 });
 

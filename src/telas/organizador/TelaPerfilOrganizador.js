@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Share, Linking, Platform } from 'react-native';
 import { Card, Switch } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -30,6 +30,54 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
       setTimeout(() => setCopiado(false), 2500);
     } catch (e) {
       console.warn('Erro ao copiar código:', e);
+    }
+  };
+
+  const mensagemCompartilhamento = `Olá! Use este código para vincular sua conta à empresa ${nomeEmpresa} no Celebra:\n\n${codigoVinculo}`;
+
+  const compartilharWhatsApp = async () => {
+    if (!codigoVinculo) return;
+    const url = `https://wa.me/?text=${encodeURIComponent(mensagemCompartilhamento)}`;
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      console.warn('Erro ao abrir WhatsApp:', e);
+      Toast.show({
+        type: 'error',
+        text1: 'Não foi possível abrir o WhatsApp',
+        text2: 'Você pode copiar o código e enviar manualmente.',
+      });
+    }
+  };
+
+  const compartilharCodigo = async () => {
+    if (!codigoVinculo) return;
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({
+            title: `Código da empresa ${nomeEmpresa}`,
+            text: mensagemCompartilhamento,
+          });
+          return;
+        }
+        await Clipboard.setStringAsync(mensagemCompartilhamento);
+        Toast.show({
+          type: 'success',
+          text1: 'Convite copiado!',
+          text2: 'A mensagem com o ID da empresa foi copiada para compartilhar.',
+        });
+        return;
+      }
+
+      await Share.share({
+        message: mensagemCompartilhamento,
+        title: `Código da empresa ${nomeEmpresa}`,
+      });
+    } catch (e) {
+      if (e?.name !== 'AbortError') {
+        console.warn('Erro ao compartilhar código:', e);
+      }
     }
   };
 
@@ -71,7 +119,8 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
                   <Text selectable style={styles.codigoText} numberOfLines={1} ellipsizeMode="middle">
                     {codigoVinculo}
                   </Text>
-                  <TouchableOpacity
+                  <View style={styles.codigoAcoes}>
+                    <TouchableOpacity
                     style={[styles.botaoCopiar, copiado && styles.botaoCopiarCopiado]}
                     onPress={copiarCodigo}
                     activeOpacity={0.7}
@@ -85,6 +134,29 @@ export default function TelaPerfilOrganizador({ navigation, onLogout, usuario })
                       {copiado ? 'Copiado!' : 'Copiar'}
                     </Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.botaoWhatsApp}
+                    onPress={compartilharWhatsApp}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Compartilhar ID da empresa via WhatsApp"
+                  >
+                    <MaterialCommunityIcons name="whatsapp" size={15} color="#15803D" />
+                    <Text style={styles.botaoWhatsAppTexto}>WhatsApp</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.botaoCompartilhar}
+                    onPress={compartilharCodigo}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Compartilhar ID da empresa"
+                  >
+                    <Feather name="share-2" size={14} color={COLORS.textNavy} />
+                    <Text style={styles.botaoCompartilharTexto}>Compartilhar</Text>
+                  </TouchableOpacity>
+                </View>
                 </View>
               </View>
             )}

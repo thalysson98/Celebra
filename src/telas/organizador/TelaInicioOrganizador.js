@@ -8,7 +8,8 @@ import {
   RefreshControl,
   StyleSheet,
   Modal,
-  TextInput
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
 import { Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
@@ -32,8 +33,16 @@ const formatarMonetario = (num) => {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+const formatarDataInput = (valor) => {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
+};
+
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
+  const [carregandoDados, setCarregandoDados] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [diasFiltro, setDiasFiltro] = useState(15); 
   const [periodoFiltro, setPeriodoFiltro] = useState('esteMes');
@@ -51,19 +60,25 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     }, [])
   );
 
-  const carregarDadosDashboard = async () => {
+  const carregarDadosDashboard = async (mostrarCarregamento = true) => {
+    if (mostrarCarregamento) setCarregandoDados(true);
     try {
       const lista = await repositorioEventos.listarEventos();
       setEventos(lista || []);
     } catch (error) {
       console.log('Erro ao carregar eventos no dashboard:', error);
+    } finally {
+      if (mostrarCarregamento) setCarregandoDados(false);
     }
   };
 
   const onRefresh = async () => {
     setAtualizando(true);
-    await carregarDadosDashboard();
-    setAtualizando(false);
+    try {
+      await carregarDadosDashboard(false);
+    } finally {
+      setAtualizando(false);
+    }
   };
 
   const converterStringParaData = (dataStr) => {
@@ -89,7 +104,52 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     return new Date();
   };
 
-  const { totalBruto, pendenteReceber } = useMemo(() => {
+  const eventosDoPeriodo = useMemo(() => {
+    const hoje = new Date();
+    return eventos.filter((ev) => {
+      const dataEv = ev.dataInicio ? converterStringParaData(ev.dataInicio) : null;
+      if (!dataEv) return true;
+
+      if (periodoFiltro === 'esteMes') {
+        return (
+          dataEv.getMonth() === hoje.getMonth() &&
+          dataEv.getFullYear() === hoje.getFullYear()
+        );
+      }
+
+      if (periodoFiltro === 'proximosTresMeses') {
+        const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 3, 0, 23, 59, 59, 999);
+        return dataEv >= inicio && dataEv <= fim;
+      }
+
+      if (periodoFiltro === 'anoAtual') {
+        return dataEv.getFullYear() === hoje.getFullYear();
+      }
+
+      if (periodoFiltro === 'personalizado' && periodoPersonalizado?.inicio && periodoPersonalizado?.fim) {
+        return dataEv >= periodoPersonalizado.inicio && dataEv <= periodoPersonalizado.fim;
+      }
+
+      return true;
+    });
+  }, [eventos, periodoFiltro, periodoPersonalizado]);
+
+  const {
+    totalBruto,
+    pendenteReceber,
+    valorRealizado,
+    despesasEquipe,
+    parcelasPagas,
+    parcelasPendentes,
+    faturamentoTipos,
+    despesasTipos,
+    despesasCategorias,
+    valorParcelasPendentes,
+    taxaConfirmacao,
+    profissionaisConfirmados,
+    profissionaisConvocados,
+  } = useMemo(() => {
     let tBruto = 0;
     let pReceber = 0;
     let valorRealizado = 0;
@@ -181,13 +241,30 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
   const equipeDetalhada = useMemo(() => (
     tipoDetalhamento === 'equipe'
-      ? eventosDoPeriodo.flatMap((evento) => (
-        (evento.equipe || []).map((profissional, index) => ({
-          evento,
-          profissional,
-          chave: profissional.id || profissional.idUsuario || `${evento.idEvento || evento.id}_${index}`,
-        })).filter(({ profissional }) => profissional.statusConfirmacao === 'Pendente')
-      ))
+      ? eventosDoPeriodo.reduce((grupos, evento) => {
+        (evento.equipe || [])
+          .filter((profissional) => profissional.statusConfirmacao === 'Pendente')
+          .forEach((profissional) => {
+            const nomeNormalizado = (profissional.nomeProfissional || 'Profissional')
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLocaleLowerCase('pt-BR');
+            const chave = profissional.idUsuario || `${nomeNormalizado}_${profissional.funcao || ''}`;
+            let grupo = grupos.find((item) => item.chave === chave);
+
+            if (!grupo) {
+              grupo = { chave, profissional, eventos: [] };
+              grupos.push(grupo);
+            }
+
+            const idEvento = evento.idEvento || evento.id;
+            if (!grupo.eventos.some((item) => (item.idEvento || item.id) === idEvento)) {
+              grupo.eventos.push(evento);
+            }
+          });
+        return grupos;
+      }, [])
       : []
   ), [eventosDoPeriodo, tipoDetalhamento]);
 
@@ -212,6 +289,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       setErroPeriodoPersonalizado('Informe as datas inicial e final no formato DD/MM/AAAA.');
       return;
     }
+    inicio.setHours(0, 0, 0, 0);
     fim.setHours(23, 59, 59, 999);
     if (inicio > fim) {
       setErroPeriodoPersonalizado('A data inicial deve ser anterior à data final.');
@@ -278,12 +356,277 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
         </View>
       </View>
 
+      {carregandoDados ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.buttonGold} />
+          <Text style={styles.loadingText}>Carregando dados do dashboard...</Text>
+        </View>
+      ) : (
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} colors={[COLORS.buttonGold]} tintColor={COLORS.buttonGold} />}>
         
   
-        <View style={{ flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-          <CartaoMetrica valor={totalBruto} rotulo="Total Bruto (R$)" />
-          <CartaoMetrica valor={pendenteReceber} rotulo="Pendente a receber" />
+        <View style={styles.periodSection}>
+          <Text style={styles.periodTitle}>Período</Text>
+          <View style={styles.periodRow}>
+            {opcoesPeriodo.map(([chave, rotulo]) => {
+              const selecionado = periodoFiltro === chave;
+              return (
+                <TouchableOpacity
+                  key={chave}
+                  style={[styles.periodChip, selecionado && styles.periodChipSelected]}
+                  onPress={() => setPeriodoFiltro(chave)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.periodChipText, selecionado && styles.periodChipTextSelected]}>
+                    {rotulo}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            style={[styles.customPeriodButton, periodoFiltro === 'personalizado' && styles.customPeriodButtonSelected]}
+            onPress={() => setModalPeriodoVisivel(true)}
+            activeOpacity={0.7}
+          >
+            <Feather
+              name="calendar"
+              size={16}
+              color={periodoFiltro === 'personalizado' ? COLORS.textWhite : COLORS.textNavy}
+            />
+            <Text
+              style={[
+                styles.customPeriodButtonText,
+                periodoFiltro === 'personalizado' && styles.customPeriodButtonTextSelected,
+              ]}
+            >
+              {periodoFiltro === 'personalizado' && periodoPersonalizado
+                ? `${dataInicioPersonalizada} até ${dataFimPersonalizada}`
+                : 'Personalizado'}
+            </Text>
+            <Feather
+              name="chevron-right"
+              size={16}
+              color={periodoFiltro === 'personalizado' ? COLORS.textWhite : COLORS.textSubtle}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.interactionHint}>
+          <Feather name="info" size={15} color={COLORS.textMuted} />
+          <Text style={styles.interactionHintText}>Itens com “Ver detalhes” abrem uma lista ao tocar.</Text>
+        </View>
+
+        <View style={styles.dashboardSection}>
+          <View style={styles.dashboardSectionHeading}>
+            <Feather name="trending-up" size={18} color={COLORS.textNavy} />
+            <Text style={styles.dashboardSectionTitle}>Faturamento</Text>
+          </View>
+
+          <View style={styles.metricCards}>
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.summaryMetricContent}>
+                <View style={styles.summaryMetricIcon}>
+                  <Feather name="dollar-sign" size={19} color={COLORS.textNavy} />
+                </View>
+                <View style={styles.summaryMetricText}>
+                  <Text style={styles.summaryMetricLabel}>Total bruto</Text>
+                  <Text style={styles.summaryMetricValue}>{valoresVisiveis ? totalBruto : 'R$ ••••••'}</Text>
+                </View>
+              </Card.Content>
+            </Card>
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.summaryMetricContent}>
+                <View style={[styles.summaryMetricIcon, styles.pendingMetricIcon]}>
+                  <Feather name="clock" size={19} color="#B45309" />
+                </View>
+                <View style={styles.summaryMetricText}>
+                  <Text style={styles.summaryMetricLabel}>Pendente a receber</Text>
+                  <Text style={styles.summaryMetricValue}>{valoresVisiveis ? pendenteReceber : 'R$ ••••••'}</Text>
+                </View>
+              </Card.Content>
+            </Card>
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.summaryMetricContent}>
+                <View style={[styles.summaryMetricIcon, styles.paidMetricIcon]}>
+                  <Feather name="check-circle" size={19} color="#047857" />
+                </View>
+                <View style={styles.summaryMetricText}>
+                  <Text style={styles.summaryMetricLabel}>Valor realizado/pago</Text>
+                  <Text style={styles.summaryMetricValue}>{valoresVisiveis ? valorRealizado : 'R$ ••••••'}</Text>
+                </View>
+              </Card.Content>
+            </Card>
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setTipoDetalhamento('aPagar')}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver ${parcelasPendentes} parcelas a serem pagas`}
+          >
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.duePaymentsContent}>
+                <View style={styles.duePaymentsIcon}>
+                  <Feather name="calendar" size={19} color="#B45309" />
+                </View>
+                <View style={styles.duePaymentsText}>
+                  <Text style={styles.duePaymentsTitle}>Parcelas a serem pagas</Text>
+                  <Text style={styles.duePaymentsSubtitle}>{parcelasPendentes} parcelas pendentes</Text>
+                </View>
+                <View style={styles.duePaymentsAction}>
+                  <Text style={styles.duePaymentsValue}>{valoresVisiveis ? valorParcelasPendentes : 'R$ ••••••'}</Text>
+                  <View style={styles.cardActionHint}>
+                    <Text style={styles.cardActionHintText}>Ver detalhes</Text>
+                    <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Status de pagamentos</Text>
+              <View style={styles.paymentCountsRow}>
+                <TouchableOpacity
+                  style={styles.paymentCountItem}
+                  onPress={() => setTipoDetalhamento('pagas')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${parcelasPagas} parcelas pagas`}
+                >
+                  <View style={styles.paymentCountTitleRow}>
+                    <Text style={styles.paymentCountValue}>{parcelasPagas}</Text>
+                    <Feather name="chevron-right" size={16} color={COLORS.textNavy} />
+                  </View>
+                  <Text style={styles.paymentCountLabel}>Parcelas pagas</Text>
+                  <Text style={styles.paymentCountAction}>Ver detalhes</Text>
+                </TouchableOpacity>
+                <View style={styles.paymentCountDivider} />
+                <TouchableOpacity
+                  style={styles.paymentCountItem}
+                  onPress={() => setTipoDetalhamento('pendentes')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${parcelasPendentes} parcelas pendentes`}
+                >
+                  <View style={styles.paymentCountTitleRow}>
+                    <Text style={styles.paymentCountValue}>{parcelasPendentes}</Text>
+                    <Feather name="chevron-right" size={16} color={COLORS.textNavy} />
+                  </View>
+                  <Text style={styles.paymentCountLabel}>Parcelas pendentes</Text>
+                  <Text style={styles.paymentCountAction}>Ver detalhes</Text>
+                </TouchableOpacity>
+              </View>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Faturamento por tipo de evento</Text>
+              {faturamentoTipos.length ? faturamentoTipos.map(({ tipo, valor, percentual }) => (
+                <View key={tipo} style={styles.typeRevenueItem}>
+                  <View style={styles.typeRevenueHeader}>
+                    <Text style={styles.typeRevenueName} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.typeRevenueValue}>
+                      {valoresVisiveis ? `${formatarMonetario(valor)} · ${Math.round(percentual)}%` : 'R$ ••••••'}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    {valoresVisiveis && <View style={[styles.progressFill, { width: `${percentual}%` }]} />}
+                  </View>
+                </View>
+              )) : <Text style={styles.dashboardEmptyText}>Nenhum evento neste período.</Text>}
+            </Card.Content>
+          </Card>
+        </View>
+
+        <View style={styles.dashboardSection}>
+          <View style={styles.dashboardSectionHeading}>
+            <Feather name="credit-card" size={18} color="#047857" />
+            <Text style={styles.dashboardSectionTitle}>Despesas</Text>
+          </View>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.summaryMetricContent}>
+              <View style={[styles.summaryMetricIcon, styles.paidMetricIcon]}>
+                <Feather name="dollar-sign" size={19} color="#047857" />
+              </View>
+              <View style={styles.summaryMetricText}>
+                <Text style={styles.summaryMetricLabel}>Despesas pagas à equipe</Text>
+                <Text style={styles.summaryMetricValue}>{valoresVisiveis ? despesasEquipe : 'R$ ••••••'}</Text>
+              </View>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Despesas pagas por categoria</Text>
+              {despesasCategorias.length ? despesasCategorias.map(({ tipo, valor, percentual }) => (
+                <View key={tipo} style={styles.typeRevenueItem}>
+                  <View style={styles.typeRevenueHeader}>
+                    <Text style={styles.typeRevenueName} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.typeRevenueValue}>
+                      {valoresVisiveis ? `${formatarMonetario(valor)} · ${Math.round(percentual)}%` : 'R$ ••••••'}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    {valoresVisiveis && <View style={[styles.expenseProgressFill, { width: `${percentual}%` }]} />}
+                  </View>
+                </View>
+              )) : <Text style={styles.dashboardEmptyText}>Nenhuma despesa neste período.</Text>}
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.dashboardCard}>
+            <Card.Content style={styles.dashboardCardContent}>
+              <Text style={styles.dashboardCardTitle}>Despesas pagas por tipo de evento</Text>
+              {despesasTipos.length ? despesasTipos.map(({ tipo, valor, percentual }) => (
+                <View key={tipo} style={styles.typeRevenueItem}>
+                  <View style={styles.typeRevenueHeader}>
+                    <Text style={styles.typeRevenueName} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.typeRevenueValue}>
+                      {valoresVisiveis ? `${formatarMonetario(valor)} · ${Math.round(percentual)}%` : 'R$ ••••••'}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    {valoresVisiveis && <View style={[styles.expenseProgressFill, { width: `${percentual}%` }]} />}
+                  </View>
+                </View>
+              )) : <Text style={styles.dashboardEmptyText}>Nenhuma despesa neste período.</Text>}
+            </Card.Content>
+          </Card>
+        </View>
+
+        <View style={styles.dashboardSection}>
+          <View style={styles.dashboardSectionHeading}>
+            <Feather name="users" size={18} color={COLORS.textNavy} />
+            <Text style={styles.dashboardSectionTitle}>Equipe</Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setTipoDetalhamento('equipe')}
+            accessibilityRole="button"
+            accessibilityLabel="Ver detalhes da confirmação da equipe"
+          >
+            <Card style={styles.dashboardCard}>
+              <Card.Content style={styles.dashboardCardContent}>
+                <View style={styles.teamConfirmationHeader}>
+                  <Text style={styles.dashboardCardTitle}>Confirmação da equipe</Text>
+                  <Text style={styles.teamConfirmationPercent}>{taxaConfirmacao}%</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${taxaConfirmacao}%` }]} />
+                </View>
+                <Text style={styles.teamConfirmationText}>
+                  {profissionaisConfirmados} de {profissionaisConvocados} profissionais confirmados
+                </Text>
+                <View style={styles.teamConfirmationAction}>
+                  <Text style={styles.cardActionHintText}>Ver convites pendentes</Text>
+                  <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                </View>
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -338,6 +681,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      )}
 
       <Modal
         visible={tipoDetalhamento !== null}
@@ -372,30 +716,37 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
               keyboardShouldPersistTaps="handled"
             >
               {tipoDetalhamento === 'equipe' ? (
-                equipeDetalhada.length ? equipeDetalhada.map(({ evento, profissional, chave }) => (
-                  <TouchableOpacity
-                    key={`${evento.idEvento || evento.id}_${chave}`}
-                    style={styles.detailItem}
-                    onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
-                    activeOpacity={0.7}
-                  >
+                equipeDetalhada.length ? equipeDetalhada.map(({ profissional, eventos, chave }) => (
+                  <View key={chave} style={styles.detailItem}>
                     <View style={styles.detailItemText}>
                       <Text style={styles.detailItemTitle}>{profissional.nomeProfissional || 'Profissional'}</Text>
-                      <Text style={styles.detailItemDescription}>
-                        {profissional.funcao || 'Função não informada'} · {evento.titulo || 'Evento'}
-                      </Text>
                       <View style={styles.pendingInvitationDetails}>
                         <View style={styles.pendingInvitationBadge}>
                           <Feather name="clock" size={12} color="#92400E" />
                           <Text style={styles.pendingInvitationBadgeText}>Pendente</Text>
                         </View>
-                        <Text style={styles.detailItemMeta}>
-                          {evento.dataInicio || 'Data a definir'}
-                        </Text>
+                        {!!profissional.funcao && (
+                          <Text style={styles.detailItemMeta}>{profissional.funcao}</Text>
+                        )}
                       </View>
+                      <Text style={styles.detailItemDescription}>Eventos:</Text>
+                      {eventos.map((evento) => (
+                        <TouchableOpacity
+                          key={evento.idEvento || evento.id}
+                          style={styles.pendingTeamEvent}
+                          onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Abrir evento ${evento.titulo || 'Evento'}`}
+                        >
+                          <Text style={styles.pendingTeamEventText}>
+                            {evento.titulo || 'Evento'} · {evento.dataInicio || 'Data a definir'}
+                          </Text>
+                          <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <Feather name="chevron-right" size={20} color={COLORS.textSubtle} />
-                  </TouchableOpacity>
+                  </View>
                 )) : <Text style={styles.modalEmptyText}>Nenhum convite pendente neste período.</Text>
               ) : (
                 parcelasDetalhadas.length ? parcelasDetalhadas.map(({ evento, parcela, numeroParcela }, index) => (
@@ -492,6 +843,8 @@ const styles = StyleSheet.create({
   bellButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
   sheet: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 20 },
+  loadingContainer: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontFamily: FONTES.medium, color: COLORS.textMuted, fontSize: 13 },
   periodSection: { marginBottom: 16 },
   periodTitle: { fontFamily: FONTES.semibold, fontSize: 14, color: COLORS.textNavy, marginBottom: 9 },
   periodRow: { flexDirection: 'row', gap: 8 },
@@ -561,6 +914,8 @@ const styles = StyleSheet.create({
   pendingInvitationDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   pendingInvitationBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: '#FEF3D6' },
   pendingInvitationBadgeText: { fontFamily: FONTES.bold, color: '#92400E', fontSize: 11, fontWeight: '700' },
+  pendingTeamEvent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 8, paddingHorizontal: 10, marginTop: 6, backgroundColor: COLORS.sheetBg, borderRadius: 10 },
+  pendingTeamEventText: { flex: 1, fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 12 },
   detailItemAmount: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
   modalEmptyText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19, paddingVertical: 18 },
   customPeriodModal: { backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 20 },
