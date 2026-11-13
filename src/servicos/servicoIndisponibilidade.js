@@ -55,22 +55,14 @@ export async function verificarIndisponibilidadeTecnicoNaData(uid, dataEvento) {
   try {
     const docSnap = await getDoc(doc(bancoDados, 'indisponibilidade', idIndisponibilidade));
     return docSnap.exists();
-<<<<<<< HEAD
-  
   } catch (erro) {
     if (erro?.code === 'permission-denied') {
       console.warn('Sem permissão no Firestore para consultar indisponibilidade:', erro.message);
       return false;
     }
-    throw erro;
-  }
-
-=======
-  } catch (e) {
-    console.log('Aviso ao verificar indisponibilidade:', e?.message);
+    console.log('Aviso ao verificar indisponibilidade:', erro?.message);
     return false;
   }
->>>>>>> main
 }
 
 export function assinarIndisponibilidadeTecnico(uid, aoReceberDatas, aoOcorrerErro) {

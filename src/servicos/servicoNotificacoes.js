@@ -272,13 +272,7 @@ const notificacoesCriadasSessao = new Set();
 
 // 6. Grava notificação no Firestore
 async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
-<<<<<<< HEAD
-  try {
-  const ref = doc(bancoDados, 'notificacoes', idNotificacao);
-  const snap = await getDoc(ref);
-=======
   if (notificacoesCriadasSessao.has(idNotificacao)) return false;
->>>>>>> main
 
   try {
     const ref = doc(bancoDados, 'notificacoes', idNotificacao);
@@ -301,24 +295,22 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
     });
     notificacoesCriadasSessao.add(idNotificacao);
   } catch (e) {
-    console.log('Aviso ao gravar notificação no Firestore:', e?.message);
+    if (e?.code === 'permission-denied') {
+      console.warn('Sem permissão no Firestore para gravar notificação:', e.message);
+    } else {
+      console.log('Aviso ao gravar notificação no Firestore:', e?.message);
+    }
     notificacoesCriadasSessao.add(idNotificacao);
+    return false;
   }
 
   if (opcoes.dispararBannerLocal) {
     await dispararNotificacaoBarraCelular(dados.titulo, dados.mensagem, idNotificacao);
   }
-    if (opcoes.enviarPushRemoto) {
-      await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);
-    }
-    return true;
-  } catch (erro) {
-    if (erro?.code === 'permission-denied') {
-      console.warn('Sem permissão no Firestore para gravar notificação:', erro.message);
-      return false;
-    }
-    throw erro;
+  if (opcoes.enviarPushRemoto) {
+    await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);
   }
+  return true;
 }
 
 // 7. Gatilho de Novo Evento
