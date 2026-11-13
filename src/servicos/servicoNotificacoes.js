@@ -268,23 +268,36 @@ export function calcularDiasAteEvento(dataEvento) {
   return Math.round((dataAlvo.getTime() - hojeMeiaNoite.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const notificacoesCriadasSessao = new Set();
+
 // 6. Grava notificação no Firestore
 async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
-  const ref = doc(bancoDados, 'notificacoes', idNotificacao);
-  const snap = await getDoc(ref);
+  if (notificacoesCriadasSessao.has(idNotificacao)) return false;
 
-  if (snap.exists()) return false;
+  try {
+    const ref = doc(bancoDados, 'notificacoes', idNotificacao);
+    const snap = await getDoc(ref);
 
-  await setDoc(ref, {
-    id: idNotificacao,
-    id_usuario: dados.idUsuario,
-    id_evento: dados.idEvento || null,
-    tipo: dados.tipo,
-    titulo: dados.titulo,
-    mensagem: dados.mensagem,
-    lida: false,
-    criado_em: serverTimestamp(),
-  });
+    if (snap.exists()) {
+      notificacoesCriadasSessao.add(idNotificacao);
+      return false;
+    }
+
+    await setDoc(ref, {
+      id: idNotificacao,
+      id_usuario: dados.idUsuario,
+      id_evento: dados.idEvento || null,
+      tipo: dados.tipo,
+      titulo: dados.titulo,
+      mensagem: dados.mensagem,
+      lida: false,
+      criado_em: serverTimestamp(),
+    });
+    notificacoesCriadasSessao.add(idNotificacao);
+  } catch (e) {
+    console.log('Aviso ao gravar notificação no Firestore:', e?.message);
+    notificacoesCriadasSessao.add(idNotificacao);
+  }
 
   if (opcoes.dispararBannerLocal) {
     await dispararNotificacaoBarraCelular(dados.titulo, dados.mensagem, idNotificacao);

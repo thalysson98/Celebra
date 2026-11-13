@@ -145,12 +145,32 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     }
   }, [user?.uid]);
 
+  const convitesAnterioresRef = useRef(null);
+
   useEffect(() => {
     setLoading(true);
     const unsubscribe = subscribeToTechnicianAssignments(
       user.uid,
       (nextAssignments) => {
-        setAssignments(nextAssignments || []);
+        const lista = nextAssignments || [];
+        if (convitesAnterioresRef.current !== null) {
+          const idsAnteriores = new Set(
+            convitesAnterioresRef.current.filter((a) => a.status === 'pending').map((a) => a.id)
+          );
+          const novosConvites = lista.filter((a) => a.status === 'pending' && !idsAnteriores.has(a.id));
+          for (const novo of novosConvites) {
+            const idEventoAlvo = novo.idEvento || novo.id;
+            const idNotifNovo = `novo_evento_${idEventoAlvo}_${user.uid}`;
+            const dataFmt = formatShortDate(novo.eventDate);
+            dispararNotificacaoBarraCelular(
+              'Novo evento lançado para você!',
+              `Você foi escalado como ${novo.roleName || 'profissional'} no evento "${novo.eventTitle || 'Evento'}" (${dataFmt}).`,
+              idNotifNovo
+            );
+          }
+        }
+        convitesAnterioresRef.current = lista;
+        setAssignments(lista);
         setError('');
         setLoading(false);
       },
@@ -683,29 +703,6 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={[styles.profileSecurityCard, { marginTop: 12 }]} 
-        onPress={async () => {
-          if (user?.uid) {
-            await inicializarNotificacoesDispositivo(user.uid);
-          }
-          await dispararNotificacaoBarraCelular(
-            'Celebra: Notificação de Teste',
-            'Isso é um aviso externo na barra de notificações!'
-          );
-        }}
-        activeOpacity={0.8}
-      >
-      <View style={[styles.profileSecurityIcon, { backgroundColor: '#FEF3C7' }]}>
-        <Feather name="bell" size={17} color="#D97706" />
-      </View>
-      <View style={styles.profilePreferenceCopy}>
-        <Text style={styles.profilePreferenceTitle}>Testar Notificação Externa</Text>
-        <Text style={styles.profilePreferenceSubtitle}>Dispara aviso na barra do celular</Text>
-      </View>
-      <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
-    </TouchableOpacity>
 
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />

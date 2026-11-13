@@ -394,6 +394,8 @@ export const repositorioEventos = {
     const referencia = doc(collection(bancoDados, 'eventos'));
     const dadosEvento = {
       id_evento: referencia.id, id_empresa: empresaId, titulo, id_tipo_evento: idTipoEvento, id_cliente: idCliente,
+      id_local: locaisDetalhados[0]?.id_local || '',
+      id_locais: locaisDetalhados.map((l) => l.id_local).filter(Boolean),
       nome_tipo_evento: dadosNovoEvento.tipoEvento,
       locais_detalhados: locaisDetalhados,
       data_inicio: dataInicio, quantidade_convidados: Number(dadosNovoEvento.numConvidados) || 0,
