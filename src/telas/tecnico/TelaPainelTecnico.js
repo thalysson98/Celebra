@@ -1,3 +1,8 @@
+// ============================================================================
+// src/telas/tecnico/TelaPainelTecnico.js
+// Painel principal do Técnico com suporte a troca de abas via rota,
+// notificações em tempo real, rolagem Web e barra inferior padronizada.
+// ============================================================================
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   inicializarNotificacoesDispositivo,
@@ -24,7 +29,11 @@ import { COLORS, CORES, FONTES } from '../../tema/cores';
 import { subscribeToTechnicianAssignments } from '../../servicos/servicoEscala';
 import { requestPasswordReset } from '../../servicos/servicoAutenticacao';
 import { setUserEventsNotificationPreference, updateUserProfile } from '../../servicos/servicoUsuario';
-import { markTechnicianUnavailable, removeTechnicianUnavailability, subscribeToTechnicianUnavailability } from '../../servicos/servicoIndisponibilidade';
+import {
+  markTechnicianUnavailable,
+  removeTechnicianUnavailability,
+  subscribeToTechnicianUnavailability,
+} from '../../servicos/servicoIndisponibilidade';
 import { estilosPainelTecnico as styles } from '../../estilos/estilosPainelTecnico';
 import { estilosNavegacao, obterEstiloHotbar } from '../../estilos/estilosNavegacao';
 import Cabecalho from '../../componentes/Cabecalho';
@@ -45,7 +54,10 @@ function onlyDigits(value) {
 
 function formatCpf(value) {
   const digits = onlyDigits(value).slice(0, 11);
-  return digits.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 }
 
 function formatPhone(value) {
@@ -57,7 +69,13 @@ function formatPhone(value) {
 }
 
 function getInitials(value) {
-  return String(value || 'Técnico').trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('pt-BR');
+  return String(value || 'Técnico')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toLocaleUpperCase('pt-BR');
 }
 
 function getLocalDateKey(value) {
@@ -89,7 +107,7 @@ function formatEventTime(value) {
   return `${h}:${m}h`;
 }
 
-export default function TelaPainelTecnico({ navigation, user, onLogout }) {
+export default function TelaPainelTecnico({ navigation, route, user, onLogout }) {
   const insets = useSafeAreaInsets();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +123,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const [profileForm, setProfileForm] = useState({ displayName: '', cpf: '', phone: '', city: '' });
   const [isProfileEditorVisible, setProfileEditorVisible] = useState(false);
   const [isSavingProfile, setSavingProfile] = useState(false);
-  const [eventsNotificationsEnabled, setEventsNotificationsEnabled] = useState(user.notificationPreferences?.eventsAndTeam ?? true);
+  const [eventsNotificationsEnabled, setEventsNotificationsEnabled] = useState(
+    user.notificationPreferences?.eventsAndTeam ?? true
+  );
   const [isSavingNotificationPreference, setSavingNotificationPreference] = useState(false);
 
   const [agendaMonth, setAgendaMonth] = useState(() => {
@@ -138,6 +158,13 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     setModalErroVisivel(true);
   };
 
+  // --- ITEM 2 ADICIONADO: Escuta se outra tela (ex: Notificações) pediu para abrir uma aba específica ---
+  useEffect(() => {
+    if (route?.params?.abaInicial) {
+      setActiveTab(route.params.abaInicial);
+    }
+  }, [route?.params?.abaInicial]);
+
   useEffect(() => {
     setLoading(true);
     const unsubscribe = subscribeToTechnicianAssignments(
@@ -150,7 +177,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       () => {
         setError('Não foi possível carregar suas convocações. Tente novamente mais tarde.');
         setLoading(false);
-      },
+      }
     );
     return unsubscribe;
   }, [user.uid]);
@@ -167,7 +194,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       () => {
         setAvailabilityError('Não foi possível carregar suas indisponibilidades.');
         setAvailabilityLoading(false);
-      },
+      }
     );
     return unsubscribe;
   }, [user.uid]);
@@ -212,16 +239,27 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   }, [user?.uid, assignments, eventsNotificationsEnabled]);
   // --- FIM DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
 
-  const pendingAssignments = useMemo(() => assignments.filter((assignment) => assignment.status === 'pending'), [assignments]);
-  const confirmedAssignments = useMemo(() => assignments.filter((assignment) => assignment.status === 'accepted'), [assignments]);
-  const allAssignmentsForAgenda = useMemo(() => assignments.filter((a) => a.status === 'accepted' || a.status === 'pending'), [assignments]);
+  const pendingAssignments = useMemo(
+    () => assignments.filter((assignment) => assignment.status === 'pending'),
+    [assignments]
+  );
+  const confirmedAssignments = useMemo(
+    () => assignments.filter((assignment) => assignment.status === 'accepted'),
+    [assignments]
+  );
+  const allAssignmentsForAgenda = useMemo(
+    () => assignments.filter((a) => a.status === 'accepted' || a.status === 'pending'),
+    [assignments]
+  );
 
   const selectedAgendaDateKey = getLocalDateKey(selectedAgendaDay);
   const selectedDayAssignments = allAssignmentsForAgenda.filter((assignment) => {
     const date = toDate(assignment.eventDate);
     return date && getLocalDateKey(date) === selectedAgendaDateKey;
   });
-  const selectedDateUnavailable = unavailableDates.some((item) => item.dateKey === selectedAgendaDateKey);
+  const selectedDateUnavailable = unavailableDates.some(
+    (item) => item.dateKey === selectedAgendaDateKey
+  );
 
   const openProfileEditor = () => {
     setProfileForm({
@@ -293,7 +331,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   };
 
   const openAvailabilityDialog = () => {
-    if (!selectedDateUnavailable && selectedDayAssignments.some(a => a.status === 'accepted')) {
+    if (!selectedDateUnavailable && selectedDayAssignments.some((a) => a.status === 'accepted')) {
       mostrarErro('Você tem um evento aceito neste dia.', 'Data com compromisso');
       return;
     }
@@ -339,7 +377,7 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       const date = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), index - leadingDays + 1);
       const dateKey = getLocalDateKey(date);
 
-      const dayAssignments = allAssignmentsForAgenda.filter(a => {
+      const dayAssignments = allAssignmentsForAgenda.filter((a) => {
         const evDate = toDate(a.eventDate);
         return evDate && getLocalDateKey(evDate) === dateKey;
       });
@@ -350,13 +388,15 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         inCurrentMonth: date.getMonth() === agendaMonth.getMonth(),
         selected: dateKey === selectedAgendaDateKey,
         isToday: dateKey === getLocalDateKey(today),
-        unavailable: unavailableDates.some(item => item.dateKey === dateKey),
-        hasConfirmed: dayAssignments.some(a => a.status === 'accepted'),
-        hasPending: dayAssignments.some(a => a.status === 'pending'),
+        unavailable: unavailableDates.some((item) => item.dateKey === dateKey),
+        hasConfirmed: dayAssignments.some((a) => a.status === 'accepted'),
+        hasPending: dayAssignments.some((a) => a.status === 'pending'),
       };
     });
 
-    const monthTitle = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(agendaMonth);
+    const monthTitle = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+      agendaMonth
+    );
     const monthTitleCapitalized = `${monthTitle.charAt(0).toLocaleUpperCase('pt-BR')}${monthTitle.slice(1)}`;
 
     return (
@@ -376,7 +416,11 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           </View>
 
           <View style={styles.agendaWeekdays}>
-            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => <Text key={day} style={styles.agendaWeekday}>{day}</Text>)}
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+              <Text key={day} style={styles.agendaWeekday}>
+                {day}
+              </Text>
+            ))}
           </View>
 
           <View style={styles.agendaCalendarGrid}>
@@ -393,21 +437,26 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
                 }}
               >
                 {/* Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado */}
-                <View style={[
-                  styles.agendaDayCircle,
-                  !day.inCurrentMonth && styles.agendaDayOutsideMonth,
-                  day.isToday && styles.agendaDayToday,
-                  day.unavailable && styles.agendaDayUnavailable,
-                  day.hasPending && styles.agendaDayPending,
-                  day.hasConfirmed && styles.agendaDayConfirmed,
-                  day.selected && styles.agendaDaySelected,
-                ]}>
-                  <Text style={[
-                    styles.agendaDayNumber,
-                    !day.inCurrentMonth && styles.agendaDayNumberOutside,
-                    day.selected && styles.agendaDayNumberSelected,
-                    (day.hasConfirmed || day.hasPending || day.unavailable) && styles.agendaDayNumberEvent,
-                  ]}>
+                <View
+                  style={[
+                    styles.agendaDayCircle,
+                    !day.inCurrentMonth && styles.agendaDayOutsideMonth,
+                    day.isToday && styles.agendaDayToday,
+                    day.unavailable && styles.agendaDayUnavailable,
+                    day.hasPending && styles.agendaDayPending,
+                    day.hasConfirmed && styles.agendaDayConfirmed,
+                    day.selected && styles.agendaDaySelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.agendaDayNumber,
+                      !day.inCurrentMonth && styles.agendaDayNumberOutside,
+                      day.selected && styles.agendaDayNumberSelected,
+                      (day.hasConfirmed || day.hasPending || day.unavailable) &&
+                        styles.agendaDayNumberEvent,
+                    ]}
+                  >
                     {day.date.getDate()}
                   </Text>
                 </View>
@@ -426,9 +475,16 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
 
         <TouchableOpacity
-          style={[styles.agendaAvailabilityButton, selectedDayAssignments.some(a => a.status === 'accepted') && !selectedDateUnavailable && styles.agendaAvailabilityDisabled]}
+          style={[
+            styles.agendaAvailabilityButton,
+            selectedDayAssignments.some((a) => a.status === 'accepted') &&
+              !selectedDateUnavailable &&
+              styles.agendaAvailabilityDisabled,
+          ]}
           onPress={openAvailabilityDialog}
-          disabled={selectedDayAssignments.some(a => a.status === 'accepted') && !selectedDateUnavailable}
+          disabled={
+            selectedDayAssignments.some((a) => a.status === 'accepted') && !selectedDateUnavailable
+          }
         >
           <Feather name={selectedDateUnavailable ? 'x-circle' : 'slash'} size={15} color={COLORS.textWhite} />
           <Text style={styles.agendaAvailabilityButtonText}>
@@ -443,13 +499,34 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
             <Text style={styles.agendaSectionTitle}>Eventos do dia</Text>
             <View style={styles.agendaEventList}>
               {selectedDayAssignments.map((assignment) => (
-                <TouchableOpacity key={assignment.id} style={styles.agendaEventCard} onPress={() => openEventDetails(assignment)}>
-                  <View style={styles.agendaEventIcon}><Feather name="calendar" size={16} color={COLORS.textNavy} /></View>
-                  <View style={styles.agendaEventDetails}>
-                    <Text style={styles.agendaEventTitle}>{formatShortDate(assignment.eventDate)} • {assignment.eventTitle}</Text>
+                <TouchableOpacity
+                  key={assignment.id}
+                  style={styles.agendaEventCard}
+                  onPress={() => openEventDetails(assignment)}
+                >
+                  <View style={styles.agendaEventIcon}>
+                    <Feather name="calendar" size={16} color={COLORS.textNavy} />
                   </View>
-                  <View style={assignment.status === 'accepted' ? styles.agendaStatusBadgeVerde : styles.agendaStatusBadgeLaranja}>
-                    <Text style={assignment.status === 'accepted' ? styles.agendaStatusTextoVerde : styles.agendaStatusTextoLaranja}>
+                  <View style={styles.agendaEventDetails}>
+                    {/* CORREÇÃO 1: Removido o sinal '-' solto e unido com ' • ' */}
+                    <Text style={styles.agendaEventTitle}>
+                      {formatShortDate(assignment.eventDate)} • {assignment.eventTitle}
+                    </Text>
+                  </View>
+                  <View
+                    style={
+                      assignment.status === 'accepted'
+                        ? styles.agendaStatusBadgeVerde
+                        : styles.agendaStatusBadgeLaranja
+                    }
+                  >
+                    <Text
+                      style={
+                        assignment.status === 'accepted'
+                          ? styles.agendaStatusTextoVerde
+                          : styles.agendaStatusTextoLaranja
+                      }
+                    >
                       {assignment.status === 'accepted' ? 'Confirmado' : 'Pendente'}
                     </Text>
                   </View>
@@ -465,12 +542,26 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
   const renderHome = () => (
     <>
       <View style={styles.summaryRow}>
-        <TouchableOpacity style={styles.summaryCard} onPress={() => { setEventFilter('pending'); setActiveTab('events'); }} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.summaryCard}
+          onPress={() => {
+            setEventFilter('pending');
+            setActiveTab('events');
+          }}
+          activeOpacity={0.8}
+        >
           <Text style={styles.summaryNumber}>{pendingAssignments.length}</Text>
           <Text style={styles.summaryLabel}>Eventos pendentes de aprovação</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.summaryCard} onPress={() => { setEventFilter('mine'); setActiveTab('events'); }} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.summaryCard}
+          onPress={() => {
+            setEventFilter('mine');
+            setActiveTab('events');
+          }}
+          activeOpacity={0.8}
+        >
           <Text style={styles.summaryNumber}>{confirmedAssignments.length}</Text>
           <Text style={styles.summaryLabel}>Seus eventos aceitos</Text>
         </TouchableOpacity>
@@ -491,18 +582,27 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       .filter((assignment) => assignment.status === statusByFilter[eventFilter])
       .filter((assignment) => {
         if (searchTerms.length === 0) return true;
-        const combinedString = normalizeSearch([
-          assignment.eventTitle,
-          assignment.clientName,
-          assignment.eventTypeName,
-          assignment.professionalTypeName,
-        ].filter(Boolean).join(' '));
-        return searchTerms.every(term => combinedString.includes(term));
+        const combinedString = normalizeSearch(
+          [
+            assignment.eventTitle,
+            assignment.clientName,
+            assignment.eventTypeName,
+            assignment.professionalTypeName,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
+        return searchTerms.every((term) => combinedString.includes(term));
       })
-      .sort((first, second) => (toDate(first.eventDate)?.getTime() || 0) - (toDate(second.eventDate)?.getTime() || 0));
+      .sort(
+        (first, second) =>
+          (toDate(first.eventDate)?.getTime() || 0) - (toDate(second.eventDate)?.getTime() || 0)
+      );
 
     const monthLabel = visibleAssignments.length
-      ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(toDate(visibleAssignments[0].eventDate) || new Date())
+      ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+          toDate(visibleAssignments[0].eventDate) || new Date()
+        )
       : '';
 
     return (
@@ -523,8 +623,15 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           {eventFilters.map((filter) => {
             const selected = eventFilter === filter.key;
             return (
-              <TouchableOpacity key={filter.key} style={[styles.eventFilterChip, selected && styles.eventFilterChipSelected]} onPress={() => setEventFilter(filter.key)} activeOpacity={0.75}>
-                <Text style={[styles.eventFilterText, selected && styles.eventFilterTextSelected]}>{filter.label}</Text>
+              <TouchableOpacity
+                key={filter.key}
+                style={[styles.eventFilterChip, selected && styles.eventFilterChipSelected]}
+                onPress={() => setEventFilter(filter.key)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.eventFilterText, selected && styles.eventFilterTextSelected]}>
+                  {filter.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -545,7 +652,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               <Feather name="calendar" size={22} color={COLORS.textNavy} />
             </View>
             <Text style={styles.emptyTitle}>
-              {eventFilter === 'pending' ? 'Nenhuma convocação pendente' : 'Você ainda não tem eventos aceitos'}
+              {eventFilter === 'pending'
+                ? 'Nenhuma convocação pendente'
+                : 'Você ainda não tem eventos aceitos'}
             </Text>
             <Text style={styles.emptyText}>
               Quando houver eventos nesta categoria, eles aparecerão aqui.
@@ -558,21 +667,23 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
 
   const renderEventCard = (assignment) => {
     return (
-      <Card key={assignment.id} style={styles.eventCardOrganizer} onPress={() => openEventDetails(assignment)}>
+      <Card
+        key={assignment.id}
+        style={styles.eventCardOrganizer}
+        onPress={() => openEventDetails(assignment)}
+      >
         <Card.Content style={styles.eventCardContentOrganizer}>
           <View style={styles.linhaTopo}>
             <Text style={styles.tipoBadge}>
               {assignment.eventTypeName || assignment.professionalTypeName || 'Evento'}
             </Text>
-            {/* Mostra a data e o horário do evento no card (ex: 10/11/2026 • 14:30h) */}
+            {/* CORREÇÃO 2: Removido o '-' solto e formatado data • hora */}
             <Text style={styles.dataTexto}>
               {formatShortDate(assignment.eventDate)} • {formatEventTime(assignment.eventDate)}
             </Text>
           </View>
 
-          <Text style={styles.tituloEvento}>
-            {assignment.eventTitle || 'Evento sem título'}
-          </Text>
+          <Text style={styles.tituloEvento}>{assignment.eventTitle || 'Evento sem título'}</Text>
 
           <View style={styles.linhaInfo}>
             <Feather name="video" size={16} color={COLORS.textMuted} />
@@ -582,14 +693,18 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
           </View>
 
           <View style={styles.linhaStatus}>
-            <View style={[
-              styles.statusBadge,
-              assignment.status === 'accepted' ? styles.statusBadgeVerde : styles.statusBadgeAmarelo
-            ]}>
-              <Text style={[
-                styles.statusTexto,
-                assignment.status === 'accepted' ? styles.statusTextoVerde : styles.statusTextoAmarelo
-              ]}>
+            <View
+              style={[
+                styles.statusBadge,
+                assignment.status === 'accepted' ? styles.statusBadgeVerde : styles.statusBadgeAmarelo,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusTexto,
+                  assignment.status === 'accepted' ? styles.statusTextoVerde : styles.statusTextoAmarelo,
+                ]}
+              >
                 {assignment.status === 'accepted' ? 'Confirmado' : 'Pendente'}
               </Text>
             </View>
@@ -609,7 +724,9 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
       <View style={styles.userProfileCard}>
         <View style={styles.userProfileHeading}>
           <View style={styles.userProfileAvatar}>
-            <Text style={styles.userProfileInitials}>{getInitials(profile.displayName || profile.name || user.name)}</Text>
+            <Text style={styles.userProfileInitials}>
+              {getInitials(profile.displayName || profile.name || user.name)}
+            </Text>
           </View>
           <View style={styles.userProfileHeadingCopy}>
             <Text style={styles.userProfileName} numberOfLines={1}>
@@ -622,10 +739,17 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         </View>
         <View style={styles.profileDivider} />
 
-        <Text style={styles.userProfileDetail}>CPF: {profile.cpf ? formatCpf(profile.cpf) : 'Não informado'}</Text>
-        <Text style={styles.userProfileDetail} numberOfLines={1}>{profile.email || 'E-mail não informado'}</Text>
+        <Text style={styles.userProfileDetail}>
+          CPF: {profile.cpf ? formatCpf(profile.cpf) : 'Não informado'}
+        </Text>
         <Text style={styles.userProfileDetail} numberOfLines={1}>
-          {[profile.city, profile.phone ? formatPhone(profile.phone) : null].filter(Boolean).join(' • ') || 'Cidade e telefone não informados'}
+          {profile.email || 'E-mail não informado'}
+        </Text>
+        {/* CORREÇÃO 3: Removido o '-' solto e corrigido o .join(' • ') em uma única linha */}
+        <Text style={styles.userProfileDetail} numberOfLines={1}>
+          {[profile.city, profile.phone ? formatPhone(profile.phone) : null]
+            .filter(Boolean)
+            .join(' • ') || 'Cidade e telefone não informados'}
         </Text>
 
         <TouchableOpacity style={styles.editProfileButton} onPress={openProfileEditor} activeOpacity={0.8}>
@@ -704,7 +828,14 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               </View>
             )}
           </View>
-          <Text style={[estilosNavegacao.tabLabel, { color: selected ? CORES.textNavy : COLORS.textSubtle }]}>{label}</Text>
+          <Text
+            style={[
+              estilosNavegacao.tabLabel,
+              { color: selected ? CORES.textNavy : COLORS.textSubtle },
+            ]}
+          >
+            {label}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -714,7 +845,11 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
     <View style={styles.screen}>
       {/* Exibe a bolinha com o total não lido e envia o ID e os eventos ao abrir o sininho */}
       <Cabecalho
-        titulo={activeTab === 'home' ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!` : { events: 'Eventos', profile: 'Perfil' }[activeTab]}
+        titulo={
+          activeTab === 'home'
+            ? `Olá, ${profile.displayName || profile.name || 'Técnico'}!`
+            : { events: 'Eventos', profile: 'Perfil' }[activeTab]
+        }
         subtitulo={activeTab === 'home' ? 'Seu painel de eventos' : ''}
         mostrarSino={true}
         quantidadeNotificacoes={totalNaoLidas}
@@ -727,40 +862,160 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
         }
       />
 
-      <ScrollView style={styles.mainContent} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.mainContent}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={true}
+      >
         {activeTab === 'home' && renderHome()}
         {activeTab === 'events' && renderEvents()}
         {activeTab === 'profile' && renderProfile()}
       </ScrollView>
 
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
-            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E6F8F0', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              padding: 24,
+              width: '100%',
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                backgroundColor: '#E6F8F0',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15,
+              }}
+            >
               <Feather name="check" size={32} color="#10B981" />
             </View>
-            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>{msgSucesso.titulo}</Text>
-            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>{msgSucesso.descricao}</Text>
-            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={() => setModalSucessoVisivel(false)}>Ok</Button>
+            <Text
+              style={{
+                fontFamily: FONTES.bold,
+                fontSize: 18,
+                color: CORES.textNavy,
+                marginBottom: 8,
+                textAlign: 'center',
+              }}
+            >
+              {msgSucesso.titulo}
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONTES.body,
+                fontSize: 14,
+                color: CORES.textMuted,
+                textAlign: 'center',
+                marginBottom: 20,
+              }}
+            >
+              {msgSucesso.descricao}
+            </Text>
+            <Button
+              mode="contained"
+              style={{ width: '100%', borderRadius: 10 }}
+              buttonColor={CORES.buttonGold}
+              textColor={CORES.textNavy}
+              onPress={() => setModalSucessoVisivel(false)}
+            >
+              Ok
+            </Button>
           </View>
         </View>
       </Modal>
 
       <Modal visible={modalErroVisivel} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>
-            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              padding: 24,
+              width: '100%',
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                backgroundColor: '#FEE2E2',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15,
+              }}
+            >
               <Feather name="alert-triangle" size={32} color="#EF4444" />
             </View>
-            <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 8, textAlign: 'center' }}>{msgErro.titulo}</Text>
-            <Text style={{ fontFamily: FONTES.body, fontSize: 14, color: CORES.textMuted, textAlign: 'center', marginBottom: 20 }}>{msgErro.descricao}</Text>
-            <Button mode="contained" style={{ width: '100%', borderRadius: 10 }} buttonColor="#EF4444" textColor="#FFF" onPress={() => setModalErroVisivel(false)}>Ok, entendi</Button>
+            <Text
+              style={{
+                fontFamily: FONTES.bold,
+                fontSize: 18,
+                color: CORES.textNavy,
+                marginBottom: 8,
+                textAlign: 'center',
+              }}
+            >
+              {msgErro.titulo}
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONTES.body,
+                fontSize: 14,
+                color: CORES.textMuted,
+                textAlign: 'center',
+                marginBottom: 20,
+              }}
+            >
+              {msgErro.descricao}
+            </Text>
+            <Button
+              mode="contained"
+              style={{ width: '100%', borderRadius: 10 }}
+              buttonColor="#EF4444"
+              textColor="#FFF"
+              onPress={() => setModalErroVisivel(false)}
+            >
+              Ok, entendi
+            </Button>
           </View>
         </View>
       </Modal>
 
-      <Modal visible={isProfileEditorVisible} transparent animationType="fade" onRequestClose={() => setProfileEditorVisible(false)}>
-        <KeyboardAvoidingView style={styles.profileModalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal
+        visible={isProfileEditorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProfileEditorVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.profileModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.profileEditorCard}>
             <View style={styles.profileEditorHeading}>
               <Text style={styles.profileEditorTitle}>Editar seus dados</Text>
@@ -769,44 +1024,115 @@ export default function TelaPainelTecnico({ navigation, user, onLogout }) {
               </TouchableOpacity>
             </View>
             <Text style={styles.profileFieldLabel}>Nome</Text>
-            <TextInput style={styles.profileFieldInput} value={profileForm.displayName} onChangeText={(displayName) => setProfileForm((current) => ({ ...current, displayName }))} placeholder="Seu nome" placeholderTextColor={COLORS.textMuted} maxLength={100} autoCapitalize="words" />
+            <TextInput
+              style={styles.profileFieldInput}
+              value={profileForm.displayName}
+              onChangeText={(displayName) => setProfileForm((current) => ({ ...current, displayName }))}
+              placeholder="Seu nome"
+              placeholderTextColor={COLORS.textMuted}
+              maxLength={100}
+              autoCapitalize="words"
+            />
             <Text style={styles.profileFieldLabel}>CPF</Text>
-            <TextInput style={styles.profileFieldInput} value={profileForm.cpf} onChangeText={(cpf) => setProfileForm((current) => ({ ...current, cpf: formatCpf(cpf) }))} placeholder="000.000.000-00" placeholderTextColor={COLORS.textMuted} keyboardType="numeric" />
+            <TextInput
+              style={styles.profileFieldInput}
+              value={profileForm.cpf}
+              onChangeText={(cpf) => setProfileForm((current) => ({ ...current, cpf: formatCpf(cpf) }))}
+              placeholder="000.000.000-00"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+            />
             <Text style={styles.profileFieldLabel}>Telefone</Text>
-            <TextInput style={styles.profileFieldInput} value={profileForm.phone} onChangeText={(phone) => setProfileForm((current) => ({ ...current, phone: formatPhone(phone) }))} placeholder="(00) 00000-0000" placeholderTextColor={COLORS.textMuted} keyboardType="phone-pad" />
+            <TextInput
+              style={styles.profileFieldInput}
+              value={profileForm.phone}
+              onChangeText={(phone) =>
+                setProfileForm((current) => ({ ...current, phone: formatPhone(phone) }))
+              }
+              placeholder="(00) 00000-0000"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="phone-pad"
+            />
             <Text style={styles.profileFieldLabel}>Cidade</Text>
-            <TextInput style={styles.profileFieldInput} value={profileForm.city} onChangeText={(city) => setProfileForm((current) => ({ ...current, city }))} placeholder="Sua cidade" placeholderTextColor={COLORS.textMuted} maxLength={100} autoCapitalize="words" />
-            <Text style={styles.profileEmailNote}>O e-mail da conta não pode ser alterado por esta tela.</Text>
+            <TextInput
+              style={styles.profileFieldInput}
+              value={profileForm.city}
+              onChangeText={(city) => setProfileForm((current) => ({ ...current, city }))}
+              placeholder="Sua cidade"
+              placeholderTextColor={COLORS.textMuted}
+              maxLength={100}
+              autoCapitalize="words"
+            />
+            <Text style={styles.profileEmailNote}>
+              O e-mail da conta não pode ser alterado por esta tela.
+            </Text>
             <View style={styles.profileEditorActions}>
-              <TouchableOpacity style={styles.profileCancelButton} onPress={() => setProfileEditorVisible(false)} disabled={isSavingProfile}>
+              <TouchableOpacity
+                style={styles.profileCancelButton}
+                onPress={() => setProfileEditorVisible(false)}
+                disabled={isSavingProfile}
+              >
                 <Text style={styles.profileCancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.profileSaveButton} onPress={saveProfile} disabled={isSavingProfile}>
-                {isSavingProfile ? <ActivityIndicator size="small" color={COLORS.textNavy} /> : <Text style={styles.profileSaveButtonText}>Salvar</Text>}
+              <TouchableOpacity
+                style={styles.profileSaveButton}
+                onPress={saveProfile}
+                disabled={isSavingProfile}
+              >
+                {isSavingProfile ? (
+                  <ActivityIndicator size="small" color={COLORS.textNavy} />
+                ) : (
+                  <Text style={styles.profileSaveButtonText}>Salvar</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={isAvailabilityDialogVisible} transparent animationType="fade" onRequestClose={() => setAvailabilityDialogVisible(false)}>
+      <Modal
+        visible={isAvailabilityDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvailabilityDialogVisible(false)}
+      >
         <View style={styles.profileModalOverlay}>
           <View style={styles.availabilityDialogCard}>
             <View style={styles.profileSecurityIcon}>
-              <Feather name={selectedDateUnavailable ? 'calendar' : 'slash'} size={19} color={COLORS.textNavy} />
+              <Feather
+                name={selectedDateUnavailable ? 'calendar' : 'slash'}
+                size={19}
+                color={COLORS.textNavy}
+              />
             </View>
             <Text style={styles.availabilityDialogTitle}>
               {selectedDateUnavailable ? 'Remover indisponibilidade?' : 'Adicionar indisponibilidade?'}
             </Text>
             <Text style={styles.availabilityDialogMessage}>
-              {selectedDateUnavailable ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.` : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
+              {selectedDateUnavailable
+                ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.`
+                : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
             </Text>
             <View style={styles.profileEditorActions}>
-              <TouchableOpacity style={styles.profileCancelButton} onPress={() => setAvailabilityDialogVisible(false)} disabled={isUpdatingAvailability}>
+              <TouchableOpacity
+                style={styles.profileCancelButton}
+                onPress={() => setAvailabilityDialogVisible(false)}
+                disabled={isUpdatingAvailability}
+              >
                 <Text style={styles.profileCancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.profileSaveButton} onPress={confirmAvailabilityChange} disabled={isUpdatingAvailability}>
-                {isUpdatingAvailability ? <ActivityIndicator size="small" color={COLORS.textNavy} /> : <Text style={styles.profileSaveButtonText}>{selectedDateUnavailable ? 'Remover' : 'Confirmar'}</Text>}
+              <TouchableOpacity
+                style={styles.profileSaveButton}
+                onPress={confirmAvailabilityChange}
+                disabled={isUpdatingAvailability}
+              >
+                {isUpdatingAvailability ? (
+                  <ActivityIndicator size="small" color={COLORS.textNavy} />
+                ) : (
+                  <Text style={styles.profileSaveButtonText}>
+                    {selectedDateUnavailable ? 'Remover' : 'Confirmar'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
