@@ -55,6 +55,7 @@ export async function verificarIndisponibilidadeTecnicoNaData(uid, dataEvento) {
   try {
     const docSnap = await getDoc(doc(bancoDados, 'indisponibilidade', idIndisponibilidade));
     return docSnap.exists();
+<<<<<<< HEAD
   
   } catch (erro) {
     if (erro?.code === 'permission-denied') {
@@ -64,6 +65,12 @@ export async function verificarIndisponibilidadeTecnicoNaData(uid, dataEvento) {
     throw erro;
   }
 
+=======
+  } catch (e) {
+    console.log('Aviso ao verificar indisponibilidade:', e?.message);
+    return false;
+  }
+>>>>>>> main
 }
 
 export function assinarIndisponibilidadeTecnico(uid, aoReceberDatas, aoOcorrerErro) {

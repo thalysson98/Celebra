@@ -20,6 +20,7 @@ import { autenticacao } from './src/configuracao/configuracaoFirebase';
 import { CORES, FONTES } from './src/tema/cores';
 import { desconectarUsuario } from './src/servicos/servicoAutenticacao';
 import { obterPerfilUsuario } from './src/servicos/servicoUsuario';
+import { inicializarNotificacoesDispositivo } from './src/servicos/servicoNotificacoes';
 import NavegadorRaiz from './src/navegacao/NavegadorRaiz';
 
 const paperTheme = {
@@ -85,6 +86,12 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      inicializarNotificacoesDispositivo(currentUser.uid);
+    }
+  }, [currentUser?.uid]);
 
   const handleLogout = async () => {
     await desconectarUsuario();

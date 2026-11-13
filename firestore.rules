@@ -77,7 +77,7 @@ service cloud.firestore {
       );
       allow update: if autenticado() && request.auth.uid == userId
         && (
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone'])
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone', 'pushToken'])
             && request.resource.data.id_usuario == resource.data.id_usuario
             && request.resource.data.papel == resource.data.papel
             && request.resource.data.id_empresa == resource.data.id_empresa
@@ -131,6 +131,7 @@ service cloud.firestore {
     }
 
     match /indisponibilidade/{availabilityId} {
+<<<<<<< HEAD
       allow get: if autenticado() && (
         resource == null
         || resource.data.id_usuario == request.auth.uid
@@ -140,6 +141,9 @@ service cloud.firestore {
         resource.data.id_usuario == request.auth.uid
         || organizadorDaEmpresa(get(/databases/$(database)/documents/usuarios/$(resource.data.id_usuario)).data.id_empresa)
       );
+=======
+      allow read: if autenticado();
+>>>>>>> main
       allow create: if autenticado()
         && request.resource.data.id_indisponibilidade == availabilityId
         && request.resource.data.id_usuario == request.auth.uid
@@ -150,6 +154,7 @@ service cloud.firestore {
     }
 
     match /convites/{inviteId} {
+<<<<<<< HEAD
       allow get: if autenticado() && (
         resource == null
         || resource.data.id_usuario == request.auth.uid
@@ -160,11 +165,19 @@ service cloud.firestore {
       );
       allow update: if (
         autenticado() && resource.data.id_usuario == request.auth.uid
+=======
+      allow read: if autenticado() && (
+        resource == null || resource.data.id_usuario == request.auth.uid || membroDaEmpresa(resource.data.id_empresa)
+      );
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        || (autenticado() && resource.data.id_usuario == request.auth.uid
+>>>>>>> main
         && request.resource.data.id_usuario == resource.data.id_usuario
         && request.resource.data.id_evento == resource.data.id_evento
         && resource.data.situacao == 'pendente'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'respondido_em'])
         && request.resource.data.situacao in ['aceito', 'recusado']
+<<<<<<< HEAD
         && request.resource.data.respondido_em is timestamp
       ) || (
         organizadorDaEmpresa(resource.data.id_empresa)
@@ -172,6 +185,9 @@ service cloud.firestore {
         && request.resource.data.id_evento == resource.data.id_evento
         && request.resource.data.id_usuario == resource.data.id_usuario
       );
+=======
+        && request.resource.data.respondido_em is timestamp);
+>>>>>>> main
       allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
         && request.resource.data.id_convite == inviteId
         && inviteId == request.resource.data.id_evento + '_' + request.resource.data.id_usuario
@@ -298,6 +314,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+<<<<<<< HEAD
     match /notificacoes/{notificationId} {
       allow get: if autenticado() && (
         resource == null
@@ -319,6 +336,12 @@ service cloud.firestore {
         && resource.data.id_usuario == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lida'])
         && request.resource.data.lida is bool;
+=======
+    match /notificacoes/{notificacaoId} {
+      allow read: if autenticado();
+      allow create: if autenticado();
+      allow update: if autenticado() && resource.data.id_usuario == request.auth.uid;
+>>>>>>> main
       allow delete: if false;
     }
 

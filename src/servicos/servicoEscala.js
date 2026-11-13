@@ -1,5 +1,5 @@
 
-import { arrayUnion, arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch, updateDoc } from 'firebase/firestore';
+import { arrayUnion, arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, writeBatch, updateDoc } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
 import { notificarNovoEventoParaTecnico } from './servicoNotificacoes';
 
@@ -17,6 +17,7 @@ async function obterDocumento(colecao, id) {
 }
 
 export async function listarTecnicosDaEmpresa(idEmpresa) {
+  if (!idEmpresa) return [];
   const resultado = await getDocs(query(collection(bancoDados, 'usuarios'), where('id_empresa', '==', idEmpresa), where('papel', '==', false), where('ativo', '==', true)));
   return resultado.docs
     .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
@@ -45,14 +46,27 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
     dataFormatada = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
   }
 
+  const convitesSnap = await getDocs(
+    query(
+      collection(bancoDados, 'convites'),
+      where('id_empresa', '==', idEmpresa),
+      where('id_evento', '==', idEvento)
+    )
+  );
+  const convitesExistentes = new Map(convitesSnap.docs.map((d) => [d.id, d.data()]));
+
   for (const profissional of convidados) {
     const idUsuario = profissional.idUsuario || profissional.id;
     const idConvite = `${idEvento}_${idUsuario}`;
     const referencia = doc(bancoDados, 'convites', idConvite);
-    const existente = await getDoc(referencia);
+    const existente = convitesExistentes.get(idConvite);
 
-    if (existente.exists() && existente.data().situacao !== 'cancelado') {
+    if (existente && existente.situacao !== 'cancelado') {
       throw new Error(`O profissional já possui convite ativo.`);
+    }
+
+    if (existente && existente.situacao === 'cancelado') {
+      await deleteDoc(referencia);
     }
     
     lote.set(referencia, {
@@ -90,21 +104,48 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
 }
 
 export async function reenviarConvite(idConvite) {
-  await updateDoc(doc(bancoDados, 'convites', idConvite), { situacao: 'pendente', enviado_em: serverTimestamp() });
+  const ref = doc(bancoDados, 'convites', idConvite);
+  try {
+    await updateDoc(ref, { situacao: 'pendente', enviado_em: serverTimestamp() });
+  } catch {
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const dados = snap.data();
+      await deleteDoc(ref);
+      const { respondido_em, ...resto } = dados;
+      await setDoc(ref, { ...resto, situacao: 'pendente', enviado_em: serverTimestamp() });
+    }
+  }
 }
 
 export async function removerConvite(idConvite, idEvento, idUsuario) {
   await runTransaction(bancoDados, async (t) => {
-     t.update(doc(bancoDados, 'convites', idConvite), { situacao: 'cancelado' });
+     t.delete(doc(bancoDados, 'convites', idConvite));
      t.update(doc(bancoDados, 'eventos', idEvento), { membros_escalados: arrayRemove(idUsuario) });
   });
 }
 
 export async function atualizarFuncaoConvite(idConvite, idTipoProfissional, nomeTipoProfissional) {
-   await updateDoc(doc(bancoDados, 'convites', idConvite), {
+  const ref = doc(bancoDados, 'convites', idConvite);
+  try {
+    await updateDoc(ref, {
       id_tipo_profissional: idTipoProfissional,
-      nome_tipo_profissional: nomeTipoProfissional
-   });
+      nome_tipo_profissional: nomeTipoProfissional,
+    });
+  } catch {
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const dados = snap.data();
+      await deleteDoc(ref);
+      await setDoc(ref, {
+        ...dados,
+        id_tipo_profissional: idTipoProfissional,
+        nome_tipo_profissional: nomeTipoProfissional,
+        situacao: 'pendente',
+        enviado_em: serverTimestamp(),
+      });
+    }
+  }
 }
 
 async function mapearConvite(snapshot) {

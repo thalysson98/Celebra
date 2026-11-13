@@ -1282,7 +1282,7 @@ const salvarEdicao = async () => {
 
       <ModalAdicionarProfissional
         visible={modalEquipeVisivel}
-        empresaId={usuario?.idEmpresa}
+        empresaId={usuario?.idEmpresa || evento?.id_empresa}
         dataEvento={evento.dataInicio}
         equipeAtual={equipe}
         onClose={() => setModalEquipeVisivel(false)}

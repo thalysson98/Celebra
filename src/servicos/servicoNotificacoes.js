@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import {
   collection,
@@ -18,20 +19,29 @@ import { bancoDados } from '../configuracao/configuracaoFirebase';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
 });
 
+const bannersLocaisDisparados = new Set();
+
 // 1. Pede permissão e salva o Push Token
 export async function inicializarNotificacoesDispositivo(idUsuario) {
   try {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'Avisos de Eventos',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-      });
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Avisos de Eventos',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          sound: 'default',
+        });
+      } catch (canalErr) {
+        // Ignora incompatibilidade de canal no Expo Go
+      }
     }
 
     const { status: statusAtual } = await Notifications.getPermissionsAsync();
@@ -42,21 +52,43 @@ export async function inicializarNotificacoesDispositivo(idUsuario) {
       statusFinal = status;
     }
 
-    if (statusFinal !== 'granted') return null;
+    if (statusFinal !== 'granted') {
+      console.log('⚠️ [Push] Permissão de notificações não concedida pelo usuário.');
+      return null;
+    }
 
-    if (Device.isDevice) {
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      const pushToken = tokenData?.data;
+    if (!Device.isDevice) {
+      console.log('ℹ️ [Push] Emulador/Web detectado. Push token remoto Expo exige celular físico.');
+      return null;
+    }
+
+    let pushToken = null;
+    try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId ??
+        '1a448861-4c80-4505-8160-59d3bb8bd0a7';
+
+      console.log('🔄 [Push] Solicitando Expo Push Token com projectId:', projectId);
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+      pushToken = tokenData?.data;
 
       if (pushToken && idUsuario) {
+        console.log('✅ [Push] Push Token gerado com sucesso:', pushToken);
         await updateDoc(doc(bancoDados, 'usuarios', idUsuario), {
           pushToken,
         });
+        console.log('✅ [Push] pushToken gravado com sucesso no Firestore para o usuário:', idUsuario);
       }
-      return pushToken;
+    } catch (pushErr) {
+      console.log('ℹ️ [Push] No Expo Go Android (SDK 53+), push remoto é indisponível. O app usará notificações locais em tempo real.');
     }
+
+    return pushToken;
   } catch (erro) {
-    console.log('Aviso ao configurar push token:', erro?.message);
+    console.log('Aviso ao inicializar notificações:', erro?.message || erro);
   }
   return null;
 }
@@ -67,24 +99,41 @@ async function enviarPushRemotoParaUsuario(idUsuarioDestino, titulo, mensagem) {
     const userSnap = await getDoc(doc(bancoDados, 'usuarios', idUsuarioDestino));
     const pushToken = userSnap.data()?.pushToken;
 
-    if (!pushToken) return;
+    if (!pushToken) {
+      console.log(`ℹ️ [Push] Usuário ${idUsuarioDestino} não possui pushToken cadastrado. Notificação push não enviada.`);
+      return;
+    }
 
-    await fetch('https://exp.host/--/api/v2/push/send', {
+    console.log(`📤 [Push] Disparando notificação remota para token: ${pushToken}`);
+    const resposta = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ to: pushToken, sound: 'default', title: titulo, body: mensagem }),
+      body: JSON.stringify({
+        to: pushToken,
+        sound: 'default',
+        title: titulo,
+        body: mensagem,
+        channelId: 'default',
+        priority: 'high',
+      }),
     });
+    const resultado = await resposta.json();
+    console.log('📥 [Push] Resposta do envio Expo:', JSON.stringify(resultado));
   } catch (e) {
-    console.log('Erro ao enviar push remoto:', e?.message);
+    console.error('❌ [Push] Erro ao enviar push remoto:', e?.message || e);
   }
 }
 
 // 3. Dispara notificação imediata
-export async function dispararNotificacaoBarraCelular(titulo, mensagem) {
+export async function dispararNotificacaoBarraCelular(titulo, mensagem, idNotificacao = null) {
   try {
+    if (idNotificacao) {
+      if (bannersLocaisDisparados.has(idNotificacao)) return;
+      bannersLocaisDisparados.add(idNotificacao);
+    }
     await Notifications.scheduleNotificationAsync({
       content: { title: titulo, body: mensagem, sound: true },
       trigger: null, 
@@ -94,11 +143,22 @@ export async function dispararNotificacaoBarraCelular(titulo, mensagem) {
   }
 }
 
-// 4. Agenda alarmes locais para 7 e 3 dias antes
+function criarTriggerData(data) {
+  if (Notifications.SchedulableTriggerInputTypes?.DATE) {
+    return {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: data,
+    };
+  }
+  return { type: 'date', date: data };
+}
+
+// 4. Agenda alarmes locais para 7 dias antes, 3 dias antes e no próprio dia do evento
 export async function agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEvento }) {
   const dataAlvo = converterParaDataLocal(dataEvento);
   if (!dataAlvo) return;
 
+  const dataFormatada = formatarDataNotificacao(dataEvento);
   const agora = new Date();
 
   // 7 dias antes às 09:00
@@ -107,11 +167,19 @@ export async function agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEve
   data7DiasAntes.setHours(9, 0, 0, 0);
 
   if (data7DiasAntes > agora) {
-    await Notifications.scheduleNotificationAsync({
-      identifier: `alarme_7d_${idEvento}`,
-      content: { title: 'Evento chegando (7 dias)!', body: `Faltam 7 dias para o evento "${nomeEvento}" (${dataEvento}).`, sound: true },
-      trigger: data7DiasAntes,
-    });
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `alarme_7d_${idEvento}`,
+        content: {
+          title: 'Evento chegando (7 dias)!',
+          body: `Faltam 7 dias para o evento "${nomeEvento}" (${dataFormatada}).`,
+          sound: true,
+        },
+        trigger: criarTriggerData(data7DiasAntes),
+      });
+    } catch (e) {
+      console.log('Aviso ao agendar alarme de 7 dias:', e?.message);
+    }
   }
 
   // 3 dias antes às 09:00
@@ -120,11 +188,39 @@ export async function agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEve
   data3DiasAntes.setHours(9, 0, 0, 0);
 
   if (data3DiasAntes > agora) {
-    await Notifications.scheduleNotificationAsync({
-      identifier: `alarme_3d_${idEvento}`,
-      content: { title: 'Atenção: Evento em 3 dias!', body: `Faltam apenas 3 dias para o evento "${nomeEvento}" (${dataEvento}). Prepare-se!`, sound: true },
-      trigger: data3DiasAntes,
-    });
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `alarme_3d_${idEvento}`,
+        content: {
+          title: 'Atenção: Evento em 3 dias!',
+          body: `Faltam apenas 3 dias para o evento "${nomeEvento}" (${dataFormatada}). Prepare-se!`,
+          sound: true,
+        },
+        trigger: criarTriggerData(data3DiasAntes),
+      });
+    } catch (e) {
+      console.log('Aviso ao agendar alarme de 3 dias:', e?.message);
+    }
+  }
+
+  // No próprio dia do evento às 08:00
+  const dataDiaEvento = new Date(dataAlvo);
+  dataDiaEvento.setHours(8, 0, 0, 0);
+
+  if (dataDiaEvento > agora) {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `alarme_hoje_${idEvento}`,
+        content: {
+          title: 'É hoje! Dia do evento!',
+          body: `É HOJE! O evento "${nomeEvento}" acontece hoje (${dataFormatada}). Confira o horário e local!`,
+          sound: true,
+        },
+        trigger: criarTriggerData(dataDiaEvento),
+      });
+    } catch (e) {
+      console.log('Aviso ao agendar alarme do dia do evento:', e?.message);
+    }
   }
 }
 
@@ -151,6 +247,19 @@ export function converterParaDataLocal(valorData) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+export function formatarDataNotificacao(valorData) {
+  if (!valorData) return '';
+  if (typeof valorData === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(valorData.trim())) {
+    return valorData.trim();
+  }
+  const d = converterParaDataLocal(valorData);
+  if (!d) return String(valorData);
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const ano = d.getFullYear();
+  return `${dia}/${mes}/${ano}`;
+}
+
 export function calcularDiasAteEvento(dataEvento) {
   const dataAlvo = converterParaDataLocal(dataEvento);
   if (!dataAlvo) return null;
@@ -159,27 +268,45 @@ export function calcularDiasAteEvento(dataEvento) {
   return Math.round((dataAlvo.getTime() - hojeMeiaNoite.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const notificacoesCriadasSessao = new Set();
+
 // 6. Grava notificação no Firestore
 async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
+<<<<<<< HEAD
   try {
   const ref = doc(bancoDados, 'notificacoes', idNotificacao);
   const snap = await getDoc(ref);
+=======
+  if (notificacoesCriadasSessao.has(idNotificacao)) return false;
+>>>>>>> main
 
-  if (snap.exists()) return false;
+  try {
+    const ref = doc(bancoDados, 'notificacoes', idNotificacao);
+    const snap = await getDoc(ref);
 
-  await setDoc(ref, {
-    id: idNotificacao,
-    id_usuario: dados.idUsuario,
-    id_evento: dados.idEvento || null,
-    tipo: dados.tipo,
-    titulo: dados.titulo,
-    mensagem: dados.mensagem,
-    lida: false,
-    criado_em: serverTimestamp(),
-  });
+    if (snap.exists()) {
+      notificacoesCriadasSessao.add(idNotificacao);
+      return false;
+    }
+
+    await setDoc(ref, {
+      id: idNotificacao,
+      id_usuario: dados.idUsuario,
+      id_evento: dados.idEvento || null,
+      tipo: dados.tipo,
+      titulo: dados.titulo,
+      mensagem: dados.mensagem,
+      lida: false,
+      criado_em: serverTimestamp(),
+    });
+    notificacoesCriadasSessao.add(idNotificacao);
+  } catch (e) {
+    console.log('Aviso ao gravar notificação no Firestore:', e?.message);
+    notificacoesCriadasSessao.add(idNotificacao);
+  }
 
   if (opcoes.dispararBannerLocal) {
-    await dispararNotificacaoBarraCelular(dados.titulo, dados.mensagem);
+    await dispararNotificacaoBarraCelular(dados.titulo, dados.mensagem, idNotificacao);
   }
     if (opcoes.enviarPushRemoto) {
       await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);
@@ -197,34 +324,37 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
 // 7. Gatilho de Novo Evento
 export async function notificarNovoEventoParaTecnico({ idUsuario, idEvento, nomeEvento, dataEvento, funcao }) {
   if (!idUsuario || !idEvento) return;
+  const dataFormatada = formatarDataNotificacao(dataEvento);
   const idNotificacao = `novo_evento_${idEvento}_${idUsuario}`;
   await criarNotificacaoUnica(
     idNotificacao,
-    { idUsuario, idEvento, tipo: 'novo_evento', titulo: 'Novo evento lançado para você!', mensagem: `Você foi escalado como ${funcao || 'profissional'} no evento "${nomeEvento || 'Evento'}" (${dataEvento || ''}).` },
+    { idUsuario, idEvento, tipo: 'novo_evento', titulo: 'Novo evento lançado para você!', mensagem: `Você foi escalado como ${funcao || 'profissional'} no evento "${nomeEvento || 'Evento'}" (${dataFormatada}).` },
     { enviarPushRemoto: true }
   );
-  await verificarLembretesProximidadeEvento({ idUsuario, idEvento, nomeEvento, dataEvento, enviarPushRemoto: true });
+  await verificarLembretesProximidadeEvento({ idUsuario, idEvento, nomeEvento, dataEvento: dataFormatada, enviarPushRemoto: true });
 }
 
 // 8. Gatilho de Cancelamento
 export async function notificarEventoCancelado({ idUsuario, idDestinatario, idEvento, nomeEvento, nomeTecnico, dataEvento }) {
   const alvoUid = idDestinatario || idUsuario;
   if (!alvoUid || !idEvento) return;
+  const dataFormatada = formatarDataNotificacao(dataEvento);
 
   try {
     await Notifications.cancelScheduledNotificationAsync(`alarme_7d_${idEvento}`);
     await Notifications.cancelScheduledNotificationAsync(`alarme_3d_${idEvento}`);
+    await Notifications.cancelScheduledNotificationAsync(`alarme_hoje_${idEvento}`);
   } catch (e) {}
 
   const idNotificacao = `cancelado_${idEvento}_${alvoUid}_${Date.now()}`;
   await criarNotificacaoUnica(
     idNotificacao,
-    { idUsuario: alvoUid, idEvento, tipo: 'evento_cancelado', titulo: 'Participação em evento cancelada', mensagem: nomeTecnico ? `O técnico ${nomeTecnico} cancelou a participação no evento "${nomeEvento || 'Evento'}" (${dataEvento || ''}).` : `Você cancelou sua participação no evento "${nomeEvento || 'Evento'}" (${dataEvento || ''}).` },
+    { idUsuario: alvoUid, idEvento, tipo: 'evento_cancelado', titulo: 'Participação em evento cancelada', mensagem: nomeTecnico ? `O técnico ${nomeTecnico} cancelou a participação no evento "${nomeEvento || 'Evento'}" (${dataFormatada}).` : `Você cancelou sua participação no evento "${nomeEvento || 'Evento'}" (${dataFormatada}).` },
     { dispararBannerLocal: true, enviarPushRemoto: Boolean(idDestinatario) }
   );
 }
 
-// 9. Gatilho de 7 e 3 dias
+// 9. Gatilho de 7 dias, 3 dias antes e no próprio dia do evento
 export async function verificarLembretesProximidadeEvento({ idUsuario, idEvento, nomeEvento, dataEvento, statusConfirmacao, enviarPushRemoto = false }) {
   if (!idUsuario || !idEvento || !dataEvento) return;
   const statusLimpo = String(statusConfirmacao || '').toLowerCase();
@@ -233,25 +363,59 @@ export async function verificarLembretesProximidadeEvento({ idUsuario, idEvento,
   const diasRestantes = calcularDiasAteEvento(dataEvento);
   if (diasRestantes === null || diasRestantes < 0) return;
 
+  const dataFormatada = formatarDataNotificacao(dataEvento);
+
   if (!enviarPushRemoto) {
-    await agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEvento });
+    await agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEvento: dataFormatada });
   }
 
+  // Lembrete de 7 dias antes (entre 7 e 4 dias restantes)
   if (diasRestantes <= 7 && diasRestantes > 3) {
     const idNotif7Dias = `lembrete_7d_${idEvento}_${idUsuario}`;
     await criarNotificacaoUnica(
       idNotif7Dias,
-      { idUsuario, idEvento, tipo: 'lembrete_7_dias', titulo: 'Evento chegando (7 dias)!', mensagem: `Faltam ${diasRestantes} dias para o evento "${nomeEvento}" em ${dataEvento}. Prepare seus equipamentos!` },
+      {
+        idUsuario,
+        idEvento,
+        tipo: 'lembrete_7_dias',
+        titulo: 'Evento chegando (7 dias)!',
+        mensagem: `Faltam ${diasRestantes} dias para o evento "${nomeEvento}" em ${dataFormatada}. Prepare seus equipamentos!`,
+      },
       { dispararBannerLocal: !enviarPushRemoto, enviarPushRemoto }
     );
   }
 
-  if (diasRestantes <= 3 && diasRestantes >= 0) {
+  // Lembrete de 3 dias antes (entre 3 e 1 dia restante)
+  if (diasRestantes <= 3 && diasRestantes > 0) {
     const idNotif3Dias = `lembrete_3d_${idEvento}_${idUsuario}`;
-    const textoPrazo = diasRestantes === 0 ? 'É HOJE!' : `Faltam ${diasRestantes} dia(s)`;
+    const titulo3Dias = diasRestantes === 3
+      ? 'Atenção: Evento em 3 dias!'
+      : `Atenção: Evento muito próximo (${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'})!`;
     await criarNotificacaoUnica(
       idNotif3Dias,
-      { idUsuario, idEvento, tipo: 'lembrete_3_dias', titulo: 'Atenção: Evento muito próximo (3 dias)!', mensagem: `${textoPrazo} para o evento "${nomeEvento}" (${dataEvento}). Confira o horário e local!` },
+      {
+        idUsuario,
+        idEvento,
+        tipo: 'lembrete_3_dias',
+        titulo: titulo3Dias,
+        mensagem: `Faltam ${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'} para o evento "${nomeEvento}" (${dataFormatada}). Confira o horário e local!`,
+      },
+      { dispararBannerLocal: !enviarPushRemoto, enviarPushRemoto }
+    );
+  }
+
+  // Lembrete no próprio dia do evento (0 dias restantes)
+  if (diasRestantes === 0) {
+    const idNotifHoje = `lembrete_hoje_${idEvento}_${idUsuario}`;
+    await criarNotificacaoUnica(
+      idNotifHoje,
+      {
+        idUsuario,
+        idEvento,
+        tipo: 'lembrete_dia_evento',
+        titulo: 'É hoje! Dia do evento!',
+        mensagem: `É HOJE! O evento "${nomeEvento}" acontece hoje (${dataFormatada}). Confira o horário e local!`,
+      },
       { dispararBannerLocal: !enviarPushRemoto, enviarPushRemoto }
     );
   }
@@ -262,7 +426,7 @@ export async function processarLembretesListaEventos(idUsuario, listaEventos = [
   for (const ev of listaEventos) {
     await verificarLembretesProximidadeEvento({
       idUsuario,
-      idEvento: ev.id || ev.idEvento,
+      idEvento: ev.idEvento || ev.id,
       nomeEvento: ev.nome || ev.titulo || ev.nomeEvento || 'Evento',
       dataEvento: ev.dataInicio || ev.data || ev.dataEvento,
       statusConfirmacao: ev.statusConfirmacao || ev.status,
