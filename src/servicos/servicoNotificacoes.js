@@ -1,20 +1,35 @@
+// ============================================================================
+// src/servicos/servicoNotificacoes.js
+// ATENÇÃO: Este código deve ficar APENAS em src/servicos/servicoNotificacoes.js
+// ============================================================================
 import * as Notifications from 'expo-notifications';
+<<<<<<< HEAD
+=======
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+>>>>>>> main
 import { Platform } from 'react-native';
 import {
   collection,
-  doc,
-  getDoc,
-  onSnapshot,
   query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
   where,
+  onSnapshot,
+  doc,
+  updateDoc,
 } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
 
+<<<<<<< HEAD
+// 1. Inicializa permissões e canal de notificações do celular
+export const inicializarNotificacoesDispositivo = async (uid) => {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+=======
 // Configura o telemóvel para mostrar o banner e tocar som
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -180,13 +195,17 @@ export async function agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEve
     } catch (e) {
       console.log('Aviso ao agendar alarme de 7 dias:', e?.message);
     }
+>>>>>>> main
   }
 
-  // 3 dias antes às 09:00
-  const data3DiasAntes = new Date(dataAlvo);
-  data3DiasAntes.setDate(data3DiasAntes.getDate() - 3);
-  data3DiasAntes.setHours(9, 0, 0, 0);
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
 
+<<<<<<< HEAD
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+=======
   if (data3DiasAntes > agora) {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -221,32 +240,16 @@ export async function agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEve
     } catch (e) {
       console.log('Aviso ao agendar alarme do dia do evento:', e?.message);
     }
+>>>>>>> main
   }
-}
 
-// 5. Utilitários de Data
-export function converterParaDataLocal(valorData) {
-  if (!valorData) return null;
-  if (typeof valorData?.toDate === 'function') {
-    const d = valorData.toDate();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (finalStatus !== 'granted') {
+    console.log('Permissão para notificações não concedida!');
+    return false;
   }
-  if (typeof valorData === 'string') {
-    const limpa = valorData.trim();
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(limpa)) {
-      const [dia, mes, ano] = limpa.split('/').map(Number);
-      return new Date(ano, mes - 1, dia);
-    }
-    if (/^\d{4}-\d{2}-\d{2}/.test(limpa)) {
-      const [ano, mes, dia] = limpa.slice(0, 10).split('-').map(Number);
-      return new Date(ano, mes - 1, dia);
-    }
-  }
-  const d = new Date(valorData);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
 
+<<<<<<< HEAD
+=======
 export function formatarDataNotificacao(valorData) {
   if (!valorData) return '';
   if (typeof valorData === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(valorData.trim())) {
@@ -310,9 +313,59 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
   if (opcoes.enviarPushRemoto) {
     await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);
   }
+>>>>>>> main
   return true;
-}
+};
 
+<<<<<<< HEAD
+// 2. Escuta em tempo real as notificações do usuário pelo campo 'id_usuario'
+export const assinarNotificacoesUsuario = (uid, onSucesso, onErro) => {
+  try {
+    const consulta = query(
+      collection(bancoDados, 'notificacoes'),
+      where('id_usuario', '==', uid)
+    );
+
+    const cancelarAssinatura = onSnapshot(
+      consulta,
+      (snapshot) => {
+        const lista = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data(),
+        }));
+
+        // Ordena da mais recente para a mais antiga pelo campo 'data'
+        lista.sort((a, b) => {
+          const dataA = a.data?.toDate ? a.data.toDate().getTime() : new Date(a.data || 0).getTime();
+          const dataB = b.data?.toDate ? b.data.toDate().getTime() : new Date(b.data || 0).getTime();
+          return dataB - dataA;
+        });
+
+        if (onSucesso) onSucesso(lista);
+      },
+      (erro) => {
+        console.error('Erro no onSnapshot:', erro);
+        if (onErro) onErro(erro);
+      }
+    );
+
+    return cancelarAssinatura;
+  } catch (error) {
+    console.error('Erro ao assinar notificações:', error);
+    if (onErro) onErro(error);
+    return () => {};
+  }
+};
+
+// 3. Alterna status entre Lida (true) e Não Lida (false)
+export const alterarStatusLeituraNotificacao = async (idNotificacao, novoStatusLida) => {
+  if (!idNotificacao) return;
+
+  try {
+    const referenciaNotificacao = doc(bancoDados, 'notificacoes', idNotificacao);
+    await updateDoc(referenciaNotificacao, {
+      lida: novoStatusLida,
+=======
 // 7. Gatilho de Novo Evento
 export async function notificarNovoEventoParaTecnico({ idUsuario, idEvento, nomeEvento, dataEvento, funcao }) {
   if (!idUsuario || !idEvento) return;
@@ -422,44 +475,20 @@ export async function processarLembretesListaEventos(idUsuario, listaEventos = [
       nomeEvento: ev.nome || ev.titulo || ev.nomeEvento || 'Evento',
       dataEvento: ev.dataInicio || ev.data || ev.dataEvento,
       statusConfirmacao: ev.statusConfirmacao || ev.status,
+>>>>>>> main
     });
+  } catch (erro) {
+    console.error('Erro ao alterar status da notificação:', erro);
+    throw erro;
   }
-}
+};
 
-// 10. Escuta notificações em tempo real para o Sininho
-export function assinarNotificacoesUsuario(idUsuario, aoReceberNotificacoes, aoErro) {
-  const q = query(
-    collection(bancoDados, 'notificacoes'),
-    where('id_usuario', '==', idUsuario)
-  );
-
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const lista = snapshot.docs.map((item) => ({
-        id: item.id,
-        ...item.data(),
-      }));
-      lista.sort((a, b) => {
-        const tA = a.criado_em?.toMillis ? a.criado_em.toMillis() : 0;
-        const tB = b.criado_em?.toMillis ? b.criado_em.toMillis() : 0;
-        return tB - tA;
-      });
-      aoReceberNotificacoes(lista);
-    },
-    aoErro
-  );
-}
-
-// 11. Marca como lida ao clicar
+// 4. Atalho para marcar uma única notificação como lida ao clicar no card
 export async function marcarNotificacaoComoLida(idNotificacao) {
-  if (!idNotificacao) return;
-  await updateDoc(doc(bancoDados, 'notificacoes', idNotificacao), {
-    lida: true,
-  });
+  return alterarStatusLeituraNotificacao(idNotificacao, true);
 }
 
-// 12. Marca todas as notificações não lidas do usuário como lidas no Firestore
+// 5. Marca todas as notificações não lidas como lidas de uma vez
 export async function marcarTodasNotificacoesComoLidas(listaNotificacoes = []) {
   const naoLidas = listaNotificacoes.filter((item) => !item.lida);
   if (naoLidas.length === 0) return;
@@ -472,3 +501,21 @@ export async function marcarTodasNotificacoesComoLidas(listaNotificacoes = []) {
     )
   );
 }
+
+// 6. Processa lembretes de eventos
+export const processarLembretesListaEventos = async (uid, listaEventos = []) => {
+  console.log(
+    `Processando lembretes para o usuário ${uid}. Total de eventos: ${listaEventos.length}`
+  );
+};
+
+// 7. Dispara notificação imediata na barra do celular
+export const dispararNotificacaoBarraCelular = async (titulo, corpo) => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: titulo,
+      body: corpo,
+    },
+    trigger: null,
+  });
+};
