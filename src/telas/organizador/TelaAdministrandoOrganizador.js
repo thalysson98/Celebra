@@ -100,7 +100,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [itemEditando, setItemEditando] = useState(null);
   const [nome, setNome] = useState('');
   const [dadosComplementares, setDadosComplementares] = useState({});
-  const [carregando, setCarregando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [tiposLocal, setTiposLocal] = useState([]);
 
@@ -117,7 +117,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   };
 
   const carregarItens = useCallback(async () => {
-    if (!empresaId) { setItens([]); return; }
+    if (!empresaId) { setItens([]); setCarregando(false); return; }
     setCarregando(true);
     try {
       const listaAtivos = await repositorioEventos.obterOpcoesSelect(categoriaAtiva.chave, empresaId, false);
@@ -128,13 +128,14 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   }, [categoriaAtiva, empresaId]);
 
   const carregarInativos = async () => {
+    setModalInativosVisivel(true);
     setCarregando(true);
     try {
       const listaGeral = await repositorioEventos.obterOpcoesSelect(categoriaAtiva.chave, empresaId, true);
       const listaInativos = listaGeral.filter(i => i.ativo === false);
       setInativos(listaInativos || []);
-      setModalInativosVisivel(true);
     } catch (error) {
+      setModalInativosVisivel(false);
       mostrarErro('Não foi possível carregar inativos.');
     } finally { setCarregando(false); }
   };
@@ -295,6 +296,12 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
                   </View>
                 </Card.Content>
               </Card>
+              {carregando && itensFiltrados.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 12 }}>
+                  <ActivityIndicator size="small" color={CORES.buttonGold} />
+                  <Text style={styles.emptyText}>Atualizando cadastros...</Text>
+                </View>
+              )}
             </>
           )}
           renderItem={({ item }) => (
@@ -313,7 +320,16 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
               </TouchableOpacity>
             </View>
           )}
-          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>{carregando ? 'Carregando...' : 'Nenhum cadastro ativo.'}</Text></View>}
+          ListEmptyComponent={(
+            <View style={styles.empty}>
+              {carregando ? (
+                <>
+                  <ActivityIndicator size="large" color={CORES.buttonGold} />
+                  <Text style={styles.emptyText}>Carregando cadastros...</Text>
+                </>
+              ) : <Text style={styles.emptyText}>Nenhum cadastro ativo.</Text>}
+            </View>
+          )}
         />
       </View>
 
@@ -394,7 +410,12 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
                 <MaterialCommunityIcons name="close" size={24} color={CORES.textMuted} />
               </TouchableOpacity>
             </View>
-            {inativos.length === 0 ? (
+            {carregando ? (
+              <View style={{ padding: 30, alignItems: 'center', gap: 12 }}>
+                <ActivityIndicator size="large" color={CORES.buttonGold} />
+                <Text style={styles.emptyText}>Carregando cadastros inativos...</Text>
+              </View>
+            ) : inativos.length === 0 ? (
               <View style={{ padding: 30, alignItems: 'center' }}><Text>Nenhum registro inativo.</Text></View>
             ) : (
               <FlatList

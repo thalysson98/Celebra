@@ -59,7 +59,7 @@ export default function ModalSelecao({ visible, onClose, titulo, opcoes = [], on
                   <TouchableOpacity onPress={() => { setBusca(''); onSelecionar(item); }} style={styles.option}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={styles.itemText}>{item.nome}</Text>
-                      {(item.endereco_completo || item.descricao) && (
+                      {!!(item.endereco_completo || item.descricao) && (
                         <Text style={styles.itemSubText} numberOfLines={1}>
                           {item.endereco_completo || item.descricao}
                         </Text>

@@ -64,9 +64,9 @@ function perfilInicialParaSessao(uid, nome, email) {
   };
 }
 
-export async function registrarUsuario({ nomeCompleto, username, email, password }) {
+export async function registrarUsuario({ nomeCompleto, name, username, email, password }) {
   if (!firebaseEstaConfigurado) throw new Error('Configure as chaves do Firebase no arquivo src/configuracao/configuracaoFirebase.js.');
-  const nomeLimpo = validarNome(nomeCompleto || username);
+  const nomeLimpo = validarNome(nomeCompleto || name || username);
   const emailLimpo = String(email || '').trim().toLowerCase();
 
   let usuarioCriado = null;

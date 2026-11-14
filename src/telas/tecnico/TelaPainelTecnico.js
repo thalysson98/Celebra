@@ -1,9 +1,13 @@
+<<<<<<< HEAD
 // ============================================================================
 // src/telas/tecnico/TelaPainelTecnico.js
 // Painel principal do Técnico com suporte a troca de abas via rota,
 // notificações em tempo real, rolagem Web e barra inferior padronizada.
 // ============================================================================
 import React, { useEffect, useMemo, useState } from 'react';
+=======
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+>>>>>>> main
 import {
   inicializarNotificacoesDispositivo,
   processarLembretesListaEventos,
@@ -165,12 +169,32 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
   }, [route?.params?.abaInicial]);
 
+  const convitesAnterioresRef = useRef(null);
+
   useEffect(() => {
     setLoading(true);
     const unsubscribe = subscribeToTechnicianAssignments(
       user.uid,
       (nextAssignments) => {
-        setAssignments(nextAssignments || []);
+        const lista = nextAssignments || [];
+        if (convitesAnterioresRef.current !== null) {
+          const idsAnteriores = new Set(
+            convitesAnterioresRef.current.filter((a) => a.status === 'pending').map((a) => a.id)
+          );
+          const novosConvites = lista.filter((a) => a.status === 'pending' && !idsAnteriores.has(a.id));
+          for (const novo of novosConvites) {
+            const idEventoAlvo = novo.idEvento || novo.id;
+            const idNotifNovo = `novo_evento_${idEventoAlvo}_${user.uid}`;
+            const dataFmt = formatShortDate(novo.eventDate);
+            dispararNotificacaoBarraCelular(
+              'Novo evento lançado para você!',
+              `Você foi escalado como ${novo.roleName || 'profissional'} no evento "${novo.eventTitle || 'Evento'}" (${dataFmt}).`,
+              idNotifNovo
+            );
+          }
+        }
+        convitesAnterioresRef.current = lista;
+        setAssignments(lista);
         setError('');
         setLoading(false);
       },
@@ -201,6 +225,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
 
   // --- INÍCIO DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
   const [notificacoesSistema, setNotificacoesSistema] = useState([]);
+  const notificacoesAnterioresRef = useRef(null);
 
   // Conta quantas notificações não lidas existem para mostrar no sininho
   const totalNaoLidas = useMemo(
@@ -216,7 +241,18 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
 
     const cancelarAssinatura = assinarNotificacoesUsuario(
       user.uid,
-      (lista) => setNotificacoesSistema(lista),
+      (lista) => {
+        // Quando uma nova notificação chega em tempo real, dispara o banner local no aparelho
+        if (notificacoesAnterioresRef.current !== null) {
+          const idsAnteriores = new Set(notificacoesAnterioresRef.current.map((n) => n.id));
+          const novas = lista.filter((n) => !idsAnteriores.has(n.id) && !n.lida);
+          for (const nova of novas) {
+            dispararNotificacaoBarraCelular(nova.titulo, nova.mensagem, nova.id);
+          }
+        }
+        notificacoesAnterioresRef.current = lista;
+        setNotificacoesSistema(lista);
+      },
       (erro) => console.log('Erro ao carregar notificações:', erro)
     );
 
@@ -225,11 +261,12 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     };
   }, [user?.uid]);
 
-  // 2. Quando a lista 'assignments' carregar, checa automaticamente a regra de 7 dias e 3 dias antes
+  // 2. Quando a lista 'assignments' carregar, checa automaticamente a regra de 7 dias, 3 dias antes e no dia do evento
   useEffect(() => {
     if (user?.uid && assignments?.length > 0 && eventsNotificationsEnabled) {
       const listaFormatada = assignments.map((a) => ({
-        id: a.eventId || a.id,
+        id: a.idEvento || a.eventId || a.id,
+        idEvento: a.idEvento || a.eventId || a.id,
         nome: a.eventTitle || 'Evento',
         dataInicio: a.eventDate,
         statusConfirmacao: a.status,
@@ -788,6 +825,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
 
+<<<<<<< HEAD
       <TouchableOpacity
         style={[styles.profileSecurityCard, { marginTop: 12 }]}
         onPress={() => {
@@ -808,6 +846,8 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
 
+=======
+>>>>>>> main
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />
         <Text style={styles.profileLogoutText}>Sair da conta</Text>

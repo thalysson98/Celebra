@@ -2,6 +2,7 @@
 import { arrayUnion, collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where, addDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
 import { enviarConvitesEvento } from './servicoEscala';
+import { verificarLembretesProximidadeEvento } from './servicoNotificacoes';
 
 const COLECOES_ADMINISTRACAO = {
   tiposEvento: 'tipos_evento',
@@ -393,6 +394,8 @@ export const repositorioEventos = {
     const referencia = doc(collection(bancoDados, 'eventos'));
     const dadosEvento = {
       id_evento: referencia.id, id_empresa: empresaId, titulo, id_tipo_evento: idTipoEvento, id_cliente: idCliente,
+      id_local: locaisDetalhados[0]?.id_local || '',
+      id_locais: locaisDetalhados.map((l) => l.id_local).filter(Boolean),
       nome_tipo_evento: dadosNovoEvento.tipoEvento,
       locais_detalhados: locaisDetalhados,
       data_inicio: dataInicio, quantidade_convidados: Number(dadosNovoEvento.numConvidados) || 0,
@@ -424,8 +427,12 @@ export const repositorioEventos = {
     return { ...eventoCriado, erroConvites };
   },
   adicionarProfissionaisEvento: async (idEvento, profissionais = []) => {
-    const empresaId = await obterIdEmpresaAtual();
+    let empresaId = await obterIdEmpresaAtual();
     const referenciaEvento = doc(bancoDados, 'eventos', idEvento);
+    if (!empresaId) {
+      const snapEvento = await getDoc(referenciaEvento);
+      empresaId = snapEvento.data()?.id_empresa;
+    }
     const convites = [];
     const equipeInformativa = [];
     
@@ -436,10 +443,12 @@ export const repositorioEventos = {
       
       const usuario = snapshotUsuario.data();
       const tipo = snapshotTipo.data();
-      const dadosProfissional = { ...profissional, idUsuario, idTipoProfissional, nomeProfissional: usuario.nome_completo || 'Colaborador', funcao: tipo.nome };
+      const nomeProfissional = usuario?.nome_completo || profissional.nomeProfissional || 'Colaborador';
+      const nomeFuncao = tipo?.nome || profissional.funcao || 'Profissional';
+      const dadosProfissional = { ...profissional, idUsuario, idTipoProfissional, nomeProfissional, funcao: nomeFuncao };
       
       if (profissional.enviarConvite === false) {
-        equipeInformativa.push({ id_usuario: idUsuario, id_tipo_profissional: idTipoProfissional, nome_profissional: dadosProfissional.nomeProfissional, nome_tipo_profissional: tipo.nome });
+        equipeInformativa.push({ id_usuario: idUsuario, id_tipo_profissional: idTipoProfissional, nome_profissional: dadosProfissional.nomeProfissional, nome_tipo_profissional: nomeFuncao });
       } else {
         convites.push(dadosProfissional);
       }
@@ -516,8 +525,26 @@ export const repositorioEventos = {
       observacoes: String(dadosAtualizados.notasProducao || '').trim(),
       financeiro: dadosAtualizados.financeiro || {},
     });
-    
-    return repositorioEventos.obterEvento(idEvento);
+
+    const eventoAtualizado = await repositorioEventos.obterEvento(idEvento);
+    for (const membro of eventoAtualizado?.equipe || []) {
+      if (membro.enviarConvite !== false && membro.idUsuario) {
+        try {
+          await verificarLembretesProximidadeEvento({
+            idUsuario: membro.idUsuario,
+            idEvento,
+            nomeEvento: eventoAtualizado.titulo || titulo,
+            dataEvento: eventoAtualizado.dataInicio,
+            statusConfirmacao: membro.statusConfirmacao,
+            enviarPushRemoto: true,
+          });
+        } catch (e) {
+          console.log('Aviso ao verificar lembrete na atualização do evento:', e?.message);
+        }
+      }
+    }
+
+    return eventoAtualizado;
   },
   criarUsuarioTecnicoFantasma: async (nome, empresaId) => {
     const referencia = doc(collection(bancoDados, 'usuarios'));
