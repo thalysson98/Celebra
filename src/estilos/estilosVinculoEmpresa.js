@@ -14,7 +14,7 @@ export const estilosVinculoEmpresa = StyleSheet.create({
   erro: { fontFamily: FONTES.body, color: '#B42318', backgroundColor: '#FEF3F2', borderRadius: 10, padding: 12, marginTop: 14, fontSize: 13, lineHeight: 19 },
   grupoCampo: { marginTop: 10 },
   rotulo: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 12, fontWeight: '700', marginBottom: 5 },
-  campoCodigo: { fontFamily: FONTES.bold, minHeight: 54, borderWidth: 1, borderColor: CORES.cardDivider, borderRadius: 11, paddingHorizontal: 14, color: CORES.textNavy, backgroundColor: '#FAFCFD', fontSize: 20, fontWeight: '800', letterSpacing: 1.5 },
+  campoCodigo: { fontFamily: FONTES.bold, minHeight: 54, borderWidth: 1, borderColor: CORES.cardDivider, borderRadius: 11, paddingHorizontal: 14, color: CORES.textNavy, backgroundColor: '#FAFCFD', fontSize: 20, fontWeight: '800', letterSpacing: 1.5, textAlignVertical: 'center' },
   botao: { minHeight: 50, borderRadius: 12, backgroundColor: CORES.buttonGold, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
   botaoDesativado: { opacity: 0.65 },
   textoBotao: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15, fontWeight: '800' },

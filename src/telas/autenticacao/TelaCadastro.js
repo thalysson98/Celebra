@@ -14,9 +14,12 @@ import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { estilosAutenticacao, CORES_AUTENTICACAO } from '../../estilos/estilosAutenticacao';
 import { registrarUsuario } from '../../servicos/servicoAutenticacao';
+import { formatarCpf, normalizarCpf, validarCpf } from '../../compartilhado/validacaoCpf';
+import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 export default function TelaCadastro({ navigation, onRegisterSuccess }) {
   const [nomeCompleto, setNomeCompleto] = useState('');
+  const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
@@ -27,6 +30,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
 
   // Erros de validação inline (campos vazios ou inválidos)
   const [erroNome, setErroNome] = useState('');
+  const [erroCpf, setErroCpf] = useState('');
   const [erroEmail, setErroEmail] = useState('');
   const [erroSenha, setErroSenha] = useState('');
   const [erroConfirmarSenha, setErroConfirmarSenha] = useState('');
@@ -44,19 +48,27 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
   const validarCampos = () => {
     let valido = true;
     const nomeLimpo = nomeCompleto.trim().replace(/\s+/g, ' ');
+    const cpfLimpo = normalizarCpf(cpf);
     const emailLimpo = email.trim();
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     setErroGeral('');
 
-    if (!nomeLimpo) {
-      //setErroNome('Informe seu nome completo.');
-      valido = true;
-    } else if (nomeLimpo.length < 3) {
-      setErroNome('O nome deve ter pelo menos 3 caracteres.');
+    if (nomeLimpo.split(' ').filter(Boolean).length < 2) {
+      setErroNome('Informe seu nome e sobrenome.');
       valido = false;
     } else {
       setErroNome('');
+    }
+
+    if (!cpfLimpo) {
+      setErroCpf('Informe seu CPF.');
+      valido = false;
+    } else if (!validarCpf(cpfLimpo)) {
+      setErroCpf('Informe um CPF válido.');
+      valido = false;
+    } else {
+      setErroCpf('');
     }
 
     if (!emailLimpo) {
@@ -107,6 +119,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
       setErroGeral('');
       const novoUsuario = await registrarUsuario({
         nomeCompleto,
+        cpf: normalizarCpf(cpf),
         email,
         password: senha,
       });
@@ -171,7 +184,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
 
             {/* Campo Nome Completo */}
             <View style={estilosAutenticacao.fieldGroup}>
-              <Text style={estilosAutenticacao.inputLabel}>Nome completo</Text>
+              <Text style={estilosAutenticacao.inputLabel}>Nome completo *</Text>
               <View
                 style={[
                   estilosAutenticacao.inputWrapper,
@@ -184,6 +197,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
                   color={erroNome ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
                   style={estilosAutenticacao.inputIcon}
                 />
+                <SeparadorCampoIcone />
                 <TextInput
                   style={estilosAutenticacao.textInput}
                   placeholder="Seu nome e sobrenome"
@@ -203,6 +217,41 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
               )}
             </View>
 
+            {/* Campo CPF */}
+            <View style={estilosAutenticacao.fieldGroup}>
+              <Text style={estilosAutenticacao.inputLabel}>CPF *</Text>
+              <View
+                style={[
+                  estilosAutenticacao.inputWrapper,
+                  erroCpf && estilosAutenticacao.inputWrapperErro,
+                ]}
+              >
+                <Feather
+                  name="credit-card"
+                  size={18}
+                  color={erroCpf ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
+                  style={estilosAutenticacao.inputIcon}
+                />
+                <SeparadorCampoIcone />
+                <TextInput
+                  style={estilosAutenticacao.textInput}
+                  placeholder="000.000.000-00"
+                  placeholderTextColor={CORES_AUTENTICACAO.placeholder}
+                  value={cpf}
+                  onChangeText={(valor) => {
+                    setCpf(formatarCpf(valor));
+                    if (erroCpf) setErroCpf('');
+                    if (erroGeral) setErroGeral('');
+                  }}
+                  keyboardType="numeric"
+                  maxLength={14}
+                />
+              </View>
+              {!!erroCpf && (
+                <Text style={estilosAutenticacao.erroTexto}>{erroCpf}</Text>
+              )}
+            </View>
+
             {/* Campo E-mail */}
             <View style={estilosAutenticacao.fieldGroup}>
               <Text style={estilosAutenticacao.inputLabel}>E-mail</Text>
@@ -218,6 +267,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
                   color={erroEmail ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
                   style={estilosAutenticacao.inputIcon}
                 />
+                <SeparadorCampoIcone />
                 <TextInput
                   style={estilosAutenticacao.textInput}
                   placeholder="seu@email.com"
@@ -253,6 +303,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
                   color={erroSenha ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
                   style={estilosAutenticacao.inputIcon}
                 />
+                <SeparadorCampoIcone />
                 <TextInput
                   style={estilosAutenticacao.textInput}
                   placeholder="Mínimo 6 caracteres"
@@ -296,6 +347,7 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
                   color={erroConfirmarSenha ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
                   style={estilosAutenticacao.inputIcon}
                 />
+                <SeparadorCampoIcone />
                 <TextInput
                   style={estilosAutenticacao.textInput}
                   placeholder="Repita sua senha"

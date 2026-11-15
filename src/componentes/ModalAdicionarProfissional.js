@@ -1,7 +1,9 @@
 // src/componentes/ModalAdicionarProfissional.js
 import { verificarIndisponibilidadeTecnicoNaData } from '../servicos/servicoIndisponibilidade';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Button } from 'react-native-paper';
+import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CORES } from '../tema/cores';
 import { repositorioEventos } from '../servicos/repositorioEventos';
@@ -19,10 +21,19 @@ export default function ModalAdicionarProfissional({ visible, empresaId, dataEve
   const [enviarConvite, setEnviarConvite] = useState(true);
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState('');
+  const [modalErroVisivel, setModalErroVisivel] = useState(false);
+  const [mensagemErro, setMensagemErro] = useState('');
+
+  const mostrarErro = (mensagem) => {
+    setMensagemErro(mensagem);
+    setModalErroVisivel(true);
+  };
 
   useEffect(() => {
-    if (!visible) return undefined;
+    if (!visible) {
+      setModalErroVisivel(false);
+      return undefined;
+    }
     carregarDados();
   }, [visible, empresaId]);
 
@@ -36,7 +47,8 @@ export default function ModalAdicionarProfissional({ visible, empresaId, dataEve
       setTipos(tiposEmpresa);
       setTecnicos(equipeEmpresa);
     } catch (e) {
-      setErro('Não foi possível carregar os dados.');
+      console.error('Erro ao carregar dados para adicionar profissional:', e);
+      mostrarErro('Não foi possível carregar os dados. Tente novamente.');
     } finally {
       setCarregando(false);
     }
@@ -69,23 +81,30 @@ export default function ModalAdicionarProfissional({ visible, empresaId, dataEve
       setSelecaoVisivel(false);
       carregarDados();
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível criar o registro.");
+      console.error('Erro ao criar registro para adicionar profissional:', error);
+      setSelecaoVisivel(false);
+      mostrarErro('Ocorreu um erro inesperado. Tente novamente.');
     } finally {
       setCarregando(false);
     }
   };
 
   const salvar = async () => {
-    if (!tipoSelecionado || !tecnicoSelecionado) { setErro('Selecione o tipo e o profissional.'); return; }
-    if (idsJaAdicionados.has(tecnicoSelecionado.id)) { setErro('Esta pessoa já foi adicionada.'); return; }
+    if (!tipoSelecionado || !tecnicoSelecionado) {
+      mostrarErro('Selecione o tipo e o profissional.');
+      return;
+    }
+    if (idsJaAdicionados.has(tecnicoSelecionado.id)) {
+      mostrarErro('Esta pessoa já foi adicionada.');
+      return;
+    }
 
     setSalvando(true);
-    setErro('');
     try {
       if (dataEvento) {
         const indisponivel = await verificarIndisponibilidadeTecnicoNaData(tecnicoSelecionado.id, dataEvento);
         if (indisponivel) {
-          setErro(`O profissional ${tecnicoSelecionado.nome} marcou indisponibilidade na agenda para a data deste evento (${dataEvento}).`);
+          mostrarErro(`O profissional ${tecnicoSelecionado.nome} marcou indisponibilidade na agenda para a data deste evento (${dataEvento}).`);
           setSalvando(false);
           return;
         }
@@ -97,11 +116,13 @@ export default function ModalAdicionarProfissional({ visible, empresaId, dataEve
         enviarConvite: esconderOpcaoConvite ? true : enviarConvite, statusConfirmacao: 'Convite pendente',
       });
     } catch (error) {
-      setErro(error?.message || 'Erro ao adicionar.');
+      console.error('Erro ao adicionar profissional ao evento:', error);
+      mostrarErro(error?.message || 'Ocorreu um erro inesperado. Tente novamente.');
     } finally { setSalvando(false); }
   };
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.card}>
@@ -133,8 +154,6 @@ export default function ModalAdicionarProfissional({ visible, empresaId, dataEve
               )}
             </>
           )}
-          {!!erro && <Text style={styles.error}>{erro}</Text>}
-          
           <TouchableOpacity onPress={salvar} disabled={carregando || salvando} style={[styles.primaryButton, (carregando || salvando) && styles.buttonDisabled]}>
             {salvando ? <ActivityIndicator color={CORES.textNavy} /> : <Text style={styles.primaryButtonText}>{esconderOpcaoConvite ? 'Adicionar Profissional' : (enviarConvite ? 'Salvar e enviar convite' : 'Salvar cadastro')}</Text>}
           </TouchableOpacity>
@@ -151,5 +170,31 @@ export default function ModalAdicionarProfissional({ visible, empresaId, dataEve
          onAdicionarNovo={criarNovoItem}
       />
     </Modal>
+    <Modal
+      visible={modalErroVisivel}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setModalErroVisivel(false)}
+    >
+      <View style={styles.errorOverlay}>
+        <View style={styles.errorCard}>
+          <View style={styles.errorIcon}>
+            <Feather name="alert-triangle" size={30} color="#EF4444" />
+          </View>
+          <Text style={styles.errorTitle}>Atenção</Text>
+          <Text style={styles.errorMessage}>{mensagemErro}</Text>
+          <Button
+            mode="contained"
+            style={styles.errorButton}
+            buttonColor="#EF4444"
+            textColor="#FFFFFF"
+            onPress={() => setModalErroVisivel(false)}
+          >
+            Ok, entendi
+          </Button>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }

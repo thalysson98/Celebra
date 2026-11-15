@@ -193,10 +193,23 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           {equipe.length > 0 ? (
             <Card style={styles.card}><Card.Content>
               {equipe.map((pessoa, index) => (
-                <View key={pessoa.id || index} style={styles.personRow}>
-                  <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
+                <View
+                  key={pessoa.id || index}
+                  style={[
+                    styles.personRow,
+                    pessoa.idUsuario && pessoa.idUsuario === assignment?.idUsuario && styles.personRowSelf,
+                  ]}
+                >
+                  <View style={[
+                    styles.personIcon,
+                    pessoa.idUsuario && pessoa.idUsuario === assignment?.idUsuario && styles.personIconSelf,
+                  ]}>
+                    <MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} />
+                  </View>
                   <View style={styles.personInfo}>
-                    <Text style={styles.personName} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
+                    <Text style={styles.personName} numberOfLines={1}>
+                      {pessoa.idUsuario && pessoa.idUsuario === assignment?.idUsuario ? 'Você' : pessoa.nomeProfissional}
+                    </Text>
                     <Text style={styles.personMeta} numberOfLines={1}>{pessoa.funcao}</Text>
                   </View>
                 </View>
@@ -206,10 +219,21 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
             <Text style={styles.sectionHint}>Nenhum outro profissional confirmado ainda.</Text>
           )}
 
-          <Text style={styles.sectionTitle}>Notas da produção</Text>
-          <Card style={styles.card}><Card.Content>
-            <Text style={styles.noteText}>{notas}</Text>
-          </Card.Content></Card>
+          <Card style={styles.productionNotesCard}>
+            <Card.Content style={styles.productionNotesContent}>
+              <View style={styles.productionNotesHeading}>
+                <View style={styles.productionNotesIcon}>
+                  <Feather name="file-text" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.productionNotesHeadingText}>
+                  <Text style={styles.productionNotesTitle}>Notas da produção</Text>
+                  <Text style={styles.productionNotesSubtitle}>Informações importantes para a equipe</Text>
+                </View>
+              </View>
+              <View style={styles.productionNotesDivider} />
+              <Text style={styles.productionNotesText}>{notas}</Text>
+            </Card.Content>
+          </Card>
 
         </ScrollView>
       )}

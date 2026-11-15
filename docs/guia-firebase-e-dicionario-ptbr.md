@@ -12,12 +12,13 @@ Este guia usa como fonte de verdade o [modelo de banco e regras](modelo-banco-e-
 
 ## Cadastro e login
 
-O cadastro solicita nome completo, e-mail e senha. O Firebase Authentication cria a credencial; em seguida o app cria:
+O cadastro solicita nome completo, CPF, e-mail e senha. O Firebase Authentication cria a credencial; em seguida o app cria:
 
 ```text
 usuarios/{uid}
   id_usuario: uid
   nome_completo: string
+  cpf: string (11 dígitos)
   email: string
   telefone: string
   papel: false
@@ -26,7 +27,7 @@ usuarios/{uid}
   criado_em: Timestamp
 ```
 
-O papel inicial é `false` e `id_empresa` fica nulo. Depois do cadastro pessoal, o usuário informa o código de vínculo fornecido pela empresa. O cadastro da empresa acontece pelo fluxo administrativo. A senha fica somente no Firebase Authentication.
+O CPF é obrigatório e armazenado com 11 dígitos. O papel inicial é `false` e `id_empresa` fica nulo. Depois do cadastro pessoal, o usuário informa o código de vínculo fornecido pela empresa. O cadastro da empresa acontece pelo fluxo administrativo. A senha fica somente no Firebase Authentication.
 
 O login usa o e-mail da conta. O campo “usuário” foi removido da tela porque não existe na tabela oficial `usuarios`.
 

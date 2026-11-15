@@ -1,5 +1,6 @@
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
+import { normalizarCpf, validarCpf } from '../compartilhado/validacaoCpf';
 
 function verificarUsuarioAtual(uid) {
   if (!autenticacao.currentUser || autenticacao.currentUser.uid !== uid) {
@@ -52,6 +53,7 @@ export async function obterPerfilUsuario(usuarioFirebase) {
     email: usuarioFirebase.email || perfil.email || '',
     name: nome,
     displayName: nome,
+    cpf: perfil.cpf || '',
     telefone: perfil.telefone || '',
     phone: perfil.telefone || '',
     companyName: nomeEmpresa,
@@ -73,19 +75,22 @@ export async function obterPerfilUsuario(usuarioFirebase) {
 
 export const getUserProfile = obterPerfilUsuario;
 
-export async function atualizarPerfilUsuario(uid, { displayName, phone }) {
+export async function atualizarPerfilUsuario(uid, { displayName, phone, cpf }) {
   verificarUsuarioAtual(uid);
   const nomeLimpo = typeof displayName === 'string' ? displayName.trim() : '';
+  const cpfLimpo = normalizarCpf(cpf);
   const telefoneLimpo = String(phone || '').replace(/\D/g, '');
   if (!nomeLimpo) throw new Error('Informe seu nome completo.');
   if (nomeLimpo.length > 120) throw new Error('O nome completo deve ter no máximo 120 caracteres.');
+  if (!validarCpf(cpfLimpo)) throw new Error('Informe um CPF válido.');
   if (telefoneLimpo && ![10, 11].includes(telefoneLimpo.length)) throw new Error('Informe um telefone com DDD.');
 
   await updateDoc(doc(bancoDados, 'usuarios', uid), {
     nome_completo: nomeLimpo,
+    cpf: cpfLimpo,
     telefone: telefoneLimpo,
   });
-  return { displayName: nomeLimpo, phone: telefoneLimpo };
+  return { displayName: nomeLimpo, cpf: cpfLimpo, phone: telefoneLimpo };
 }
 
 export const updateUserProfile = atualizarPerfilUsuario;

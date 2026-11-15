@@ -8,8 +8,25 @@ import { styles } from '../../estilos/estilosCriarEventoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 import ModalSelecao from '../../componentes/ModalSelecao';
+import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 const SECOES = ['Geral', 'Equipe', 'Financeiro'];
+
+export const OPCOES_PAGAMENTO = [
+  { id: 'Pix', nome: 'Pix' },
+  { id: 'Dinheiro', nome: 'Dinheiro' },
+  { id: 'Cartão de Crédito', nome: 'Cartão de Crédito' },
+  { id: 'Cartão de Débito', nome: 'Cartão de Débito' },
+  { id: 'Boleto', nome: 'Boleto' },
+];
+
+export const OPCOES_QTD_PARCELAS = [
+  { id: '0', nome: 'Sem parcelas' },
+  ...Array.from({ length: 12 }, (_, indice) => {
+    const quantidade = indice + 1;
+    return { id: String(quantidade), nome: quantidade === 1 ? '1 parcela' : `${quantidade} parcelas` };
+  }),
+];
 
 const DateTimePickerNativo = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -45,7 +62,7 @@ export const formatarMoedaInput = (valor) => {
   return 'R$ ' + valorMonetario.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-const formatarDataParcelaInput = (valor) => {
+export const formatarDataParcelaInput = (valor) => {
   const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
   if (digitos.length <= 2) return digitos;
   if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
@@ -89,30 +106,56 @@ function dataParaPicker(valor, modo) {
   return new Date();
 }
 
-function SeletorDataHora({ modo, valor, aoMudar }) {
+function SeletorDataHora({ modo, valor, aoMudar, formatoBrasileiro = false }) {
   const [visivel, setVisivel] = useState(false);
-  const texto = modo === 'date' ? formatarData(valor) : valor;
+  const valorPicker = modo === 'date' && formatoBrasileiro && valor
+    ? valor.split('/').reverse().join('-')
+    : valor;
+  const texto = modo === 'date'
+    ? (formatoBrasileiro ? valor : formatarData(valor))
+    : valor;
+  const icone = modo === 'date' ? 'calendar-month-outline' : 'clock-outline';
 
   if (Platform.OS === 'web') {
-    return React.createElement('input', {
-      type: modo, value: valor, onChange: (evento) => aoMudar(evento.target.value),
-      style: { width: '100%', boxSizing: 'border-box', backgroundColor: '#FFFFFF', border: '1px solid #D8E2EB', borderRadius: 11, padding: '12px 13px', minHeight: 48, color: '#102B46', fontSize: 14, fontFamily: FONTES.body },
-    });
+    return (
+      <View style={styles.control}>
+        <MaterialCommunityIcons name={icone} size={19} color={CORES.textMuted} />
+        <SeparadorCampoIcone />
+        {React.createElement('input', {
+          type: modo,
+          value: valorPicker,
+          onChange: (evento) => {
+            const data = evento.target.value;
+            aoMudar(formatoBrasileiro && data ? data.split('-').reverse().join('/') : data);
+          },
+          style: { flex: 1, minWidth: 0, boxSizing: 'border-box', border: 'none', outline: 'none', backgroundColor: 'transparent', minHeight: 46, color: CORES.textNavy, fontSize: 14, fontFamily: FONTES.body },
+        })}
+      </View>
+    );
   }
   return (
     <>
-      <TouchableOpacity accessibilityRole="button" onPress={() => setVisivel(true)} style={styles.datePickerButton}>
-        <Text style={[styles.datePickerText, !texto && styles.placeholder]}>{texto || (modo === 'date' ? 'DD/MM/AAAA' : '16:00')}</Text>
-        <MaterialCommunityIcons name={modo === 'date' ? 'calendar-month-outline' : 'clock-outline'} size={19} color="#71859A" />
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={modo === 'date' ? 'Selecionar data' : 'Selecionar horário'}
+        onPress={() => setVisivel(true)}
+        style={styles.control}
+      >
+        <MaterialCommunityIcons name={icone} size={19} color={CORES.textMuted} />
+        <SeparadorCampoIcone />
+        <Text style={[styles.datePickerText, !texto && styles.datePickerPlaceholder]}>{texto || (modo === 'date' ? 'DD/MM/AAAA' : '16:00')}</Text>
       </TouchableOpacity>
       {visivel && DateTimePickerNativo && (
         <DateTimePickerNativo
-          value={dataParaPicker(valor, modo)} mode={modo} display="default"
+          value={dataParaPicker(valorPicker, modo)} mode={modo} display="default"
           onChange={(evento, selecionada) => {
             setVisivel(false);
             if (!selecionada || evento.type === 'dismissed') return;
             if (modo === 'date') {
-              aoMudar(`${selecionada.getFullYear()}-${String(selecionada.getMonth() + 1).padStart(2, '0')}-${String(selecionada.getDate()).padStart(2, '0')}`);
+              const ano = selecionada.getFullYear();
+              const mes = String(selecionada.getMonth() + 1).padStart(2, '0');
+              const dia = String(selecionada.getDate()).padStart(2, '0');
+              aoMudar(formatoBrasileiro ? `${dia}/${mes}/${ano}` : `${ano}-${mes}-${dia}`);
             } else {
               aoMudar(`${String(selecionada.getHours()).padStart(2, '0')}:${String(selecionada.getMinutes()).padStart(2, '0')}`);
             }
@@ -123,39 +166,53 @@ function SeletorDataHora({ modo, valor, aoMudar }) {
   );
 }
 
-const CampoInput = ({ label, valor, aoMudar, placeholder, teclado = 'default', multilinha = false, obrigatorio = false, icone }) => (
-  <View style={styles.field}>
-    <Text style={styles.label}>{label}{obrigatorio ? ' *' : ''}</Text>
-    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E2EB', borderRadius: 11, paddingHorizontal: 13, minHeight: 48 }}>
-      {icone && <Feather name={icone} size={18} color="#94A3B8" style={{ marginRight: 10 }} />}
-      <TextInput 
-         value={valor} 
-         onChangeText={aoMudar} 
-         placeholder={placeholder} 
-         placeholderTextColor={CORES.textSubtle} 
-         keyboardType={teclado} 
-         multiline={multilinha} 
-         textAlign="left"
-        style={{ flex: 1, fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, minHeight: multilinha ? 88 : 48, textAlignVertical: multilinha ? 'top' : 'center', paddingTop: multilinha ? 12 : 0, outlineStyle: 'none' }} 
-       />
-    </View>
-  </View>
-)
+const CampoInput = ({ label, valor, aoMudar, placeholder, teclado = 'default', multilinha = false, obrigatorio = false, icone, compacto = false }) => {
+  const [focado, setFocado] = useState(false);
 
-const CampoSelecao = ({ label, campo, valor, placeholder, icone, compacto = false, onPress }) => (
-  <View style={[styles.selectionCard, compacto && styles.selectionCardCompact]}>
-    <Text style={styles.selectionLabel}>{label}</Text>
-    <TouchableOpacity onPress={onPress} style={styles.selectionButton}>
+  return (
+    <View style={[styles.field, compacto && styles.fieldCompact]}>
+      <Text style={styles.label}>{label}{obrigatorio ? ' *' : ''}</Text>
+      <View style={[styles.control, multilinha && styles.multilineControl, focado && styles.controlFocused]}>
+        {icone && <Feather name={icone} size={18} color={focado ? CORES.textNavy : CORES.textMuted} />}
+        {icone && <SeparadorCampoIcone />}
+        <TextInput
+          value={valor}
+          onChangeText={aoMudar}
+          onFocus={() => setFocado(true)}
+          onBlur={() => setFocado(false)}
+          placeholder={placeholder}
+          placeholderTextColor={CORES.textSubtle}
+          keyboardType={teclado}
+          multiline={multilinha}
+          textAlign="left"
+          style={[styles.controlInput, multilinha && styles.multilineInput]}
+        />
+      </View>
+    </View>
+  );
+};
+
+const CampoSelecao = ({ label, valor, placeholder, icone, onPress }) => (
+  <View style={styles.field}>
+    <Text style={styles.label}>{label}</Text>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${valor || placeholder}`}
+      onPress={onPress}
+      style={styles.control}
+    >
       {!!icone && <MaterialCommunityIcons name={icone} size={19} color={CORES.textMuted} />}
-      <Text style={[styles.selectionText, !valor && styles.selectionPlaceholder]} numberOfLines={1}>{valor || placeholder}</Text>
+      {!!icone && <SeparadorCampoIcone />}
+      <Text style={[styles.controlValue, !valor && styles.selectionPlaceholder]} numberOfLines={1}>{valor || placeholder}</Text>
       <MaterialCommunityIcons name="chevron-down" size={20} color={CORES.textMuted} />
     </TouchableOpacity>
   </View>
-)
+);
 
 export default function TelaCriarEvento({ navigation, usuario }) {
   const [secao, setSecao] = useState('Geral');
   const [locais, setLocais] = useState([{ idLocalTemp: 1, nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' }]);
+  const [localExpandidoId, setLocalExpandidoId] = useState(1);
   const [formulario, setFormulario] = useState({
      titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '',
      numConvidados: '', notasProducao: '', valorTotal: '', metodoPagamento: '', qtdParcelas: '', observacaoFinanceiro: '' 
@@ -206,8 +263,23 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     if (campo === 'qtdParcelas') {
        const qtd = Number(valor) || 0;
        const qtdSegura = Math.min(qtd, 12);
-       const novasParcelas = Array.from({length: qtdSegura}).map((_, i) => parcelas[i] || { valor: '', observacao: '', status: 'pendente', vencimento: '' });
-       setParcelas(novasParcelas);
+       setParcelas((anteriores) => {
+         const novasParcelas = Array.from({ length: qtdSegura }, (_, i) => (
+           anteriores[i] || { valor: '', observacao: '', status: 'pendente', vencimento: '' }
+         ));
+         if (qtdSegura === 1) {
+           novasParcelas[0] = {
+             ...novasParcelas[0],
+             valor: formatarMoedaInput(String(formulario.valorTotal || '')),
+           };
+         }
+         return novasParcelas;
+       });
+    } else if (campo === 'valorTotal' && Number(formulario.qtdParcelas) === 1) {
+      setParcelas((anteriores) => [{
+        ...(anteriores[0] || { observacao: '', status: 'pendente', vencimento: '' }),
+        valor: formatarMoedaInput(String(valor || '')),
+      }]);
     }
   };
 
@@ -223,8 +295,18 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     setLocais(novosLocais);
   };
 
-  const adicionarLocal = () => setLocais([...locais, { idLocalTemp: Date.now(), nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' }]);
-  const removerLocal = (index) => setLocais(locais.filter((_, i) => i !== index));
+  const adicionarLocal = () => {
+    const novoLocal = { idLocalTemp: Date.now(), nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' };
+    setLocais((anteriores) => [...anteriores, novoLocal]);
+    setLocalExpandidoId(novoLocal.idLocalTemp);
+  };
+  const removerLocal = (index) => {
+    const locaisRestantes = locais.filter((_, i) => i !== index);
+    setLocais(locaisRestantes);
+    if (locais[index]?.idLocalTemp === localExpandidoId) {
+      setLocalExpandidoId(locaisRestantes[0]?.idLocalTemp ?? null);
+    }
+  };
 
   const carregarOpcoesSelect = async (campoInfo) => {
     setCarregandoOpcoes(true);
@@ -246,7 +328,12 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const abrirSelecao = (campoInfo) => {
     setTipoSelecao(campoInfo);
     if (campoInfo === 'metodoPagamento') {
-      setOpcoesSelecao([{ id: 'Pix', nome: 'Pix' }, { id: 'Dinheiro', nome: 'Dinheiro' }, { id: 'Cartão de Crédito', nome: 'Cartão de Crédito' }, { id: 'Boleto', nome: 'Boleto' }]);
+      setOpcoesSelecao(OPCOES_PAGAMENTO);
+      setSelecaoVisivel(true);
+      return;
+    }
+    if (campoInfo === 'qtdParcelas') {
+      setOpcoesSelecao(OPCOES_QTD_PARCELAS);
       setSelecaoVisivel(true);
       return;
     }
@@ -257,6 +344,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const escolherOpcao = async (item) => {
     if (tipoSelecao === 'metodoPagamento') {
       atualizar('metodoPagamento', item.nome);
+    } else if (tipoSelecao === 'qtdParcelas') {
+      atualizar('qtdParcelas', item.id);
     } else if (tipoSelecao.startsWith('local_')) {
       const index = parseInt(tipoSelecao.split('_')[1], 10);
       const tiposLocais = await repositorioEventos.obterOpcoesSelect('tiposLocal', usuario?.idEmpresa);
@@ -418,7 +507,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       const novo = await repositorioEventos.adicionarNovoItemSelect('tiposEvento', dados, usuario?.idEmpresa || usuario?.companyId);
       setModalTipoEventoVisivel(false);
       setFormNovoTipoEvento({ nome: '', descricao: '' });
-      escolherOpcao(novo);
+      await escolherOpcao(novo);
     } catch (error) {
       mostrarErro(error?.message || 'Não foi possível salvar o tipo de evento.');
     } finally {
@@ -570,57 +659,90 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   };
 
   const conteudoSecao = (nomeSecao) => {
+    const quantidadeFuncoes = new Set(equipe.map((pessoa) => pessoa.funcao).filter(Boolean)).size;
+
     if (nomeSecao === 'Geral') return (
       <>
-        <Text style={styles.sectionHeading}>Informações do evento</Text>
-        <Text style={styles.sectionHint}>Os campos com * são obrigatórios.</Text>
+        <View style={styles.formBlock}>
+          <Text style={styles.sectionHeading}>Dados do evento</Text>
+          <Text style={styles.sectionHint}>Os campos com * são obrigatórios.</Text>
 
-        <CampoInput label="Título do evento" valor={formulario.titulo} aoMudar={(v) => atualizar('titulo', v)} placeholder="Ex.: Ana & Pedro" obrigatorio />
-        <CampoSelecao label="Cliente *" campo="cliente" valor={formulario.cliente} placeholder="Selecionar" icone="account-outline" onPress={() => abrirSelecao('cliente')} />
-        <CampoSelecao label="Tipo de evento *" campo="tipoEvento" valor={formulario.tipoEvento} placeholder="Selecionar" onPress={() => abrirSelecao('tipoEvento')} />
+          <CampoInput label="Título do evento" valor={formulario.titulo} aoMudar={(v) => atualizar('titulo', v)} placeholder="Ex.: Ana & Pedro" obrigatorio />
+          <CampoSelecao label="Cliente *" valor={formulario.cliente} placeholder="Selecionar cliente" icone="account-outline" onPress={() => abrirSelecao('cliente')} />
+          <CampoSelecao label="Tipo de evento *" valor={formulario.tipoEvento} placeholder="Selecionar tipo" icone="party-popper" onPress={() => abrirSelecao('tipoEvento')} />
 
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <View style={styles.field}><Text style={styles.label}>Data *</Text><SeletorDataHora modo="date" valor={formulario.dataInicio} aoMudar={(v) => atualizar('dataInicio', v)} /></View>
+          <View style={styles.row}>
+            <View style={styles.column}>
+              <View style={styles.field}><Text style={styles.label}>Data *</Text><SeletorDataHora modo="date" valor={formulario.dataInicio} aoMudar={(v) => atualizar('dataInicio', v)} /></View>
+            </View>
+            <View style={styles.column}>
+              <View style={styles.field}><Text style={styles.label}>Horário</Text><SeletorDataHora modo="time" valor={formulario.horaInicio} aoMudar={(v) => atualizar('horaInicio', v)} /></View>
+            </View>
           </View>
-          <View style={styles.column}>
-            <View style={styles.field}><Text style={styles.label}>Horário</Text><SeletorDataHora modo="time" valor={formulario.horaInicio} aoMudar={(v) => atualizar('horaInicio', v)} /></View>
-          </View>
+
+          <CampoInput label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizar('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" icone="users" />
         </View>
 
-        <CampoInput label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizar('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" />
-        
-        <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#DFE7EE', paddingTop: 20 }}>
-          <Text style={styles.sectionHeading}>Locais do evento</Text>
-          <Text style={styles.sectionHint}>Informe os espaços para a equipe.</Text>
-          
+        <View style={styles.formBlock}>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionTitleText}>
+              <Text style={styles.sectionHeading}>Locais</Text>
+              <Text style={[styles.sectionHint, styles.sectionHintCompact]}>Adicione os espaços onde o evento acontecerá.</Text>
+            </View>
+            <View style={styles.countBadge}><Text style={styles.countBadgeText}>{locais.length}</Text></View>
+          </View>
+
           {locais.map((local, index) => (
-            <View key={local.idLocalTemp} style={[styles.locationCard, { marginBottom: 15 }]}>
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
-                <Text style={{fontWeight: 'bold', color: CORES.textNavy}}>Local {index + 1}</Text>
-                {locais.length > 1 && <TouchableOpacity onPress={() => removerLocal(index)}><MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" /></TouchableOpacity>}
+            <View key={local.idLocalTemp} style={styles.locationCard}>
+              <View style={styles.locationHeader}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={`${localExpandidoId === local.idLocalTemp ? 'Recolher' : 'Expandir'} local ${index + 1}`}
+                  accessibilityState={{ expanded: localExpandidoId === local.idLocalTemp }}
+                  onPress={() => setLocalExpandidoId((atual) => atual === local.idLocalTemp ? null : local.idLocalTemp)}
+                  style={styles.locationHeaderToggle}
+                >
+                  <View style={styles.locationHeaderInfo}>
+                    <Text style={styles.locationTitle}>Local {index + 1}</Text>
+                    <Text style={styles.locationSummary} numberOfLines={1}>
+                      {local.nomeDoLocal || local.tipoLocal
+                        ? [local.tipoLocal, local.nomeDoLocal].filter(Boolean).join(' · ')
+                        : 'Defina o tipo e o endereço'}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons name={localExpandidoId === local.idLocalTemp ? 'chevron-up' : 'chevron-down'} size={22} color={CORES.textMuted} />
+                </TouchableOpacity>
+                {locais.length > 1 && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remover local ${index + 1}`}
+                    onPress={() => removerLocal(index)}
+                    style={styles.removeLocationButton}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={19} color="#B42318" />
+                  </TouchableOpacity>
+                )}
               </View>
-              
-              <CampoSelecao label="Tipo do local *" campo={`tipoLocal_${index}`} valor={local.tipoLocal} placeholder="Selecionar tipo" compacto onPress={() => abrirSelecao(`tipoLocal_${index}`)} />
-              <CampoSelecao label="Local *" campo={`local_${index}`} valor={local.nomeDoLocal} placeholder="Selecionar o endereço" icone="map-marker-outline" compacto onPress={() => abrirSelecao(`local_${index}`)} />
-              {!!local.enderecoLocal && <Text style={{fontSize: 12, color: '#64748B', marginBottom: 10, paddingHorizontal: 5}}>{local.enderecoLocal}</Text>}
 
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <View style={styles.field}><Text style={styles.selectionLabel}>Horário</Text><SeletorDataHora modo="time" valor={local.horaLocal} aoMudar={(v) => atualizarLocal(index, 'horaLocal', v)} /></View>
+              {localExpandidoId === local.idLocalTemp && (
+                <View style={styles.locationFields}>
+                  <CampoSelecao label="Tipo do local *" valor={local.tipoLocal} placeholder="Selecionar tipo" icone="map-marker-radius-outline" onPress={() => abrirSelecao(`tipoLocal_${index}`)} />
+                  <CampoSelecao label="Endereço *" valor={local.nomeDoLocal} placeholder="Selecionar endereço" icone="map-marker-outline" onPress={() => abrirSelecao(`local_${index}`)} />
+                  {!!local.enderecoLocal && <Text style={styles.locationAddress}>{local.enderecoLocal}</Text>}
+
+                  <View style={styles.field}>
+                    <Text style={styles.label}>Horário neste local</Text>
+                    <SeletorDataHora modo="time" valor={local.horaLocal} aoMudar={(v) => atualizarLocal(index, 'horaLocal', v)} />
+                  </View>
+
+                  <CampoInput label="Observações do local" valor={local.observacoesLocal} aoMudar={(v) => atualizarLocal(index, 'observacoesLocal', v)} placeholder="Ex.: entrada pela lateral" multilinha icone="align-left" />
                 </View>
-              </View>
-
-              <View style={styles.field}>
-                 <Text style={styles.selectionLabel}>Observações do local</Text>
-                 <TextInput value={local.observacoesLocal} onChangeText={(v) => atualizarLocal(index, 'observacoesLocal', v)} placeholder="Observações do local" style={[styles.input, {minHeight: 60}]} multiline />
-              </View>
-
+              )}
             </View>
           ))}
-          <Button mode="contained" icon="plus" onPress={adicionarLocal} textColor={CORES.textNavy} buttonColor={CORES.buttonGold} style={styles.addLocationButton}>Adicionar mais um local</Button>
+          <Button mode="outlined" icon="plus" onPress={adicionarLocal} textColor={CORES.textNavy} style={styles.addLocationButton}>Adicionar local</Button>
 
-          <CampoInput label="Notas gerais da produção" valor={formulario.notasProducao} aoMudar={(v) => atualizar('notasProducao', v)} placeholder="Escrever notas importantes para toda a equipe..." multilinha />
+          <CampoInput label="Notas gerais da produção" valor={formulario.notasProducao} aoMudar={(v) => atualizar('notasProducao', v)} placeholder="Informações importantes para toda a equipe..." multilinha icone="file-text" />
         </View>
       </>
     );
@@ -628,59 +750,83 @@ export default function TelaCriarEvento({ navigation, usuario }) {
     if (nomeSecao === 'Equipe') return (
       <>
         <Text style={styles.sectionHeading}>Equipe de campo</Text>
-        <Text style={styles.sectionHint}>Adicione as funções e os profissionais previstos para o evento.</Text>
-        <View style={styles.teamCard}>
-          {equipe.map((pessoa) => (
-            <View key={pessoa.id} style={styles.personRow}>
-              <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={20} color={CORES.textNavy} /></View>
-              <View style={styles.personInfo}>
-                <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15, fontWeight: '700' }}>{pessoa.nomeProfissional}</Text>
-                <Text style={styles.personMeta}>{pessoa.funcao}</Text>
-                {!!pessoa.despesas?.length && <Text style={styles.personExpenseCount}>{pessoa.despesas.length} {pessoa.despesas.length === 1 ? 'despesa' : 'despesas'}</Text>}
-              </View>
-              <TouchableOpacity style={styles.expenseIconButton} onPress={() => abrirDespesasProfissional(pessoa)} accessibilityRole="button" accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}>
-                <Feather name="dollar-sign" size={18} color={CORES.statusConfirmado} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))} accessibilityRole="button" accessibilityLabel={`Remover ${pessoa.nomeProfissional} do evento`}>
-                <MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} />
-              </TouchableOpacity>
+        <Text style={styles.sectionHint}>Opcional. Monte a equipe agora ou adicione profissionais mais tarde.</Text>
+        {equipe.length > 0 ? (
+          <View style={styles.teamSummary}>
+            <View style={styles.teamSummaryIcon}><MaterialCommunityIcons name="account-group-outline" size={22} color={CORES.textNavy} /></View>
+            <View style={styles.teamSummaryInfo}>
+              <Text style={styles.teamSummaryCount}>{equipe.length} {equipe.length === 1 ? 'profissional' : 'profissionais'} adicionado{equipe.length === 1 ? '' : 's'}</Text>
+              <Text style={styles.teamSummaryMeta}>{quantidadeFuncoes} {quantidadeFuncoes === 1 ? 'função' : 'funções'} na equipe</Text>
             </View>
-          ))}
-          {!equipe.length && <Text style={styles.emptyTeam}>Nenhum profissional adicionado.</Text>}
-        </View>
-        <Button mode="contained" icon="plus" onPress={() => setModalEquipeVisivel(true)} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.addTeamButton}>Adicionar profissional de campo</Button>
+          </View>
+        ) : (
+          <View style={styles.emptyTeamCard}>
+            <View style={styles.emptyTeamIcon}><MaterialCommunityIcons name="account-group-outline" size={24} color={CORES.textMuted} /></View>
+            <Text style={styles.emptyTeamTitle}>Equipe ainda não definida</Text>
+            <Text style={styles.emptyTeamDescription}>Você pode convidar profissionais agora ou completar a equipe depois.</Text>
+          </View>
+        )}
+        {equipe.length > 0 && (
+          <View style={styles.teamCard}>
+            {equipe.map((pessoa) => (
+              <View key={pessoa.id} style={styles.personRow}>
+                <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={20} color={CORES.textNavy} /></View>
+                <View style={styles.personInfo}>
+                  <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15, fontWeight: '700' }}>{pessoa.nomeProfissional}</Text>
+                  <Text style={styles.personMeta}>{pessoa.funcao}</Text>
+                  {!!pessoa.despesas?.length && <Text style={styles.personExpenseCount}>{pessoa.despesas.length} {pessoa.despesas.length === 1 ? 'despesa' : 'despesas'}</Text>}
+                </View>
+                <TouchableOpacity style={styles.expenseIconButton} onPress={() => abrirDespesasProfissional(pessoa)} accessibilityRole="button" accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}>
+                  <Feather name="dollar-sign" size={18} color={CORES.statusConfirmado} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setEquipe((lista) => lista.filter((item) => item.id !== pessoa.id))} accessibilityRole="button" accessibilityLabel={`Remover ${pessoa.nomeProfissional} do evento`}>
+                  <MaterialCommunityIcons name="close-circle-outline" size={21} color={CORES.textMuted} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+        <Button mode={equipe.length > 0 ? 'outlined' : 'contained'} icon="plus" onPress={() => setModalEquipeVisivel(true)} buttonColor={equipe.length > 0 ? undefined : CORES.buttonGold} textColor={CORES.textNavy} style={styles.addTeamButton}>
+          {equipe.length > 0 ? 'Adicionar outro profissional' : 'Adicionar profissionais'}
+        </Button>
       </>
     );
 
     return (
       <>
         <Text style={styles.sectionHeading}>Financeiro</Text>
-        <Text style={styles.sectionHint}>Registre os valores combinados para acompanhar o evento.</Text>
+        <Text style={styles.sectionHint}>Opcional. Preencha somente os valores que já foram combinados.</Text>
         
-        <CampoInput icone="dollar-sign" label="Valor total do evento" valor={formulario.valorTotal} aoMudar={(v) => atualizar('valorTotal', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="decimal-pad" />
-        <CampoSelecao label="Método de pagamento" campo="metodoPagamento" valor={formulario.metodoPagamento} placeholder="Ex.: Pix, Boleto, Cartão" icone="credit-card" onPress={() => abrirSelecao('metodoPagamento')} />
+        <CampoInput icone="dollar-sign" label="Valor total (opcional)" valor={formulario.valorTotal} aoMudar={(v) => atualizar('valorTotal', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="decimal-pad" />
+        <CampoSelecao label="Método de pagamento (opcional)" valor={formulario.metodoPagamento} placeholder="Selecionar método" icone="credit-card-outline" onPress={() => abrirSelecao('metodoPagamento')} />
         
-        <CampoInput icone="layers" label="Quantidade de parcelas (Até 12x)" valor={formulario.qtdParcelas} aoMudar={(v) => atualizar('qtdParcelas', v)} placeholder="Ex.: 2" teclado="numeric" />
+        <CampoSelecao
+          label="Parcelamento (opcional)"
+          valor={OPCOES_QTD_PARCELAS.find((opcao) => opcao.id === String(formulario.qtdParcelas))?.nome || ''}
+          placeholder="Selecionar quantidade"
+          icone="layers-outline"
+          onPress={() => abrirSelecao('qtdParcelas')}
+        />
 
-        <CampoInput icone="align-left" label="Observações do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(v) => atualizar('observacaoFinanceiro', v)} placeholder="Anotações extras..." multilinha />
+        <CampoInput icone="align-left" label="Observações financeiras (opcional)" valor={formulario.observacaoFinanceiro} aoMudar={(v) => atualizar('observacaoFinanceiro', v)} placeholder="Anotações sobre o pagamento..." multilinha />
         
         {parcelas.length > 0 && parcelas.map((parc, i) => (
-           <View key={i} style={{marginTop: 10, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#D8E2EB', marginBottom: 10}}>
-              <Text style={[styles.label, {marginBottom: 10, color: CORES.textNavy, fontFamily: FONTES.bold}]}>Parcela {i + 1}</Text>
-              <CampoInput label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarParcela(i, 'valor', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="decimal-pad" />
+           <View key={i} style={styles.installmentCard}>
+              <View style={styles.installmentHeader}>
+                <View style={styles.installmentNumber}><Text style={styles.installmentNumberText}>{i + 1}</Text></View>
+                <Text style={styles.installmentTitle}>Parcela {i + 1}</Text>
+              </View>
+              <CampoInput icone="dollar-sign" label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarParcela(i, 'valor', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="decimal-pad" />
               <View style={styles.field}>
                 <Text style={styles.label}>Vencimento</Text>
-                <TextInput
-                  value={parc.vencimento || ''}
-                  onChangeText={(valor) => atualizarParcela(i, 'vencimento', formatarDataParcelaInput(valor))}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor={CORES.textSubtle}
-                  keyboardType="numeric"
-                  style={styles.input}
-                  accessibilityLabel={`Vencimento da parcela ${i + 1}`}
+                <SeletorDataHora
+                  modo="date"
+                  valor={parc.vencimento || ''}
+                  aoMudar={(valor) => atualizarParcela(i, 'vencimento', valor)}
+                  formatoBrasileiro
                 />
               </View>
-              <CampoInput label="Observações" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex: Assinatura do contrato" />
+              <CampoInput icone="align-left" label="Observações (opcional)" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex.: Assinatura do contrato" />
            </View>
         ))}
       </>
@@ -690,7 +836,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const tituloSelecao = {
     tipoEvento: 'Selecionar tipo de evento',
     cliente: 'Selecionar cliente',
-    metodoPagamento: 'Método de Pagamento'
+    metodoPagamento: 'Método de Pagamento',
+    qtdParcelas: 'Quantidade de parcelas',
   }[tipoSelecao] || 'Selecionar';
 
   return (
@@ -737,12 +884,13 @@ export default function TelaCriarEvento({ navigation, usuario }) {
          opcoes={opcoesSelecao}
          carregando={carregandoOpcoes}
          onSelecionar={escolherOpcao}
-         onAdicionarNovo={tipoSelecao === 'metodoPagamento' ? null : salvarNovoItemNaSelecao}
+         onAdicionarNovo={tipoSelecao === 'metodoPagamento' || tipoSelecao === 'qtdParcelas' ? null : salvarNovoItemNaSelecao}
       />
 
       <Modal visible={modalDespesasVisivel} transparent animationType="fade" onRequestClose={() => setModalDespesasVisivel(false)}>
         <View style={styles.expenseModalOverlay}>
-          <ScrollView style={styles.expenseModalCard} keyboardShouldPersistTaps="handled">
+          <View style={styles.expenseModalCard}>
+            <ScrollView style={styles.expenseModalScroll} contentContainerStyle={styles.expenseModalContent} keyboardShouldPersistTaps="handled">
             <View style={styles.expenseModalHeader}>
               <Text style={styles.expenseModalTitle}>
                 {mostrarSeletorDespesa ? 'Selecionar tipo de despesa' : `Despesas de ${profissionalDespesas?.nomeProfissional || 'profissional'}`}
@@ -755,6 +903,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
               <>
                 <View style={styles.expenseModalSearch}>
                   <Feather name="search" size={17} color={CORES.textMuted} />
+                  <SeparadorCampoIcone />
                   <TextInput value={buscaTipoDespesa} onChangeText={setBuscaTipoDespesa} placeholder="Buscar tipo de despesa" placeholderTextColor={CORES.textMuted} style={styles.expenseModalSearchInput} />
                 </View>
                 {carregandoTiposDespesa ? (
@@ -809,7 +958,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
                     </View>
                   </View>
                 )}
-                <CampoSelecao label="Tipo da despesa" campo="tipoDespesa" valor={tipoDespesa} placeholder="Selecione o tipo de despesa" icone="tag-outline" onPress={() => { setBuscaTipoDespesa(''); setMostrarSeletorDespesa(true); }} />
+                <CampoSelecao label="Tipo da despesa" valor={tipoDespesa} placeholder="Selecione o tipo de despesa" icone="tag-outline" onPress={() => { setBuscaTipoDespesa(''); setMostrarSeletorDespesa(true); }} />
                 <CampoInput label="Valor" valor={valorDespesa} aoMudar={(valor) => setValorDespesa(formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="decimal-pad" icone="dollar-sign" />
                 <View style={styles.expenseModalActions}>
                   <Button mode="contained" onPress={salvarDespesaProfissional} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} style={styles.expenseSaveButton}>
@@ -823,7 +972,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
                 </View>
               </>
             )}
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
 
@@ -850,22 +1000,85 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       </Modal>
 
       <Modal visible={modalClienteVisivel} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-           <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
+        <View style={styles.formModalOverlay}>
+           <ScrollView
+             style={styles.clientModalCard}
+             contentContainerStyle={styles.clientModalContent}
+             keyboardShouldPersistTaps="handled"
+           >
               <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 15 }}>
                 {itemEditandoSelecao?.tipo === 'cliente' ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
               </Text>
-              <CampoInput label="Nome Completo *" valor={formNovoCliente.nome} aoMudar={v => setFormNovoCliente({...formNovoCliente, nome: v})} placeholder="Ex: Ana Costa" />
-              <CampoInput label="CPF ou CNPJ *" valor={formNovoCliente.documento} aoMudar={v => setFormNovoCliente({...formNovoCliente, documento: formatarCpfCnpj(v)})} placeholder="000.000.000-00" teclado="numeric" />
-              <CampoInput label="Telefone (Opcional)" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="+55 (00) 00000-0000" teclado="phone-pad" />
-              <CampoInput label="E-mail (Opcional)" valor={formNovoCliente.email} aoMudar={v => setFormNovoCliente({...formNovoCliente, email: v})} placeholder="nome@dominio.com" teclado="email-address" />
-              <CampoInput label="Instagram (Opcional)" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
+              <CampoInput compacto label="Nome completo *" valor={formNovoCliente.nome} aoMudar={v => setFormNovoCliente({...formNovoCliente, nome: v})} placeholder="Ex.: Ana Costa" />
+              <CampoInput compacto label="CPF ou CNPJ *" valor={formNovoCliente.documento} aoMudar={v => setFormNovoCliente({...formNovoCliente, documento: formatarCpfCnpj(v)})} placeholder="000.000.000-00" teclado="numeric" />
+              <CampoInput compacto label="Telefone (opcional)" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="+55 (00) 00000-0000" teclado="phone-pad" />
+              <CampoInput compacto label="E-mail (opcional)" valor={formNovoCliente.email} aoMudar={v => setFormNovoCliente({...formNovoCliente, email: v})} placeholder="nome@dominio.com" teclado="email-address" />
+              <CampoInput compacto label="Instagram (opcional)" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
               
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
+              <View style={styles.formModalActions}>
                  <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => { setModalClienteVisivel(false); setItemEditandoSelecao(null); }} textColor={CORES.textNavy}>Cancelar</Button>
                  <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoClienteDetalhado}>Salvar</Button>
               </View>
            </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalTipoEventoVisivel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setModalTipoEventoVisivel(false);
+          setItemEditandoSelecao(null);
+        }}
+      >
+        <View style={styles.formModalOverlay}>
+          <View style={styles.formModalCard}>
+            <Text style={styles.formModalTitle}>
+              {itemEditandoSelecao?.tipo === 'tipoEvento' ? 'Editar tipo de evento' : 'Novo tipo de evento'}
+            </Text>
+            <Text style={styles.formModalHint}>Informe um nome para identificar este tipo de evento.</Text>
+            <CampoInput
+              compacto
+              label="Nome do tipo *"
+              valor={formNovoTipoEvento.nome}
+              aoMudar={(nome) => setFormNovoTipoEvento((atual) => ({ ...atual, nome }))}
+              placeholder="Ex.: Casamento"
+            />
+            <CampoInput
+              compacto
+              label="Descrição (opcional)"
+              valor={formNovoTipoEvento.descricao}
+              aoMudar={(descricao) => setFormNovoTipoEvento((atual) => ({ ...atual, descricao }))}
+              placeholder="Detalhes sobre este tipo"
+              multilinha
+            />
+            <View style={styles.formModalActions}>
+              <Button
+                mode="outlined"
+                style={{ flex: 1, borderRadius: 10 }}
+                onPress={() => {
+                  setModalTipoEventoVisivel(false);
+                  setItemEditandoSelecao(null);
+                }}
+                textColor={CORES.textNavy}
+                disabled={carregandoOpcoes}
+              >
+                Cancelar
+              </Button>
+              <Button
+                mode="contained"
+                style={{ flex: 1, borderRadius: 10 }}
+                buttonColor={CORES.buttonGold}
+                textColor={CORES.textNavy}
+                onPress={salvarTipoEvento}
+                loading={carregandoOpcoes}
+                disabled={carregandoOpcoes}
+              >
+                Salvar tipo
+              </Button>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -889,7 +1102,7 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         </View>
       </Modal>
 
-      <ModalAdicionarProfissional visible={modalEquipeVisivel} empresaId={usuario?.idEmpresa} equipeAtual={equipe} onClose={() => setModalEquipeVisivel(false)} onAdd={adicionarProfissional} />
+      <ModalAdicionarProfissional visible={modalEquipeVisivel} empresaId={usuario?.idEmpresa} dataEvento={formulario.dataInicio} equipeAtual={equipe} onClose={() => setModalEquipeVisivel(false)} onAdd={adicionarProfissional} />
     </View>
   );
 }

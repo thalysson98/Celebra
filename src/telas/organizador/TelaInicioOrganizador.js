@@ -8,7 +8,6 @@ import {
   RefreshControl,
   StyleSheet,
   Modal,
-  TextInput,
   ActivityIndicator
 } from 'react-native';
 import { Card } from 'react-native-paper';
@@ -17,6 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import Cabecalho from '../../componentes/Cabecalho';
+import FiltroIntervaloDatas from '../../compartilhado/FiltroIntervaloDatas';
 
 const parseMoeda = (valor) => {
   if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
@@ -33,13 +33,6 @@ const formatarMonetario = (num) => {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-const formatarDataInput = (valor) => {
-  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
-  if (digitos.length <= 2) return digitos;
-  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
-  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
-};
-
 export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [eventos, setEventos] = useState([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
@@ -48,11 +41,12 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
   const [periodoFiltro, setPeriodoFiltro] = useState('esteMes');
   const [valoresVisiveis, setValoresVisiveis] = useState(true);
   const [tipoDetalhamento, setTipoDetalhamento] = useState(null);
-  const [modalPeriodoVisivel, setModalPeriodoVisivel] = useState(false);
+  const [profissionalSelecionado, setProfissionalSelecionado] = useState(null);
+  const [seletorProfissionalVisivel, setSeletorProfissionalVisivel] = useState(false);
+  const [filtroRapidoPendente, setFiltroRapidoPendente] = useState(null);
   const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState('');
   const [dataFimPersonalizada, setDataFimPersonalizada] = useState('');
   const [periodoPersonalizado, setPeriodoPersonalizado] = useState(null);
-  const [erroPeriodoPersonalizado, setErroPeriodoPersonalizado] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -145,7 +139,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     faturamentoTipos,
     despesasTipos,
     despesasCategorias,
-    valorParcelasPendentes,
     taxaConfirmacao,
     profissionaisConfirmados,
     profissionaisConvocados,
@@ -158,7 +151,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     let totalDespesasEquipe = 0;
     let profissionaisConfirmados = 0;
     let profissionaisConvocados = 0;
-    let valorParcelasPendentes = 0;
     const faturamentoPorTipo = Object.create(null);
     const despesasPorTipo = Object.create(null);
     const despesasPorCategoria = Object.create(null);
@@ -173,7 +165,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
           parcelasPendentes += 1;
           const valorParcela = parseMoeda(p.valor);
           pReceber += valorParcela;
-          valorParcelasPendentes += valorParcela;
         }
       });
       const tipo = ev.tipoEvento || 'Outros';
@@ -218,7 +209,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       faturamentoTipos,
       despesasTipos,
       despesasCategorias,
-      valorParcelasPendentes: formatarMonetario(valorParcelasPendentes),
       taxaConfirmacao,
       profissionaisConfirmados,
       profissionaisConvocados,
@@ -226,7 +216,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
   }, [eventosDoPeriodo]);
 
   const parcelasDetalhadas = useMemo(() => {
-    if (!['pagas', 'pendentes', 'aPagar'].includes(tipoDetalhamento)) return [];
+    if (!['pagas', 'pendentes'].includes(tipoDetalhamento)) return [];
     const statusAlvo = tipoDetalhamento === 'pagas' ? 'paga' : null;
     return eventosDoPeriodo.flatMap((evento) => (
       (evento.financeiro?.parcelasDetalhadas || [])
@@ -238,6 +228,17 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       return dataA - dataB;
     });
   }, [eventosDoPeriodo, tipoDetalhamento]);
+
+  const parcelasPorEvento = useMemo(() => {
+    const grupos = new Map();
+    parcelasDetalhadas.forEach((item, index) => {
+      const { evento } = item;
+      const chave = String(evento.idEvento || evento.id || `${evento.titulo || 'evento'}_${evento.dataInicio || index}`);
+      if (!grupos.has(chave)) grupos.set(chave, { evento, parcelas: [] });
+      grupos.get(chave).parcelas.push(item);
+    });
+    return Array.from(grupos.values());
+  }, [parcelasDetalhadas]);
 
   const equipeDetalhada = useMemo(() => (
     tipoDetalhamento === 'equipe'
@@ -263,10 +264,35 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
               grupo.eventos.push(evento);
             }
           });
-        return grupos;
+        return grupos.map((grupo) => ({
+          ...grupo,
+          eventos: [...grupo.eventos].sort((a, b) => {
+            const dataA = converterStringParaData(a.dataInicio)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+            const dataB = converterStringParaData(b.dataInicio)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+            return dataA - dataB;
+          }),
+        }));
       }, [])
       : []
   ), [eventosDoPeriodo, tipoDetalhamento]);
+
+  const equipeFiltrada = useMemo(() => (
+    profissionalSelecionado
+      ? equipeDetalhada.filter(({ chave }) => chave === profissionalSelecionado)
+      : equipeDetalhada
+  ), [equipeDetalhada, profissionalSelecionado]);
+
+  const abrirDetalhamentoEquipe = () => {
+    setProfissionalSelecionado(null);
+    setSeletorProfissionalVisivel(false);
+    setTipoDetalhamento('equipe');
+  };
+
+  const fecharDetalhamento = () => {
+    setTipoDetalhamento(null);
+    setProfissionalSelecionado(null);
+    setSeletorProfissionalVisivel(false);
+  };
 
   const abrirDetalheEvento = (idEvento) => {
     setTipoDetalhamento(null);
@@ -276,30 +302,58 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
     });
   };
 
+  const abrirFinanceiroEvento = (idEvento) => {
+    setTipoDetalhamento(null);
+    navigation.navigate('Eventos', {
+      screen: 'DetalheEvento',
+      params: { idEvento, abaInicial: 'Financeiro' },
+    });
+  };
+
   const opcoesPeriodo = [
     ['esteMes', 'Este Mês'],
     ['proximosTresMeses', 'Próx. 3 Meses'],
     ['anoAtual', 'Ano Atual'],
   ];
 
-  const aplicarPeriodoPersonalizado = () => {
-    const inicio = converterStringParaData(dataInicioPersonalizada);
-    const fim = converterStringParaData(dataFimPersonalizada);
-    if (!inicio || !fim) {
-      setErroPeriodoPersonalizado('Informe as datas inicial e final no formato DD/MM/AAAA.');
-      return;
-    }
+  const validarPeriodoPersonalizado = (inicio, fim) => {
+    if (!inicio || !fim) return 'Informe as datas inicial e final.';
+    return '';
+  };
+
+  const aplicarPeriodoPersonalizado = (inicioTexto, fimTexto) => {
+    const inicio = converterStringParaData(inicioTexto);
+    const fim = converterStringParaData(fimTexto);
+    if (!inicio || !fim) return;
     inicio.setHours(0, 0, 0, 0);
     fim.setHours(23, 59, 59, 999);
-    if (inicio > fim) {
-      setErroPeriodoPersonalizado('A data inicial deve ser anterior à data final.');
-      return;
-    }
     setPeriodoPersonalizado({ inicio, fim });
     setPeriodoFiltro('personalizado');
-    setErroPeriodoPersonalizado('');
-    setModalPeriodoVisivel(false);
   };
+
+  const formatarDataPeriodo = (valor) => {
+    const data = converterStringParaData(valor);
+    return data ? new Intl.DateTimeFormat('pt-BR').format(data) : '';
+  };
+
+  const selecionarPeriodoRapido = (chave) => {
+    if (periodoFiltro === 'personalizado' && chave !== 'personalizado') {
+      setFiltroRapidoPendente(chave);
+      return;
+    }
+    setPeriodoFiltro(chave);
+  };
+
+  const confirmarPeriodoRapido = () => {
+    if (!filtroRapidoPendente) return;
+    setPeriodoFiltro(filtroRapidoPendente);
+    setDataInicioPersonalizada('');
+    setDataFimPersonalizada('');
+    setPeriodoPersonalizado(null);
+    setFiltroRapidoPendente(null);
+  };
+
+  const periodoRapidoPendenteNome = opcoesPeriodo.find(([chave]) => chave === filtroRapidoPendente)?.[1];
 
   const eventosProximos = useMemo(() => {
     const hoje = new Date();
@@ -374,7 +428,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                 <TouchableOpacity
                   key={chave}
                   style={[styles.periodChip, selecionado && styles.periodChipSelected]}
-                  onPress={() => setPeriodoFiltro(chave)}
+                  onPress={() => selecionarPeriodoRapido(chave)}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.periodChipText, selecionado && styles.periodChipTextSelected]}>
@@ -384,32 +438,38 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
               );
             })}
           </View>
-          <TouchableOpacity
-            style={[styles.customPeriodButton, periodoFiltro === 'personalizado' && styles.customPeriodButtonSelected]}
-            onPress={() => setModalPeriodoVisivel(true)}
-            activeOpacity={0.7}
-          >
-            <Feather
-              name="calendar"
-              size={16}
-              color={periodoFiltro === 'personalizado' ? COLORS.textWhite : COLORS.textNavy}
-            />
-            <Text
-              style={[
-                styles.customPeriodButtonText,
-                periodoFiltro === 'personalizado' && styles.customPeriodButtonTextSelected,
-              ]}
-            >
-              {periodoFiltro === 'personalizado' && periodoPersonalizado
-                ? `${dataInicioPersonalizada} até ${dataFimPersonalizada}`
-                : 'Personalizado'}
-            </Text>
-            <Feather
-              name="chevron-right"
-              size={16}
-              color={periodoFiltro === 'personalizado' ? COLORS.textWhite : COLORS.textSubtle}
-            />
-          </TouchableOpacity>
+          <FiltroIntervaloDatas
+            dataInicial={dataInicioPersonalizada}
+            dataFinal={dataFimPersonalizada}
+            aoMudarDataInicial={setDataInicioPersonalizada}
+            aoMudarDataFinal={setDataFimPersonalizada}
+            aoLimpar={() => {
+              setDataInicioPersonalizada('');
+              setDataFimPersonalizada('');
+              setPeriodoPersonalizado(null);
+              setPeriodoFiltro('esteMes');
+            }}
+            aoAplicar={aplicarPeriodoPersonalizado}
+            validarAoAplicar={validarPeriodoPersonalizado}
+            ativo={periodoFiltro === 'personalizado'}
+            rotuloBotao={periodoFiltro === 'personalizado' && periodoPersonalizado
+              ? `${formatarDataPeriodo(dataInicioPersonalizada)} até ${formatarDataPeriodo(dataFimPersonalizada)}`
+              : 'Personalizado'}
+            iconeBotao="calendar"
+            iconeFinal="chevron-right"
+            estiloBotao={styles.customPeriodButton}
+            estiloBotaoAtivo={styles.customPeriodButtonSelected}
+            estiloTextoBotao={styles.customPeriodButtonText}
+            estiloTextoBotaoAtivo={styles.customPeriodButtonTextSelected}
+          />
+          {periodoFiltro === 'personalizado' && periodoPersonalizado && (
+            <View style={styles.customPeriodNotice}>
+              <Feather name="info" size={14} color={COLORS.textMuted} />
+              <Text style={styles.customPeriodNoticeText}>
+                Todos os dados demonstrados correspondem ao período informado no filtro.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.interactionHint}>
@@ -452,73 +512,64 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                   <Feather name="check-circle" size={19} color="#047857" />
                 </View>
                 <View style={styles.summaryMetricText}>
-                  <Text style={styles.summaryMetricLabel}>Valor realizado/pago</Text>
+                  <Text style={styles.summaryMetricLabel}>Valor pago</Text>
                   <Text style={styles.summaryMetricValue}>{valoresVisiveis ? valorRealizado : 'R$ ••••••'}</Text>
                 </View>
               </Card.Content>
             </Card>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => setTipoDetalhamento('aPagar')}
-            accessibilityRole="button"
-            accessibilityLabel={`Ver ${parcelasPendentes} parcelas a serem pagas`}
-          >
-            <Card style={styles.dashboardCard}>
-              <Card.Content style={styles.duePaymentsContent}>
-                <View style={styles.duePaymentsIcon}>
-                  <Feather name="calendar" size={19} color="#B45309" />
-                </View>
-                <View style={styles.duePaymentsText}>
-                  <Text style={styles.duePaymentsTitle}>Parcelas a serem pagas</Text>
-                  <Text style={styles.duePaymentsSubtitle}>{parcelasPendentes} parcelas pendentes</Text>
-                </View>
-                <View style={styles.duePaymentsAction}>
-                  <Text style={styles.duePaymentsValue}>{valoresVisiveis ? valorParcelasPendentes : 'R$ ••••••'}</Text>
-                  <View style={styles.cardActionHint}>
-                    <Text style={styles.cardActionHintText}>Ver detalhes</Text>
-                    <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+          <View style={styles.paymentStatusSection}>
+            <Text style={[styles.dashboardCardTitle, styles.paymentStatusTitle]}>Status de pagamentos</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setTipoDetalhamento('pagas')}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver ${parcelasPagas} parcelas pagas`}
+            >
+              <Card style={styles.dashboardCard}>
+                <Card.Content style={styles.summaryMetricContent}>
+                  <View style={[styles.summaryMetricIcon, styles.paidMetricIcon]}>
+                    <Feather name="check-circle" size={19} color="#047857" />
                   </View>
-                </View>
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
-
-          <Card style={styles.dashboardCard}>
-            <Card.Content style={styles.dashboardCardContent}>
-              <Text style={styles.dashboardCardTitle}>Status de pagamentos</Text>
-              <View style={styles.paymentCountsRow}>
-                <TouchableOpacity
-                  style={styles.paymentCountItem}
-                  onPress={() => setTipoDetalhamento('pagas')}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver ${parcelasPagas} parcelas pagas`}
-                >
-                  <View style={styles.paymentCountTitleRow}>
-                    <Text style={styles.paymentCountValue}>{parcelasPagas}</Text>
-                    <Feather name="chevron-right" size={16} color={COLORS.textNavy} />
+                  <View style={styles.summaryMetricText}>
+                    <View style={styles.paymentStatusMetricHeader}>
+                      <Text style={styles.paymentStatusLabel}>Parcelas pagas</Text>
+                      <Text style={styles.summaryMetricValue}>{parcelasPagas}</Text>
+                    </View>
+                    <View style={styles.cardActionHint}>
+                      <Text style={styles.cardActionHintText}>Ver detalhes</Text>
+                      <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                    </View>
                   </View>
-                  <Text style={styles.paymentCountLabel}>Parcelas pagas</Text>
-                  <Text style={styles.paymentCountAction}>Ver detalhes</Text>
-                </TouchableOpacity>
-                <View style={styles.paymentCountDivider} />
-                <TouchableOpacity
-                  style={styles.paymentCountItem}
-                  onPress={() => setTipoDetalhamento('pendentes')}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver ${parcelasPendentes} parcelas pendentes`}
-                >
-                  <View style={styles.paymentCountTitleRow}>
-                    <Text style={styles.paymentCountValue}>{parcelasPendentes}</Text>
-                    <Feather name="chevron-right" size={16} color={COLORS.textNavy} />
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setTipoDetalhamento('pendentes')}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver ${parcelasPendentes} parcelas pendentes`}
+            >
+              <Card style={styles.dashboardCard}>
+                <Card.Content style={styles.summaryMetricContent}>
+                  <View style={[styles.summaryMetricIcon, styles.pendingMetricIcon]}>
+                    <Feather name="clock" size={19} color="#B45309" />
                   </View>
-                  <Text style={styles.paymentCountLabel}>Parcelas pendentes</Text>
-                  <Text style={styles.paymentCountAction}>Ver detalhes</Text>
-                </TouchableOpacity>
-              </View>
-            </Card.Content>
-          </Card>
+                  <View style={styles.summaryMetricText}>
+                    <View style={styles.paymentStatusMetricHeader}>
+                      <Text style={styles.paymentStatusLabel}>Parcelas pendentes</Text>
+                      <Text style={styles.summaryMetricValue}>{parcelasPendentes}</Text>
+                    </View>
+                    <View style={styles.cardActionHint}>
+                      <Text style={styles.cardActionHintText}>Ver detalhes</Text>
+                      <Feather name="chevron-right" size={17} color={COLORS.textNavy} />
+                    </View>
+                  </View>
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
+          </View>
 
           <Card style={styles.dashboardCard}>
             <Card.Content style={styles.dashboardCardContent}>
@@ -604,7 +655,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => setTipoDetalhamento('equipe')}
+            onPress={abrirDetalhamentoEquipe}
             accessibilityRole="button"
             accessibilityLabel="Ver detalhes da confirmação da equipe"
           >
@@ -687,7 +738,7 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
         visible={tipoDetalhamento !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setTipoDetalhamento(null)}
+        onRequestClose={fecharDetalhamento}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.detailModal}>
@@ -697,26 +748,75 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                   ? 'Confirmação da equipe'
                   : tipoDetalhamento === 'pagas'
                     ? 'Parcelas pagas'
-                    : tipoDetalhamento === 'aPagar'
-                      ? 'Parcelas a serem pagas'
-                      : 'Parcelas pendentes'}
+                    : 'Parcelas pendentes'}
               </Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}
-                onPress={() => setTipoDetalhamento(null)}
+                onPress={fecharDetalhamento}
                 accessibilityRole="button"
                 accessibilityLabel="Fechar detalhes"
               >
                 <Feather name="x" size={22} color={COLORS.textNavy} />
               </TouchableOpacity>
             </View>
+            {tipoDetalhamento === 'equipe' && (
+              <TouchableOpacity
+                style={styles.professionalSelect}
+                onPress={() => setSeletorProfissionalVisivel((visible) => !visible)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Selecionar profissional"
+                accessibilityState={{ expanded: seletorProfissionalVisivel }}
+              >
+                <Feather name="user" size={17} color={COLORS.textMuted} />
+                <Text style={[styles.professionalSelectText, !profissionalSelecionado && styles.professionalSelectPlaceholder]}>
+                  {equipeDetalhada.find(({ chave }) => chave === profissionalSelecionado)?.profissional.nomeProfissional || 'Selecionar profissional'}
+                </Text>
+                <Feather name={seletorProfissionalVisivel ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
             <ScrollView
               style={styles.modalList}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {tipoDetalhamento === 'equipe' ? (
-                equipeDetalhada.length ? equipeDetalhada.map(({ profissional, eventos, chave }) => (
+              {tipoDetalhamento === 'equipe' && seletorProfissionalVisivel ? (
+                <View style={styles.professionalOptions}>
+                  <TouchableOpacity
+                    style={styles.professionalOption}
+                    onPress={() => {
+                      setProfissionalSelecionado(null);
+                      setSeletorProfissionalVisivel(false);
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.professionalOptionText}>Todos os profissionais</Text>
+                    {!profissionalSelecionado && <Feather name="check" size={18} color={COLORS.textNavy} />}
+                  </TouchableOpacity>
+                  {equipeDetalhada.map(({ profissional, eventos, chave }) => (
+                    <TouchableOpacity
+                      key={chave}
+                      style={styles.professionalOption}
+                      onPress={() => {
+                        setProfissionalSelecionado(chave);
+                        setSeletorProfissionalVisivel(false);
+                      }}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                    >
+                      <View style={styles.professionalOptionDetails}>
+                        <Text style={styles.professionalOptionText}>{profissional.nomeProfissional || 'Profissional'}</Text>
+                        <Text style={styles.professionalOptionMeta}>
+                          {eventos.length} {eventos.length === 1 ? 'evento pendente' : 'eventos pendentes'}
+                        </Text>
+                      </View>
+                      {profissionalSelecionado === chave && <Feather name="check" size={18} color={COLORS.textNavy} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : tipoDetalhamento === 'equipe' ? (
+                equipeFiltrada.length ? equipeFiltrada.map(({ profissional, eventos, chave }) => (
                   <View key={chave} style={styles.detailItem}>
                     <View style={styles.detailItemText}>
                       <Text style={styles.detailItemTitle}>{profissional.nomeProfissional || 'Profissional'}</Text>
@@ -725,9 +825,6 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                           <Feather name="clock" size={12} color="#92400E" />
                           <Text style={styles.pendingInvitationBadgeText}>Pendente</Text>
                         </View>
-                        {!!profissional.funcao && (
-                          <Text style={styles.detailItemMeta}>{profissional.funcao}</Text>
-                        )}
                       </View>
                       <Text style={styles.detailItemDescription}>Eventos:</Text>
                       {eventos.map((evento) => (
@@ -747,29 +844,52 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
                       ))}
                     </View>
                   </View>
-                )) : <Text style={styles.modalEmptyText}>Nenhum convite pendente neste período.</Text>
+                )) : <Text style={styles.modalEmptyText}>
+                  {profissionalSelecionado
+                    ? 'Nenhum evento pendente para este profissional no período selecionado.'
+                    : 'Nenhum convite pendente neste período.'}
+                </Text>
               ) : (
-                parcelasDetalhadas.length ? parcelasDetalhadas.map(({ evento, parcela, numeroParcela }, index) => (
-                  <TouchableOpacity
-                    key={`${evento.idEvento || evento.id}_parcela_${numeroParcela}_${index}`}
-                    style={styles.detailItem}
-                    onPress={() => abrirDetalheEvento(evento.idEvento || evento.id)}
-                    activeOpacity={0.7}
+                parcelasPorEvento.length ? parcelasPorEvento.map(({ evento, parcelas }) => (
+                  <View
+                    key={evento.idEvento || evento.id || `${evento.titulo}_${evento.dataInicio}`}
+                    style={styles.paymentEventGroup}
                   >
-                    <View style={styles.detailItemText}>
-                      <Text style={styles.detailItemTitle}>{evento.titulo || 'Evento'}</Text>
-                      <Text style={styles.detailItemDescription}>
-                        {evento.cliente?.nome || 'Cliente não informado'} · {evento.dataInicio || 'Data a definir'}
-                      </Text>
-                      <Text style={styles.detailItemMeta}>Parcela {numeroParcela}</Text>
-                      <Text style={styles.detailItemMeta}>
-                        Vencimento: {parcela.vencimento || 'Não informado'}
-                      </Text>
+                    <View style={styles.paymentEventHeader}>
+                      <View style={styles.paymentEventHeading}>
+                        <Text style={styles.detailItemTitle}>{evento.titulo || 'Evento'}</Text>
+                        <Text style={styles.detailItemDescription}>
+                          {evento.cliente?.nome || 'Cliente não informado'} · {evento.dataInicio || 'Data a definir'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.paymentEventAction}
+                        onPress={() => abrirFinanceiroEvento(evento.idEvento || evento.id)}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Ir até o financeiro do evento ${evento.titulo || 'Evento'}`}
+                      >
+                        <Feather name="arrow-up-right" size={16} color={COLORS.textNavy} />
+                        <Text style={styles.paymentEventActionText}>Ir até o evento</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.detailItemAmount}>
-                      {valoresVisiveis ? formatarMonetario(parseMoeda(parcela.valor)) : 'R$ ••••••'}
-                    </Text>
-                  </TouchableOpacity>
+                    {parcelas.map(({ parcela, numeroParcela }, index) => (
+                      <View
+                        key={`${evento.idEvento || evento.id}_parcela_${numeroParcela}_${index}`}
+                        style={[styles.paymentInstallment, index === 0 && styles.paymentInstallmentFirst]}
+                      >
+                        <View style={styles.detailItemText}>
+                          <Text style={styles.detailItemMeta}>Parcela {numeroParcela}</Text>
+                          <Text style={styles.detailItemMeta}>
+                            Vencimento: {parcela.vencimento || 'Não informado'}
+                          </Text>
+                        </View>
+                        <Text style={styles.detailItemAmount}>
+                          {valoresVisiveis ? formatarMonetario(parseMoeda(parcela.valor)) : 'R$ ••••••'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 )) : <Text style={styles.modalEmptyText}>Nenhuma parcela neste status para o período selecionado.</Text>
               )}
             </ScrollView>
@@ -778,57 +898,48 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       </Modal>
 
       <Modal
-        visible={modalPeriodoVisivel}
+        visible={filtroRapidoPendente !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalPeriodoVisivel(false)}
+        onRequestClose={() => setFiltroRapidoPendente(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.customPeriodModal}>
+          <View style={styles.quickFilterConfirmModal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Período personalizado</Text>
+              <Text style={styles.modalTitle}>Alterar período?</Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}
-                onPress={() => setModalPeriodoVisivel(false)}
+                onPress={() => setFiltroRapidoPendente(null)}
                 accessibilityRole="button"
-                accessibilityLabel="Fechar filtro de período"
+                accessibilityLabel="Fechar confirmação"
               >
                 <Feather name="x" size={22} color={COLORS.textNavy} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.customPeriodHint}>Informe o intervalo de datas para filtrar os eventos do dashboard.</Text>
-            <Text style={styles.customPeriodLabel}>Data inicial</Text>
-            <TextInput
-              value={dataInicioPersonalizada}
-              onChangeText={(valor) => setDataInicioPersonalizada(formatarDataInput(valor))}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={COLORS.textSubtle}
-              keyboardType="numeric"
-              style={styles.customPeriodInput}
-              accessibilityLabel="Data inicial do período"
-            />
-            <Text style={styles.customPeriodLabel}>Data final</Text>
-            <TextInput
-              value={dataFimPersonalizada}
-              onChangeText={(valor) => setDataFimPersonalizada(formatarDataInput(valor))}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={COLORS.textSubtle}
-              keyboardType="numeric"
-              style={styles.customPeriodInput}
-              accessibilityLabel="Data final do período"
-            />
-            {!!erroPeriodoPersonalizado && <Text style={styles.customPeriodError}>{erroPeriodoPersonalizado}</Text>}
-            <View style={styles.customPeriodActions}>
-              <TouchableOpacity style={styles.customPeriodCancel} onPress={() => setModalPeriodoVisivel(false)}>
-                <Text style={styles.customPeriodCancelText}>Cancelar</Text>
+            <Text style={styles.quickFilterConfirmText}>
+              Tem certeza de que deseja limpar o período personalizado e selecionar o filtro rápido
+              {periodoRapidoPendenteNome ? ` “${periodoRapidoPendenteNome}”` : ''}?
+            </Text>
+            <View style={styles.quickFilterConfirmActions}>
+              <TouchableOpacity
+                style={styles.quickFilterCancel}
+                onPress={() => setFiltroRapidoPendente(null)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.quickFilterCancelText}>Não</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.customPeriodApply} onPress={aplicarPeriodoPersonalizado}>
-                <Text style={styles.customPeriodApplyText}>Aplicar filtro</Text>
+              <TouchableOpacity
+                style={styles.quickFilterApply}
+                onPress={confirmarPeriodoRapido}
+                accessibilityRole="button"
+              >
+                <Text style={styles.quickFilterApplyText}>Sim</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
     </View>
   );
 }
@@ -856,6 +967,15 @@ const styles = StyleSheet.create({
   customPeriodButtonSelected: { backgroundColor: COLORS.textNavy, borderColor: COLORS.textNavy },
   customPeriodButtonText: { flex: 1, fontFamily: FONTES.semibold, fontSize: 12, color: COLORS.textNavy },
   customPeriodButtonTextSelected: { color: COLORS.textWhite },
+  customPeriodNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 9, padding: 10, borderRadius: 10, backgroundColor: '#EAF3F7' },
+  customPeriodNoticeText: { flex: 1, fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 11, lineHeight: 16 },
+  quickFilterConfirmModal: { width: '100%', maxWidth: 430, backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 20 },
+  quickFilterConfirmText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 14, lineHeight: 21, marginBottom: 20 },
+  quickFilterConfirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+  quickFilterCancel: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 20, borderRadius: 10, backgroundColor: COLORS.sheetBg },
+  quickFilterCancelText: { fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 13 },
+  quickFilterApply: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 20, borderRadius: 10, backgroundColor: COLORS.buttonGold },
+  quickFilterApplyText: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
   interactionHint: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10, paddingHorizontal: 2 },
   interactionHintText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 11 },
   dashboardSection: { marginBottom: 6 },
@@ -873,20 +993,10 @@ const styles = StyleSheet.create({
   summaryMetricLabel: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted },
   summaryMetricValue: { fontFamily: FONTES.bold, fontSize: 18, fontWeight: '700', color: COLORS.textNavy, marginTop: 3 },
   dashboardEmptyText: { fontFamily: FONTES.body, fontSize: 13, color: COLORS.textMuted, marginTop: 12 },
-  paymentCountsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  paymentCountItem: { flex: 1, alignItems: 'center', paddingVertical: 10, marginHorizontal: 5, borderRadius: 12, backgroundColor: COLORS.sheetBgSubtle, borderWidth: 1, borderColor: '#DFE7EE' },
-  paymentCountTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  paymentCountValue: { fontFamily: FONTES.bold, fontSize: 24, fontWeight: '700', color: COLORS.textNavy },
-  paymentCountLabel: { fontFamily: FONTES.body, fontSize: 12, color: COLORS.textMuted, marginTop: 3 },
-  paymentCountAction: { fontFamily: FONTES.semibold, fontSize: 10, color: COLORS.textNavy, marginTop: 5 },
-  paymentCountDivider: { width: 1, height: 38, backgroundColor: COLORS.cardDivider },
-  duePaymentsContent: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
-  duePaymentsIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#FEF3D6', alignItems: 'center', justifyContent: 'center' },
-  duePaymentsText: { flex: 1 },
-  duePaymentsAction: { alignItems: 'flex-end', gap: 4 },
-  duePaymentsTitle: { fontFamily: FONTES.bold, fontSize: 14, fontWeight: '700', color: '#92400E' },
-  duePaymentsSubtitle: { fontFamily: FONTES.body, fontSize: 12, color: '#B45309', marginTop: 3 },
-  duePaymentsValue: { fontFamily: FONTES.bold, fontSize: 14, fontWeight: '700', color: '#92400E' },
+  paymentStatusSection: { marginBottom: 8 },
+  paymentStatusTitle: { marginBottom: 12 },
+  paymentStatusLabel: { fontFamily: FONTES.semibold, fontSize: 14, color: COLORS.textNavy },
+  paymentStatusMetricHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 5 },
   cardActionHint: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   cardActionHintText: { fontFamily: FONTES.semibold, fontSize: 11, color: COLORS.textNavy },
   typeRevenueItem: { marginTop: 14 },
@@ -905,12 +1015,27 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   modalTitle: { flex: 1, fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 18, fontWeight: '700' },
   modalCloseButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.sheetBg },
+  professionalSelect: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, marginBottom: 10, borderWidth: 1, borderColor: '#D8E2EB', borderRadius: 12, backgroundColor: '#F8FAFC' },
+  professionalSelectText: { flex: 1, fontFamily: FONTES.semibold, fontSize: 14, color: COLORS.textNavy },
+  professionalSelectPlaceholder: { fontFamily: FONTES.body, color: COLORS.textMuted },
+  professionalOptions: { marginBottom: 8, borderWidth: 1, borderColor: '#D8E2EB', borderRadius: 12, backgroundColor: COLORS.cardWhite },
+  professionalOption: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.cardDivider },
+  professionalOptionDetails: { flex: 1 },
+  professionalOptionText: { fontFamily: FONTES.semibold, fontSize: 13, color: COLORS.textNavy },
+  professionalOptionMeta: { fontFamily: FONTES.body, fontSize: 11, color: COLORS.textMuted, marginTop: 3 },
   modalList: { flexGrow: 0, flexShrink: 1 },
   detailItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.cardDivider },
   detailItemText: { flex: 1 },
   detailItemTitle: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 14, fontWeight: '700' },
   detailItemDescription: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 12, marginTop: 4 },
   detailItemMeta: { fontFamily: FONTES.semibold, color: COLORS.textMuted, fontSize: 11, marginTop: 4 },
+  paymentEventGroup: { marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#94A3B8', borderLeftWidth: 4, borderLeftColor: COLORS.textNavy, borderRadius: 12, backgroundColor: COLORS.cardWhite },
+  paymentEventHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 12, backgroundColor: '#E8EEF3' },
+  paymentEventHeading: { flex: 1 },
+  paymentEventAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 8, borderRadius: 9, backgroundColor: COLORS.cardWhite, borderWidth: 1, borderColor: '#CBD5E1' },
+  paymentEventActionText: { fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 11 },
+  paymentInstallment: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.cardDivider },
+  paymentInstallmentFirst: { borderTopWidth: 0 },
   pendingInvitationDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   pendingInvitationBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: '#FEF3D6' },
   pendingInvitationBadgeText: { fontFamily: FONTES.bold, color: '#92400E', fontSize: 11, fontWeight: '700' },
@@ -918,16 +1043,6 @@ const styles = StyleSheet.create({
   pendingTeamEventText: { flex: 1, fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 12 },
   detailItemAmount: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
   modalEmptyText: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19, paddingVertical: 18 },
-  customPeriodModal: { backgroundColor: COLORS.cardWhite, borderRadius: 18, padding: 20 },
-  customPeriodHint: { fontFamily: FONTES.body, color: COLORS.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 14 },
-  customPeriodLabel: { fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 13, marginBottom: 6 },
-  customPeriodInput: { minHeight: 46, borderWidth: 1, borderColor: '#D8E2EB', borderRadius: 11, paddingHorizontal: 12, marginBottom: 13, backgroundColor: '#F8FAFC', fontFamily: FONTES.body, color: COLORS.textNavy, fontSize: 14 },
-  customPeriodError: { fontFamily: FONTES.body, color: '#B42318', fontSize: 12, marginBottom: 8 },
-  customPeriodActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 6 },
-  customPeriodCancel: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 10, backgroundColor: COLORS.sheetBg },
-  customPeriodCancelText: { fontFamily: FONTES.semibold, color: COLORS.textNavy, fontSize: 13 },
-  customPeriodApply: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 10, backgroundColor: COLORS.buttonGold },
-  customPeriodApplyText: { fontFamily: FONTES.bold, color: COLORS.textNavy, fontSize: 13, fontWeight: '700' },
   metricRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   sectionHeader: { marginBottom: 10, marginTop: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textNavy, fontFamily: FONTS.heading },

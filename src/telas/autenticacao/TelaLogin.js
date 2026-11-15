@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { estilosAutenticacao, CORES_AUTENTICACAO } from '../../estilos/estilosAutenticacao';
 import { autenticarUsuario } from '../../servicos/servicoAutenticacao';
+import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 export default function TelaLogin({ navigation, onLoginSuccess }) {
   const [identificador, setIdentificador] = useState('');
@@ -162,6 +163,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
                   color={erroEmail ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
                   style={estilosAutenticacao.inputIcon}
                 />
+                <SeparadorCampoIcone />
                 <TextInput
                   style={estilosAutenticacao.textInput}
                   placeholder="seu@email.com"
@@ -197,6 +199,7 @@ export default function TelaLogin({ navigation, onLoginSuccess }) {
                   color={erroSenha ? CORES_AUTENTICACAO.bordaErro : CORES_AUTENTICACAO.placeholder}
                   style={estilosAutenticacao.inputIcon}
                 />
+                <SeparadorCampoIcone />
                 <TextInput
                   style={estilosAutenticacao.textInput}
                   placeholder="Sua senha"

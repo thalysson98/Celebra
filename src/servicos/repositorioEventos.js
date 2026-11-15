@@ -421,7 +421,11 @@ export const repositorioEventos = {
     let erroConvites = '';
     try {
       await enviarConvitesEvento({ idEvento: referencia.id, idEmpresa: empresaId, profissionais: dadosNovoEvento.equipe || [] });
-    } catch (error) { erroConvites = 'O evento foi salvo, mas não foi possível enviar todos os convites.'; }
+    } catch (error) {
+      erroConvites = error?.message
+        ? `O evento foi salvo, mas o convite não foi enviado: ${error.message}`
+        : 'O evento foi salvo, mas não foi possível enviar todos os convites.';
+    }
     
     const eventoCriado = await repositorioEventos.obterEvento(referencia.id);
     return { ...eventoCriado, erroConvites };

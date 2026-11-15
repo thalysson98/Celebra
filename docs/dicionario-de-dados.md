@@ -17,6 +17,7 @@ Este dicionário foi alinhado ao [modelo oficial de banco e regras](modelo-banco
 |---|---|:---:|---|
 | `id_usuario` | string | sim | UID do Firebase Authentication e chave do documento. |
 | `nome_completo` | string | sim | Nome usado no perfil. |
+| `cpf` | string | sim | CPF válido armazenado somente com 11 dígitos. |
 | `email` | string | sim | E-mail de login. |
 | `telefone` | string | não | Telefone/WhatsApp com DDD. |
 | `papel` | boolean | sim | `true` para administrador; `false` para funcionário. |
@@ -24,7 +25,7 @@ Este dicionário foi alinhado ao [modelo oficial de banco e regras](modelo-banco
 | `ativo` | boolean | sim | Libera ou bloqueia o acesso. |
 | `criado_em` | Timestamp | sim | Data de criação do perfil. |
 
-O serviço [`servicoAutenticacao.js`](../src/servicos/servicoAutenticacao.js) cria novos cadastros com `papel: false`, sem empresa. A sessão mantém o mesmo booleano; somente `true` abre a navegação do administrador e `false` abre a do funcionário.
+O serviço [`servicoAutenticacao.js`](../src/servicos/servicoAutenticacao.js) cria novos cadastros com CPF obrigatório, `papel: false` e sem empresa. A sessão mantém o mesmo booleano; somente `true` abre a navegação do administrador e `false` abre a do funcionário.
 
 ## `empresas/{id_empresa}`
 

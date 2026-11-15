@@ -8,6 +8,7 @@ import { Button, Card } from 'react-native-paper';
 import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosAdministrandoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
+import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 const CATEGORIAS = [
   { chave: 'tiposEvento', titulo: 'Tipos de evento', singular: 'tipo de evento', descricao: 'Personalize os tipos usados em todos os eventos.' },
@@ -67,6 +68,7 @@ const CampoModal = ({ label, icone, editable, ...props }) => {
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={[styles.modalInputContainer, !editable && styles.readOnlyInput]} pointerEvents="box-none">
         <Feather name={icone} size={17} color={CORES.textMuted} pointerEvents="none" />
+        <SeparadorCampoIcone />
         <TextInput
           {...props}
           editable={editable}
@@ -283,6 +285,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
                   <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
                       <Feather name="search" size={17} color={CORES.textMuted} />
+                      <SeparadorCampoIcone />
                       <TextInput value={busca} onChangeText={setBusca} placeholder={`Buscar ${categoriaAtiva.titulo.toLowerCase()}`} placeholderTextColor={CORES.textSubtle} style={styles.searchInput} />
                     </View>
                   </View>

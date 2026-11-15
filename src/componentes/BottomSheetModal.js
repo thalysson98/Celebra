@@ -9,6 +9,7 @@ import {
   StyleSheet 
 } from 'react-native';
 import { Icon } from 'react-native-paper';
+import SeparadorCampoIcone from '../compartilhado/SeparadorCampoIcone';
 
 export default function BottomSheetModal({ 
   isVisible, 
@@ -55,6 +56,7 @@ export default function BottomSheetModal({
           {/* CAMPO DE BUSCA */}
           <View style={estilos.containerBusca}>
             <Icon source="magnify" size={18} color="#888" />
+            <SeparadorCampoIcone />
             <TextInput
               style={estilos.inputBusca}
               placeholder="Buscar opção..."
@@ -125,7 +127,7 @@ const estilos = StyleSheet.create({
   subtitulo: { fontSize: 12, color: '#777', marginTop: 2 },
   botaoFechar: { backgroundColor: '#F0F0F0', padding: 6, borderRadius: 20 },
   containerBusca: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 10, paddingHorizontal: 12, marginBottom: 15 },
-  inputBusca: { flex: 1, paddingVertical: 10, paddingLeft: 8, fontSize: 14, color: '#333' },
+  inputBusca: { flex: 1, paddingVertical: 10, paddingLeft: 0, fontSize: 14, color: '#333', textAlignVertical: 'center' },
   itemLista: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', borderRadius: 8, paddingHorizontal: 8 },
   itemSelecionado: { backgroundColor: '#FFF9E6', borderColor: '#FFC107', borderWidth: 1 },
   avatarItem: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' },

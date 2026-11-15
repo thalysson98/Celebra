@@ -49,19 +49,19 @@ function obterIdIndisponibilidade(uid, data) {
 
 export async function verificarIndisponibilidadeTecnicoNaData(uid, dataEvento) {
   const chaveData = normalizarParaChaveData(dataEvento);
-  if (!uid || !chaveData) return false;
+  if (!uid) throw new Error('Não foi possível identificar o profissional para verificar a disponibilidade.');
+  if (!chaveData) throw new Error('Não foi possível identificar a data do evento para verificar a disponibilidade.');
 
   const idIndisponibilidade = `${uid}_${chaveData}`;
   try {
     const docSnap = await getDoc(doc(bancoDados, 'indisponibilidade', idIndisponibilidade));
     return docSnap.exists();
   } catch (erro) {
+    console.error('Erro ao verificar indisponibilidade do profissional:', erro);
     if (erro?.code === 'permission-denied') {
-      console.warn('Sem permissão no Firestore para consultar indisponibilidade:', erro.message);
-      return false;
+      throw new Error('Não foi possível consultar a disponibilidade do profissional por falta de permissão. O convite não foi enviado.');
     }
-    console.log('Aviso ao verificar indisponibilidade:', erro?.message);
-    return false;
+    throw new Error('Não foi possível verificar a disponibilidade do profissional. O convite não foi enviado.');
   }
 }
 

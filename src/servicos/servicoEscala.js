@@ -1,6 +1,7 @@
 
 import { arrayUnion, arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, writeBatch, updateDoc } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
+import { normalizarParaChaveData, verificarIndisponibilidadeTecnicoNaData } from './servicoIndisponibilidade';
 import { notificarNovoEventoParaTecnico } from './servicoNotificacoes';
 
 function valorData(valor) {
@@ -35,8 +36,18 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
 
   // Busca os dados do evento para compor o texto da notificação externa
   const docEvento = await getDoc(doc(bancoDados, 'eventos', idEvento));
-  const dadosEvento = docEvento.exists() ? docEvento.data() : {};
+  if (!docEvento.exists()) throw new Error('Evento não encontrado; não foi possível enviar os convites.');
+  const dadosEvento = docEvento.data();
   const tituloEvento = dadosEvento.titulo || 'Novo Evento';
+
+  for (const profissional of convidados) {
+    const idUsuario = profissional.idUsuario || profissional.id;
+    const indisponivel = await verificarIndisponibilidadeTecnicoNaData(idUsuario, dadosEvento.data_inicio);
+    if (indisponivel) {
+      const dataEvento = normalizarParaChaveData(dadosEvento.data_inicio).split('-').reverse().join('/');
+      throw new Error(`${profissional.nomeProfissional || 'O profissional'} marcou indisponibilidade em ${dataEvento}. O convite não foi enviado.`);
+    }
+  }
   
   let dataFormatada = '';
   if (dadosEvento.data_inicio) {
@@ -181,12 +192,30 @@ export async function respondToAssignment({ assignmentId, technicianUid, status 
 
   await runTransaction(bancoDados, async (t) => {
     const snap = await t.get(refConvite);
+    if (!snap.exists()) throw new Error('Este convite não existe mais.');
     const convite = snap.data();
+    if (convite.id_usuario !== technicianUid) throw new Error('Este convite não pertence a este profissional.');
     if (convite.situacao === 'cancelado') throw new Error('Este convite foi cancelado pelo organizador.');
+
+    let refEvento;
+    if (situacao === 'aceito') {
+      refEvento = doc(bancoDados, 'eventos', convite.id_evento);
+      const eventoSnap = await t.get(refEvento);
+      if (!eventoSnap.exists()) throw new Error('O evento deste convite não foi encontrado.');
+
+      const chaveData = normalizarParaChaveData(eventoSnap.data().data_inicio);
+      if (!chaveData) throw new Error('Não foi possível verificar a disponibilidade para a data do evento.');
+      const refIndisponibilidade = doc(bancoDados, 'indisponibilidade', `${technicianUid}_${chaveData}`);
+      const indisponibilidadeSnap = await t.get(refIndisponibilidade);
+      if (indisponibilidadeSnap.exists()) {
+        const dataFormatada = chaveData.split('-').reverse().join('/');
+        throw new Error(`Você marcou indisponibilidade em ${dataFormatada} e não pode aceitar este convite.`);
+      }
+    }
 
     t.update(refConvite, { situacao, respondido_em: serverTimestamp() });
     if (situacao === 'aceito') {
-      t.update(doc(bancoDados, 'eventos', convite.id_evento), { membros_escalados: arrayUnion(technicianUid) });
+      t.update(refEvento, { membros_escalados: arrayUnion(technicianUid) });
     }
   });
 }

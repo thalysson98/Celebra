@@ -1,13 +1,9 @@
-<<<<<<< HEAD
 // ============================================================================
 // src/telas/tecnico/TelaPainelTecnico.js
 // Painel principal do Técnico com suporte a troca de abas via rota,
 // notificações em tempo real, rolagem Web e barra inferior padronizada.
 // ============================================================================
-import React, { useEffect, useMemo, useState } from 'react';
-=======
 import React, { useEffect, useMemo, useRef, useState } from 'react';
->>>>>>> main
 import {
   inicializarNotificacoesDispositivo,
   processarLembretesListaEventos,
@@ -41,6 +37,8 @@ import {
 import { estilosPainelTecnico as styles } from '../../estilos/estilosPainelTecnico';
 import { estilosNavegacao, obterEstiloHotbar } from '../../estilos/estilosNavegacao';
 import Cabecalho from '../../componentes/Cabecalho';
+import FiltroIntervaloDatas, { obterChaveDataLocal } from '../../compartilhado/FiltroIntervaloDatas';
+import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 function toDate(value) {
   if (!value) return null;
@@ -102,15 +100,6 @@ function formatShortDate(value) {
   return `${d}/${m}/${y}`;
 }
 
-// Formata o horário do evento no padrão 14:30h (usado no card de eventos)
-function formatEventTime(value) {
-  const date = toDate(value);
-  if (!date) return 'Horário a confirmar';
-  const h = String(date.getHours()).padStart(2, '0');
-  const m = String(date.getMinutes()).padStart(2, '0');
-  return `${h}:${m}h`;
-}
-
 export default function TelaPainelTecnico({ navigation, route, user, onLogout }) {
   const insets = useSafeAreaInsets();
   const [assignments, setAssignments] = useState([]);
@@ -119,12 +108,15 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const [activeTab, setActiveTab] = useState('home');
   const [eventFilter, setEventFilter] = useState('mine');
   const [eventSearch, setEventSearch] = useState('');
+  const [eventSortAscending, setEventSortAscending] = useState(true);
+  const [eventStartDate, setEventStartDate] = useState('');
+  const [eventEndDate, setEventEndDate] = useState('');
 
   const [profile, setProfile] = useState(() => ({
     ...user,
     displayName: user.name || user.displayName || '',
   }));
-  const [profileForm, setProfileForm] = useState({ displayName: '', cpf: '', phone: '', city: '' });
+  const [profileForm, setProfileForm] = useState({ displayName: '', cpf: '', phone: '' });
   const [isProfileEditorVisible, setProfileEditorVisible] = useState(false);
   const [isSavingProfile, setSavingProfile] = useState(false);
   const [eventsNotificationsEnabled, setEventsNotificationsEnabled] = useState(
@@ -303,7 +295,6 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
       displayName: profile.displayName || profile.name || '',
       cpf: formatCpf(profile.cpf),
       phone: formatPhone(profile.phone),
-      city: profile.city || '',
     });
     setProfileEditorVisible(true);
   };
@@ -618,6 +609,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     const visibleAssignments = assignments
       .filter((assignment) => assignment.status === statusByFilter[eventFilter])
       .filter((assignment) => {
+        const eventDateKey = obterChaveDataLocal(assignment.eventDate);
+        if (eventStartDate && (!eventDateKey || eventDateKey < eventStartDate)) return false;
+        if (eventEndDate && (!eventDateKey || eventDateKey > eventEndDate)) return false;
         if (searchTerms.length === 0) return true;
         const combinedString = normalizeSearch(
           [
@@ -632,8 +626,15 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         return searchTerms.every((term) => combinedString.includes(term));
       })
       .sort(
-        (first, second) =>
-          (toDate(first.eventDate)?.getTime() || 0) - (toDate(second.eventDate)?.getTime() || 0)
+        (first, second) => {
+          const firstDate = obterChaveDataLocal(first.eventDate);
+          const secondDate = obterChaveDataLocal(second.eventDate);
+          if (!firstDate && !secondDate) return 0;
+          if (!firstDate) return 1;
+          if (!secondDate) return -1;
+          const comparison = firstDate.localeCompare(secondDate);
+          return eventSortAscending ? comparison : -comparison;
+        }
       );
 
     const monthLabel = visibleAssignments.length
@@ -644,16 +645,44 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
 
     return (
       <>
-        <View style={styles.eventSearchBox}>
-          <Feather name="search" size={16} color={COLORS.textMuted} />
-          <TextInput
-            style={styles.eventSearchInput}
-            value={eventSearch}
-            onChangeText={setEventSearch}
-            placeholder="Buscar evento ou protagonista"
-            placeholderTextColor={COLORS.textMuted}
-            returnKeyType="search"
+        <View style={styles.eventSearchControls}>
+          <View style={styles.eventSearchBox}>
+            <Feather name="search" size={18} color={COLORS.textMuted} />
+            <SeparadorCampoIcone />
+            <TextInput
+              style={styles.eventSearchInput}
+              value={eventSearch}
+              onChangeText={setEventSearch}
+              placeholder="Buscar evento"
+              placeholderTextColor={COLORS.textMuted}
+              returnKeyType="search"
+            />
+            {!!eventSearch && (
+              <TouchableOpacity onPress={() => setEventSearch('')} accessibilityRole="button" accessibilityLabel="Limpar busca">
+                <Feather name="x-circle" size={17} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <FiltroIntervaloDatas
+            dataInicial={eventStartDate}
+            dataFinal={eventEndDate}
+            aoMudarDataInicial={setEventStartDate}
+            aoMudarDataFinal={setEventEndDate}
+            aoLimpar={() => { setEventStartDate(''); setEventEndDate(''); }}
+            ativo={Boolean(eventStartDate || eventEndDate)}
+            tituloModal="Filtros dos eventos"
+            subtituloModal="Defina o período dos eventos"
+            mostrarLimpar
           />
+          <TouchableOpacity
+            style={styles.eventSortButton}
+            onPress={() => setEventSortAscending((ascending) => !ascending)}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={`Ordenar por data ${eventSortAscending ? 'decrescente' : 'crescente'}`}
+          >
+            <Feather name={eventSortAscending ? 'arrow-up' : 'arrow-down'} size={18} color={COLORS.textNavy} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.eventFilters}>
@@ -689,12 +718,16 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
               <Feather name="calendar" size={22} color={COLORS.textNavy} />
             </View>
             <Text style={styles.emptyTitle}>
-              {eventFilter === 'pending'
+              {eventSearch || eventStartDate || eventEndDate
+                ? 'Nenhum evento encontrado'
+                : eventFilter === 'pending'
                 ? 'Nenhuma convocação pendente'
                 : 'Você ainda não tem eventos aceitos'}
             </Text>
             <Text style={styles.emptyText}>
-              Quando houver eventos nesta categoria, eles aparecerão aqui.
+              {eventSearch || eventStartDate || eventEndDate
+                ? 'Ajuste os termos de busca ou o intervalo de datas.'
+                : 'Quando houver eventos nesta categoria, eles aparecerão aqui.'}
             </Text>
           </View>
         )}
@@ -714,9 +747,8 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             <Text style={styles.tipoBadge}>
               {assignment.eventTypeName || assignment.professionalTypeName || 'Evento'}
             </Text>
-            {/* CORREÇÃO 2: Removido o '-' solto e formatado data • hora */}
             <Text style={styles.dataTexto}>
-              {formatShortDate(assignment.eventDate)} • {formatEventTime(assignment.eventDate)}
+              {formatShortDate(assignment.eventDate)}
             </Text>
           </View>
 
@@ -782,11 +814,8 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <Text style={styles.userProfileDetail} numberOfLines={1}>
           {profile.email || 'E-mail não informado'}
         </Text>
-        {/* CORREÇÃO 3: Removido o '-' solto e corrigido o .join(' • ') em uma única linha */}
         <Text style={styles.userProfileDetail} numberOfLines={1}>
-          {[profile.city, profile.phone ? formatPhone(profile.phone) : null]
-            .filter(Boolean)
-            .join(' • ') || 'Cidade e telefone não informados'}
+          {profile.phone ? formatPhone(profile.phone) : 'Telefone não informado'}
         </Text>
 
         <TouchableOpacity style={styles.editProfileButton} onPress={openProfileEditor} activeOpacity={0.8}>
@@ -825,7 +854,6 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
 
-<<<<<<< HEAD
       <TouchableOpacity
         style={[styles.profileSecurityCard, { marginTop: 12 }]}
         onPress={() => {
@@ -846,8 +874,6 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
 
-=======
->>>>>>> main
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />
         <Text style={styles.profileLogoutText}>Sair da conta</Text>
@@ -1092,16 +1118,6 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
               placeholder="(00) 00000-0000"
               placeholderTextColor={COLORS.textMuted}
               keyboardType="phone-pad"
-            />
-            <Text style={styles.profileFieldLabel}>Cidade</Text>
-            <TextInput
-              style={styles.profileFieldInput}
-              value={profileForm.city}
-              onChangeText={(city) => setProfileForm((current) => ({ ...current, city }))}
-              placeholder="Sua cidade"
-              placeholderTextColor={COLORS.textMuted}
-              maxLength={100}
-              autoCapitalize="words"
             />
             <Text style={styles.profileEmailNote}>
               O e-mail da conta não pode ser alterado por esta tela.

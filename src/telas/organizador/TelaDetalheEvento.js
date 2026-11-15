@@ -1,5 +1,5 @@
 import { notificarNovoEventoParaTecnico } from '../../servicos/servicoNotificacoes';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
@@ -13,7 +13,15 @@ import { reenviarConvite, removerConvite, removerProfissionalInformativo, atuali
 import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 import ModalSelecao from '../../componentes/ModalSelecao';
 import CartaoLocal from '../../componentes/CartaoLocal'; 
-import { formatarCpfCnpj, formatarTelefone, formatarMoedaInput } from './TelaCriarEvento'; 
+import {
+  formatarCpfCnpj,
+  formatarTelefone,
+  formatarMoedaInput,
+  formatarDataParcelaInput,
+  OPCOES_PAGAMENTO,
+  OPCOES_QTD_PARCELAS,
+} from './TelaCriarEvento';
+import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 const ABAS = ['Geral', 'Equipe', 'Financeiro'];
 
@@ -32,13 +40,6 @@ const formatarMonetario = (valor) => converterValorMonetario(valor).toLocaleStri
   currency: 'BRL',
 });
 
-const formatarDataParcelaInput = (valor) => {
-  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
-  if (digitos.length <= 2) return digitos;
-  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
-  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
-};
-
 const dataParcelaValida = (valor) => {
   const correspondencia = String(valor || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!correspondencia) return false;
@@ -49,11 +50,6 @@ const dataParcelaValida = (valor) => {
     data.getDate() === Number(diaTexto);
 };
 
-const OPCOES_PAGAMENTO = [
-  { id: 'Pix', nome: 'Pix' }, { id: 'Dinheiro', nome: 'Dinheiro' }, 
-  { id: 'Cartão de Crédito', nome: 'Cartão de Crédito' }, { id: 'Cartão de Débito', nome: 'Cartão de Débito' }, { id: 'Boleto', nome: 'Boleto' }
-];
-
 const DateTimePickerNativo = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
 function CampoDataHora({ modo, valor, aoMudar }) {
@@ -61,7 +57,23 @@ function CampoDataHora({ modo, valor, aoMudar }) {
   let stringFormatada = valor;
   if(modo === 'date' && valor && valor.includes('-')) { stringFormatada = valor.split('-').reverse().join('/'); }
   
-  if (Platform.OS === 'web') return React.createElement('input', { type: modo, value: valor, onChange: (e) => aoMudar(e.target.value), style: { width: '100%', boxSizing: 'border-box', minHeight: 48, border: '1px solid #E2E8F0', borderRadius: 12, padding: '11px 12px', backgroundColor: '#F8FAFC', color: CORES.textNavy, fontSize: 14, fontFamily: FONTES.body, textAlign: 'left' } });
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: 48 }}>
+        <Feather name={modo === 'date' ? 'calendar' : 'clock'} size={18} color="#94A3B8" />
+        <SeparadorCampoIcone />
+        {React.createElement('input', {
+          type: modo,
+          value: modo === 'date' && valor && valor.includes('/') ? valor.split('/').reverse().join('-') : valor,
+          onChange: (evento) => {
+            const data = evento.target.value;
+            aoMudar(modo === 'date' && data ? data.split('-').reverse().join('/') : data);
+          },
+          style: { flex: 1, minWidth: 0, boxSizing: 'border-box', minHeight: 46, border: 'none', outline: 'none', backgroundColor: 'transparent', color: CORES.textNavy, fontSize: 14, fontFamily: FONTES.body, textAlign: 'left' },
+        })}
+      </View>
+    );
+  }
   
   let dataPicker = new Date();
   if (modo === 'date' && valor) {
@@ -73,41 +85,55 @@ function CampoDataHora({ modo, valor, aoMudar }) {
 
   return (
     <>
-      <TouchableOpacity onPress={() => setPickerVisivel(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: 48, justifyContent: 'space-between' }}>
-        <Text style={{ fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, textAlign: 'left' }}>{stringFormatada || (modo === 'date' ? 'DD/MM/AAAA' : '16:00')}</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={() => setPickerVisivel(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: 48 }}>
         <Feather name={modo === 'date' ? 'calendar' : 'clock'} size={18} color="#94A3B8" />
+        <SeparadorCampoIcone />
+        <Text style={{ flex: 1, fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, textAlign: 'left' }}>{stringFormatada || (modo === 'date' ? 'DD/MM/AAAA' : '16:00')}</Text>
       </TouchableOpacity>
       {pickerVisivel && DateTimePickerNativo && <DateTimePickerNativo value={dataPicker} mode={modo} display="default" onChange={(e, s) => { setPickerVisivel(false); if (!s || e.type === 'dismissed') return; if (modo === 'date') aoMudar(`${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}/${s.getFullYear()}`); else aoMudar(`${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}`); }} />}
     </>
   );
 }
 
-function CampoEdicao({ label, valor, aoMudar, placeholder, multiline = false, icone, teclado="default" }) {
+function CampoEdicao({ label, valor, aoMudar, placeholder, multiline = false, icone, teclado="default", alinharTextoAoMeio = false, compacto = false, erro }) {
   return (
-    <View style={{ marginBottom: 15 }}>
-      <Text style={{ fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, marginBottom: 6 }}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: 48 }}>
-        {icone && <Feather name={icone} size={18} color="#94A3B8" style={{ marginRight: 10 }} />}
+    <View style={{ marginBottom: compacto ? 8 : 15 }}>
+      <Text style={{ fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, marginBottom: compacto ? 4 : 6 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: compacto ? 44 : 48 }}>
+        {icone && <Feather name={icone} size={18} color="#94A3B8" />}
+        {icone && <SeparadorCampoIcone />}
         <TextInput
           value={valor} onChangeText={aoMudar} placeholder={placeholder || label} placeholderTextColor="#94A3B8" multiline={multiline} keyboardType={teclado} textAlign="left"
-          style={{ flex: 1, fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, minHeight: multiline ? 88 : 48, textAlignVertical: multiline ? 'top' : 'center', paddingTop: multiline ? 12 : 0, outlineStyle: 'none' }}
+          style={{ flex: 1, fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, minHeight: multiline ? 76 : compacto ? 42 : 48, textAlignVertical: alinharTextoAoMeio ? 'center' : multiline ? 'top' : 'center', paddingTop: multiline && !alinharTextoAoMeio ? 12 : 0, outlineStyle: 'none' }}
         />
       </View>
+      <ErroCampo>{erro}</ErroCampo>
     </View>
   );
 }
 
-function CampoSelecaoDetalhes({ label, campo, valor, placeholder, icone, aoClicar }) {
+function ErroCampo({ children }) {
+  if (!children) return null;
+  return (
+    <Text accessibilityRole="alert" style={styles.inlineFieldError}>
+      {children}
+    </Text>
+  );
+}
+
+function CampoSelecaoDetalhes({ label, campo, valor, placeholder, icone, aoClicar, erro }) {
   return (
     <View style={{ marginBottom: 15 }}>
       <Text style={{ fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, marginBottom: 6 }}>{label}</Text>
       <TouchableOpacity onPress={() => aoClicar(campo)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minHeight: 48, justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          {icone && <Feather name={icone} size={18} color="#94A3B8" style={{ marginRight: 10 }} />}
+          {icone && <Feather name={icone} size={18} color="#94A3B8" />}
+          {icone && <SeparadorCampoIcone />}
           <Text style={{ flex: 1, fontFamily: FONTES.body, color: valor ? CORES.textNavy : '#94A3B8', fontSize: 14, textAlign: 'left' }} numberOfLines={1}>{valor || placeholder}</Text>
         </View>
         <Feather name="chevron-down" size={18} color="#94A3B8" />
       </TouchableOpacity>
+      <ErroCampo>{erro}</ErroCampo>
     </View>
   );
 }
@@ -116,7 +142,13 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const { idEvento } = route.params || {};
   const [evento, setEvento] = useState(null);
   const [carregando, setCarregando] = useState(true);
-  const [abaAtiva, setAbaAtiva] = useState(route.params?.erroConvites ? 'Equipe' : 'Geral');
+  const [abaAtiva, setAbaAtiva] = useState(
+    route.params?.abaInicial === 'Financeiro'
+      ? 'Financeiro'
+      : route.params?.erroConvites
+        ? 'Equipe'
+        : 'Geral'
+  );
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
   
@@ -134,6 +166,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState('');
+  const [errosEdicao, setErrosEdicao] = useState({});
 
   const [profissionalAlvo, setProfissionalAlvo] = useState(null);
   const [modalDespesasVisivel, setModalDespesasVisivel] = useState(false);
@@ -154,10 +187,18 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', instagram: '' });
   
   const [locais, setLocais] = useState([]);
+  const [localExpandidoId, setLocalExpandidoId] = useState(null);
   const [formulario, setFormulario] = useState({
      titulo: '', tipoEvento: '', cliente: '', dataInicio: '', horaInicio: '', numConvidados: '', notasProducao: '',
      metodoPagamento: '', valorTotal: '', observacaoFinanceiro: '', qtdParcelas: '', parcelasDetalhadas: []
   });
+
+  useEffect(() => {
+    if (route.params?.abaInicial !== 'Financeiro') return;
+    setAbaAtiva('Financeiro');
+    setEditando(null);
+    navigation.setParams({ abaInicial: undefined });
+  }, [navigation, route.params?.abaInicial]);
 
   const mostrarSucesso = (titulo, descricao) => {
     setMsgSucesso({ titulo, descricao });
@@ -169,6 +210,22 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
     setModalErroVisivel(true);
   };
 
+  useEffect(() => {
+    const erroConvites = route.params?.erroConvites;
+    if (!erroConvites) return;
+    mostrarErro(erroConvites);
+    navigation.setParams({ erroConvites: undefined });
+  }, [navigation, route.params?.erroConvites]);
+
+  const limparErroCampo = (campo) => {
+    setErrosEdicao((atuais) => {
+      if (!atuais[campo]) return atuais;
+      const atualizados = { ...atuais };
+      delete atualizados[campo];
+      return atualizados;
+    });
+  };
+
   const preencherFormulario = (dados) => {
     setFormulario({
       titulo: dados?.titulo || '', tipoEvento: dados?.tipoEvento || '', cliente: dados?.cliente?.nome || '',
@@ -176,14 +233,19 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
       numConvidados: dados?.numConvidados ? String(dados.numConvidados) : '', notasProducao: dados?.notasProducao || '',
       metodoPagamento: dados?.financeiro?.metodoPagamento || '', valorTotal: dados?.financeiro?.valorTotal || '',
       observacaoFinanceiro: dados?.financeiro?.observacaoFinanceiro || '',
-      qtdParcelas: dados?.financeiro?.qtdParcelas ? String(dados.financeiro.qtdParcelas) : '',
+      qtdParcelas: String(dados?.financeiro?.qtdParcelas ?? ''),
       parcelasDetalhadas: dados?.financeiro?.parcelasDetalhadas || []
     });
     if (dados?.locais && dados.locais.length > 0) {
-        setLocais(dados.locais.map((l, i) => ({ idLocalTemp: i, ...l })));
+        const locaisCarregados = dados.locais.map((l, i) => ({ ...l, idLocalTemp: l.idLocalTemp ?? i }));
+        setLocais(locaisCarregados);
+        setLocalExpandidoId(locaisCarregados[0].idLocalTemp);
     } else {
-        setLocais([{ idLocalTemp: 1, nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' }]);
+        const localInicial = { idLocalTemp: 1, nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' };
+        setLocais([localInicial]);
+        setLocalExpandidoId(localInicial.idLocalTemp);
     }
+    setErrosEdicao({});
   };
 
   const carregarEvento = useCallback(async () => {
@@ -200,6 +262,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const eventoConcluido = evento?.statusTempo === 'concluidos';
 
   const atualizarCampo = (campo, valor) => {
+    limparErroCampo(campo);
     setFormulario((atual) => {
       const novo = { ...atual, [campo]: valor };
       if (campo === 'qtdParcelas') {
@@ -209,6 +272,22 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
         novo.parcelasDetalhadas = Array.from({ length: qtdSegura }, (_, i) => (
           atual.parcelasDetalhadas[i] || { valor: '', observacao: '', status: 'pendente', vencimento: '' }
         ));
+        if (qtdSegura === 1) {
+          novo.parcelasDetalhadas[0] = {
+            ...novo.parcelasDetalhadas[0],
+            valor: formatarMoedaInput(String(atual.valorTotal || '')),
+          };
+        }
+      } else if (campo === 'valorTotal' && Number(atual.qtdParcelas) === 1) {
+        const parcelaUnica = atual.parcelasDetalhadas[0] || {
+          observacao: '',
+          status: 'pendente',
+          vencimento: '',
+        };
+        novo.parcelasDetalhadas = [{
+          ...parcelaUnica,
+          valor: formatarMoedaInput(String(valor || '')),
+        }];
       }
       return novo;
     });
@@ -218,6 +297,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
       const arr = [...formulario.parcelasDetalhadas];
       arr[index][campo] = valor;
       setFormulario({...formulario, parcelasDetalhadas: arr});
+      limparErroCampo(campo === 'vencimento' ? `parcela_${index}_vencimento` : 'somaParcelas');
   };
 
   const atualizarValorParcela = (index, valor) => {
@@ -361,10 +441,21 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
     const novosLocais = [...locais];
     novosLocais[index][campo] = valor;
     setLocais(novosLocais);
+    limparErroCampo(`local_${index}_${campo}`);
   };
 
-  const adicionarLocal = () => setLocais([...locais, { idLocalTemp: Date.now(), nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' }]);
-  const removerLocal = (index) => setLocais(locais.filter((_, i) => i !== index));
+  const adicionarLocal = () => {
+    const novoLocal = { idLocalTemp: Date.now(), nomeDoLocal: '', enderecoLocal: '', tipoLocal: '', horaLocal: '', observacoesLocal: '' };
+    setLocais((atuais) => [...atuais, novoLocal]);
+    setLocalExpandidoId(novoLocal.idLocalTemp);
+  };
+  const removerLocal = (index) => {
+    const restantes = locais.filter((_, i) => i !== index);
+    setLocais(restantes);
+    if (locais[index]?.idLocalTemp === localExpandidoId) {
+      setLocalExpandidoId(restantes[0]?.idLocalTemp ?? null);
+    }
+  };
 
   const cancelarEdicao = () => {
     preencherFormulario(evento);
@@ -372,23 +463,51 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   };
 
 const salvarEdicao = async () => {
-  
-  if (editando === 'financeiro' || formulario.valorTotal) {
-    const valTotalStr = formulario.valorTotal ? String(formulario.valorTotal).replace(/\D/g, '') : '0';
-    const valTotal = Number(valTotalStr) / 100;
+  const novosErros = {};
+  if (editando === 'geral') {
+    if (!formulario.titulo.trim()) novosErros.titulo = 'Informe o título do evento.';
+    if (!formulario.tipoEvento.trim()) novosErros.tipoEvento = 'Selecione o tipo de evento.';
+    if (!formulario.cliente.trim()) novosErros.cliente = 'Selecione o cliente.';
+    if (!formulario.dataInicio.trim()) novosErros.dataInicio = 'Selecione a data do evento.';
 
-    let somaParcelas = 0;
-    (formulario.parcelasDetalhadas || []).forEach((p) => {
-      const valParcelaStr = p.valor ? String(p.valor).replace(/\D/g, '') : '0';
-      somaParcelas += Number(valParcelaStr) / 100;
+    locais.forEach((local, index) => {
+      if (!local.tipoLocal.trim()) novosErros[`local_${index}_tipoLocal`] = 'Selecione o tipo do local.';
+      if (!local.nomeDoLocal.trim()) novosErros[`local_${index}_nomeDoLocal`] = 'Selecione o endereço.';
     });
-
-    
-    if (somaParcelas > valTotal) {
-      mostrarErro(`A soma das parcelas (R$ ${somaParcelas.toFixed(2).replace('.', ',')}) não pode ser maior que o valor total do evento (R$ ${valTotal.toFixed(2).replace('.', ',')}).`);
-      return; 
+    if (Object.keys(novosErros).length) {
+      setErrosEdicao(novosErros);
+      const primeiroLocalComErro = locais.findIndex((_, index) =>
+        novosErros[`local_${index}_tipoLocal`] || novosErros[`local_${index}_nomeDoLocal`]
+      );
+      if (primeiroLocalComErro >= 0) setLocalExpandidoId(locais[primeiroLocalComErro].idLocalTemp);
+      mostrarErro('Revise os campos destacados antes de salvar os dados gerais.');
+      return;
     }
   }
+
+  if (editando === 'financeiro') {
+    const parcelas = formulario.parcelasDetalhadas || [];
+    parcelas.forEach((parcela, index) => {
+      if (parcela.vencimento && !dataParcelaValida(parcela.vencimento)) {
+        novosErros[`parcela_${index}_vencimento`] = 'Informe uma data válida no formato DD/MM/AAAA.';
+      }
+    });
+
+    const valorTotal = converterValorMonetario(formulario.valorTotal);
+    const somaParcelas = parcelas.reduce((soma, parcela) => soma + converterValorMonetario(parcela.valor), 0);
+    const diferencaParcelas = Math.abs(somaParcelas - valorTotal);
+    if ((valorTotal > 0 || somaParcelas > 0) && diferencaParcelas > 0.05) {
+      novosErros.somaParcelas = `A soma das parcelas (${formatarMonetario(somaParcelas)}) não corresponde ao total do evento (${formatarMonetario(valorTotal)}).`;
+    }
+
+    if (Object.keys(novosErros).length) {
+      setErrosEdicao(novosErros);
+      const mensagem = novosErros.somaParcelas || 'Revise os vencimentos destacados. Informe datas válidas no formato DD/MM/AAAA.';
+      mostrarErro(mensagem);
+      return;
+    }
+  }
+  setErrosEdicao({});
 
   setSalvando(true);
   try {
@@ -544,6 +663,11 @@ const salvarEdicao = async () => {
       setSelecaoVisivel(true);
       return;
     }
+    if (campoInfo === 'qtdParcelas') {
+      setOpcoesSelecao(OPCOES_QTD_PARCELAS);
+      setSelecaoVisivel(true);
+      return;
+    }
     setSelecaoVisivel(true);
     setCarregandoOpcoes(true);
     try {
@@ -564,6 +688,8 @@ const salvarEdicao = async () => {
        mostrarSucesso("Atualizado", "A função do técnico foi alterada.");
     } else if (tipoSelecao === 'metodoPagamento') {
        atualizarCampo('metodoPagamento', item.nome);
+    } else if (tipoSelecao === 'qtdParcelas') {
+       atualizarCampo('qtdParcelas', item.id);
     } else if (tipoSelecao === 'tipoDespesa') {
        setTipoDespesa(item.nome || '');
        setIdTipoDespesa(item.id || '');
@@ -602,8 +728,9 @@ const salvarEdicao = async () => {
       const tipoReal = tipoSelecao.startsWith('tipoLocal_') ? 'tiposLocal'
         : tipoSelecao === 'editarProfissional' ? 'tiposProfissional'
           : tipoSelecao === 'tipoDespesa' ? 'tiposDespesa' : 'tiposEvento';
-      const novo = await repositorioEventos.adicionarNovoItemSelect(tipoReal, { nome: novoNome.trim() }, usuario?.idEmpresa);
-      escolherOpcao(novo);
+      const empresaId = usuario?.idEmpresa || usuario?.companyId || evento?.id_empresa;
+      const novo = await repositorioEventos.adicionarNovoItemSelect(tipoReal, { nome: novoNome.trim() }, empresaId);
+      await escolherOpcao(novo);
     } catch (error) {
       mostrarErro(error?.message || 'Não foi possível adicionar o cadastro.');
     } finally { setCarregandoOpcoes(false); }
@@ -652,6 +779,13 @@ const salvarEdicao = async () => {
   const categoriasDespesas = Object.entries(despesasPorCategoria).sort(([categoriaA], [categoriaB]) => categoriaA.localeCompare(categoriaB, 'pt-BR'));
   const totalDespesasEquipe = categoriasDespesas.reduce((total, [, valor]) => total + valor, 0);
   const valorLiquidoEvento = converterValorMonetario(financeiro.valorTotal) - totalDespesasEquipe;
+  const somaParcelasEditando = (formulario.parcelasDetalhadas || []).reduce(
+    (soma, parcela) => soma + converterValorMonetario(parcela.valor),
+    0
+  );
+  const totalEditando = converterValorMonetario(formulario.valorTotal);
+  const parcelasDivergentes = (totalEditando > 0 || somaParcelasEditando > 0) &&
+    Math.abs(somaParcelasEditando - totalEditando) > 0.05;
   
   const locaisOrdenados = [...evento.locais].sort((a, b) => (a.horaLocal || evento.horaInicio || '').localeCompare(b.horaLocal || evento.horaInicio || ''));
 
@@ -661,6 +795,7 @@ const salvarEdicao = async () => {
   if(tipoSelecao.startsWith('local_')) tituloSelecaoUI = 'Selecionar local';
   if(tipoSelecao.startsWith('tipoLocal_')) tituloSelecaoUI = 'Selecionar tipo do local';
   if(tipoSelecao==='metodoPagamento') tituloSelecaoUI = 'Método de Pagamento';
+  if(tipoSelecao==='qtdParcelas') tituloSelecaoUI = 'Quantidade de parcelas';
   if(tipoSelecao==='editarProfissional') tituloSelecaoUI = 'Nova função do profissional';
   if(tipoSelecao==='tipoDespesa') tituloSelecaoUI = 'Selecionar tipo de despesa';
 
@@ -728,53 +863,100 @@ const salvarEdicao = async () => {
         {abaAtiva === 'Geral' && (editando === 'geral' ? <>
           <Text style={styles.sectionTitle}>Editar dados do evento</Text>
           <Card style={styles.card}><Card.Content>
-            <CampoEdicao label="Título do evento *" valor={formulario.titulo} aoMudar={(valor) => atualizarCampo('titulo', valor)} />
-            <CampoSelecaoDetalhes label="Tipo de evento *" campo="tipoEvento" valor={formulario.tipoEvento} placeholder="Selecionar tipo" aoClicar={abrirSelecao} />
-            <CampoSelecaoDetalhes label="Cliente *" campo="cliente" valor={formulario.cliente} placeholder="Selecionar cliente" icone="user" aoClicar={abrirSelecao} />
+            <View style={styles.editSectionBlock}>
+              <Text style={styles.editSectionTitle}>Dados principais</Text>
+              <CampoEdicao label="Título do evento *" valor={formulario.titulo} erro={errosEdicao.titulo} aoMudar={(valor) => atualizarCampo('titulo', valor)} />
+              <CampoSelecaoDetalhes label="Tipo de evento *" campo="tipoEvento" valor={formulario.tipoEvento} erro={errosEdicao.tipoEvento} placeholder="Selecionar tipo" aoClicar={abrirSelecao} />
+              <CampoSelecaoDetalhes label="Cliente *" campo="cliente" valor={formulario.cliente} erro={errosEdicao.cliente} placeholder="Selecionar cliente" icone="user" aoClicar={abrirSelecao} />
+            </View>
             
-            <View style={styles.editRow}>
-              <View style={styles.editColumn}>
-                 <Text style={{ fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, marginBottom: 6 }}>Data *</Text>
-                 <CampoDataHora modo="date" valor={formulario.dataInicio} aoMudar={(valor) => atualizarCampo('dataInicio', valor)} />
+            <View style={styles.editSectionBlock}>
+              <Text style={styles.editSectionTitle}>Data e capacidade</Text>
+              <View style={styles.editRow}>
+                <View style={styles.editColumn}>
+                   <Text style={styles.editLabel}>Data *</Text>
+                   <CampoDataHora modo="date" valor={formulario.dataInicio} aoMudar={(valor) => atualizarCampo('dataInicio', valor)} />
+                   <ErroCampo>{errosEdicao.dataInicio}</ErroCampo>
+                </View>
+                <View style={styles.editColumn}>
+                   <Text style={styles.editLabel}>Horário</Text>
+                   <CampoDataHora modo="time" valor={formulario.horaInicio} aoMudar={(valor) => atualizarCampo('horaInicio', valor)} />
+                </View>
               </View>
-              <View style={styles.editColumn}>
-                 <Text style={{ fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, marginBottom: 6 }}>Horário</Text>
-                 <CampoDataHora modo="time" valor={formulario.horaInicio} aoMudar={(valor) => atualizarCampo('horaInicio', valor)} />
-              </View>
+              <CampoEdicao label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizarCampo('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" />
             </View>
 
-            <CampoEdicao label="Número de convidados" valor={formulario.numConvidados} aoMudar={(v) => atualizarCampo('numConvidados', v)} placeholder="Ex.: 180" teclado="numeric" />
-
-            <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#DFE7EE', paddingTop: 20 }}>
-              <Text style={styles.sectionTitle}>Locais do Evento</Text>
+            <View style={styles.editSectionBlock}>
+              <View style={styles.editSectionHeading}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.editSectionTitle}>Locais do evento</Text>
+                  <Text style={styles.editSectionHint}>Toque em um local para editar seus detalhes.</Text>
+                </View>
+                <View style={styles.editCountBadge}>
+                  <Text style={styles.editCountBadgeText}>{locais.length}</Text>
+                </View>
+              </View>
               {locais.map((local, index) => (
-                <View key={local.idLocalTemp || index} style={{ marginBottom: 15, padding: 15, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
-                    <Text style={{fontWeight: 'bold', color: CORES.textNavy}}>Local {index + 1}</Text>
-                    {locais.length > 1 && <TouchableOpacity onPress={() => removerLocal(index)}><MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" /></TouchableOpacity>}
+                <View key={local.idLocalTemp ?? index} style={styles.editLocationCard}>
+                  <View style={styles.editLocationHeader}>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={`${localExpandidoId === local.idLocalTemp ? 'Recolher' : 'Expandir'} local ${index + 1}`}
+                      accessibilityState={{ expanded: localExpandidoId === local.idLocalTemp }}
+                      onPress={() => setLocalExpandidoId((atual) => atual === local.idLocalTemp ? null : local.idLocalTemp)}
+                      style={styles.editLocationToggle}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.editLocationTitle}>Local {index + 1}</Text>
+                        <Text style={styles.editLocationSummary} numberOfLines={1}>
+                          {[local.tipoLocal, local.nomeDoLocal].filter(Boolean).join(' · ') || 'Tipo e endereço não definidos'}
+                        </Text>
+                      </View>
+                      <MaterialCommunityIcons name={localExpandidoId === local.idLocalTemp ? 'chevron-up' : 'chevron-down'} size={22} color={CORES.textMuted} />
+                    </TouchableOpacity>
+                    {locais.length > 1 && (
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Remover local ${index + 1}`} onPress={() => removerLocal(index)} style={styles.editLocationRemove}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={19} color="#B42318" />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  <CampoSelecaoDetalhes label="Tipo do local *" campo={`tipoLocal_${index}`} valor={local.tipoLocal} placeholder="Selecionar tipo" aoClicar={abrirSelecao} />
-                  <CampoSelecaoDetalhes label="Local *" campo={`local_${index}`} valor={local.nomeDoLocal} placeholder="Selecionar o endereço" icone="map-pin" aoClicar={abrirSelecao} />
-                  {!!local.enderecoLocal && <Text style={{fontSize: 12, color: '#64748B', marginBottom: 10, paddingHorizontal: 5}}>{local.enderecoLocal}</Text>}
-                  
-                  <View style={styles.editRow}>
-                    <View style={styles.editColumn}>
-                      <Text style={{ fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, marginBottom: 6 }}>Horário</Text>
-                      <CampoDataHora modo="time" valor={local.horaLocal} aoMudar={(v) => atualizarLocal(index, 'horaLocal', v)} />
+                  {localExpandidoId === local.idLocalTemp && (
+                    <View style={styles.editLocationFields}>
+                      <CampoSelecaoDetalhes
+                        label="Tipo do local *"
+                        campo={`tipoLocal_${index}`}
+                        valor={local.tipoLocal}
+                        erro={errosEdicao[`local_${index}_tipoLocal`]}
+                        placeholder="Selecionar tipo"
+                        aoClicar={abrirSelecao}
+                      />
+                      <CampoSelecaoDetalhes
+                        label="Endereço *"
+                        campo={`local_${index}`}
+                        valor={local.nomeDoLocal}
+                        erro={errosEdicao[`local_${index}_nomeDoLocal`]}
+                        placeholder="Selecionar endereço"
+                        icone="map-pin"
+                        aoClicar={abrirSelecao}
+                      />
+                      {!!local.enderecoLocal && <Text style={styles.editLocationAddress}>{local.enderecoLocal}</Text>}
+                      <View style={styles.editRow}>
+                        <View style={styles.editColumn}>
+                          <Text style={styles.editLabel}>Horário</Text>
+                          <CampoDataHora modo="time" valor={local.horaLocal} aoMudar={(v) => atualizarLocal(index, 'horaLocal', v)} />
+                        </View>
+                      </View>
+                      <CampoEdicao label="Observações do local" valor={local.observacoesLocal} aoMudar={(v) => atualizarLocal(index, 'observacoesLocal', v)} placeholder="Detalhes de chegada..." multiline />
                     </View>
-                  </View>
-
-                  <CampoEdicao label="Observações do local" valor={local.observacoesLocal} aoMudar={(v) => atualizarLocal(index, 'observacoesLocal', v)} placeholder="Detalhes de chegada..." multiline />
+                  )}
                 </View>
               ))}
-              <Button mode="contained" icon="plus" onPress={adicionarLocal} textColor={CORES.textNavy} buttonColor={CORES.buttonGold} style={{ borderRadius: 10, marginBottom: 20 }}>Adicionar mais um local</Button>
+              <Button mode="outlined" icon="plus" onPress={adicionarLocal} textColor={CORES.textNavy} style={{ borderRadius: 10, marginBottom: 8 }}>Adicionar local</Button>
             </View>
 
-            <CampoEdicao label="Notas gerais da produção" valor={formulario.notasProducao} aoMudar={(v) => atualizarCampo('notasProducao', v)} placeholder="Escrever notas importantes..." multiline />
-
-            <View style={styles.editActions}>
-              <Button mode="outlined" onPress={cancelarEdicao} textColor={CORES.textNavy}>Cancelar</Button>
-              <Button mode="contained" onPress={salvarEdicao} loading={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar alterações</Button>
+            <View style={styles.editSectionBlock}>
+              <Text style={styles.editSectionTitle}>Notas da produção</Text>
+              <CampoEdicao label="Observações para a equipe (opcional)" valor={formulario.notasProducao} aoMudar={(v) => atualizarCampo('notasProducao', v)} placeholder="Escrever notas importantes..." multiline />
             </View>
           </Card.Content></Card>
         </> : <>
@@ -784,8 +966,21 @@ const salvarEdicao = async () => {
              <CartaoLocal key={index} local={local} fallbackHora={evento.horaInicio} />
           )) : <Text style={styles.sectionHint}>Nenhum local cadastrado.</Text>}
           
-          <Text style={styles.sectionTitle}>Notas da produção</Text>
-          <Card style={styles.card}><Card.Content><Text style={styles.noteText}>{evento.notasProducao || 'Nenhuma observação registrada.'}</Text></Card.Content></Card>
+          <Card style={styles.productionNotesCard}>
+            <Card.Content style={styles.productionNotesContent}>
+              <View style={styles.productionNotesHeading}>
+                <View style={styles.productionNotesIcon}>
+                  <Feather name="file-text" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.productionNotesHeadingText}>
+                  <Text style={styles.productionNotesTitle}>Notas da produção</Text>
+                  <Text style={styles.productionNotesSubtitle}>Informações importantes para a equipe</Text>
+                </View>
+              </View>
+              <View style={styles.productionNotesDivider} />
+              <Text style={styles.productionNotesText}>{evento.notasProducao || 'Nenhuma observação registrada.'}</Text>
+            </Card.Content>
+          </Card>
           
           {!eventoConcluido && (
              <TouchableOpacity onPress={() => setEditando('geral')} style={styles.editPrimaryButton}>
@@ -892,29 +1087,71 @@ const salvarEdicao = async () => {
         {abaAtiva === 'Financeiro' && (editando === 'financeiro' ? <>
           <Text style={styles.sectionTitle}>Editar financeiro</Text>
           <Card style={styles.card}><Card.Content>
-            
-            <CampoEdicao icone="dollar-sign" label="Valor total do evento" valor={formulario.valorTotal} aoMudar={(valor) => atualizarCampo('valorTotal', formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="numeric" />
-            <CampoSelecaoDetalhes label="Método de pagamento" campo="metodoPagamento" valor={formulario.metodoPagamento} placeholder="Selecionar pagamento" icone="credit-card" aoClicar={abrirSelecao} />
-            <CampoEdicao icone="layers" label="Quantidade de parcelas (Até 12x)" valor={formulario.qtdParcelas} aoMudar={(valor) => atualizarCampo('qtdParcelas', valor)} placeholder="Ex: 2" teclado="numeric" />
-            <CampoEdicao icone="align-left" label="Observação do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(valor) => atualizarCampo('observacaoFinanceiro', valor)} placeholder="Anotações extras..." multiline={true} />
+            <View style={styles.editSectionBlock}>
+              <Text style={styles.editSectionTitle}>Condições de pagamento</Text>
+              <Text style={styles.editSectionHint}>Defina o valor contratado e como ele será pago.</Text>
+              <CampoEdicao icone="dollar-sign" label="Valor total do evento" valor={formulario.valorTotal} erro={errosEdicao.valorTotal} aoMudar={(valor) => atualizarCampo('valorTotal', formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="decimal-pad" alinharTextoAoMeio />
+              <CampoSelecaoDetalhes label="Método de pagamento" campo="metodoPagamento" valor={formulario.metodoPagamento} placeholder="Selecionar pagamento" icone="credit-card" aoClicar={abrirSelecao} />
+              <CampoSelecaoDetalhes
+                label="Quantidade de parcelas (Até 12x)"
+                campo="qtdParcelas"
+                valor={OPCOES_QTD_PARCELAS.find((opcao) => opcao.id === String(formulario.qtdParcelas))?.nome || ''}
+                placeholder="Selecionar quantidade"
+                icone="layers"
+                aoClicar={abrirSelecao}
+              />
+              <CampoEdicao icone="align-left" label="Observação do total do evento" valor={formulario.observacaoFinanceiro} aoMudar={(valor) => atualizarCampo('observacaoFinanceiro', valor)} placeholder="Anotações extras..." multiline={true} />
+            </View>
 
-            {formulario.parcelasDetalhadas.length > 0 && formulario.parcelasDetalhadas.map((parc, i) => (
-              <View key={i} style={{marginTop: 10, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0'}}>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-                    <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 14 }}>Parcela {i + 1}</Text>
-                    <TouchableOpacity onPress={() => alternarStatusParcela(i)} style={{backgroundColor: parc.status === 'paga' ? '#10B981' : '#E2E8F0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10}}>
-                      <Text style={{color: parc.status === 'paga' ? '#FFF' : '#64748B', fontWeight: 'bold', fontSize: 12}}>{parc.status === 'paga' ? 'Paga' : 'Pendente'}</Text>
+            <View style={styles.editSectionBlock}>
+              <View style={styles.editSectionHeading}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.editSectionTitle}>Parcelas</Text>
+                  <Text style={styles.editSectionHint}>Acompanhe valores, vencimentos e situação de cada parcela.</Text>
+                </View>
+                <Text style={styles.editCountBadgeText}>{(formulario.parcelasDetalhadas || []).length}</Text>
+              </View>
+              <View style={[styles.parcelasTotalSummary, parcelasDivergentes && styles.parcelasTotalSummaryError]}>
+                <View>
+                  <Text style={styles.parcelasTotalLabel}>Soma das parcelas</Text>
+                  <Text style={styles.parcelasTotalValue}>{formatarMonetario(somaParcelasEditando)}</Text>
+                </View>
+                <Feather name={parcelasDivergentes ? 'alert-circle' : 'check-circle'} size={20} color={parcelasDivergentes ? '#B42318' : '#15803D'} />
+                <View style={styles.parcelasTotalTarget}>
+                  <Text style={styles.parcelasTotalLabel}>Total do evento</Text>
+                  <Text style={styles.parcelasTotalValue}>{formatarMonetario(totalEditando)}</Text>
+                </View>
+              </View>
+              <ErroCampo>{errosEdicao.somaParcelas}</ErroCampo>
+              {parcelasDivergentes && !errosEdicao.somaParcelas && (
+                <Text style={styles.parcelasMismatchHint}>A soma das parcelas deve corresponder ao valor total do evento.</Text>
+              )}
+            </View>
+
+            {(formulario.parcelasDetalhadas || []).map((parc, i) => (
+              <View key={i} style={styles.editInstallmentCard}>
+                  <View style={styles.editInstallmentHeader}>
+                    <View>
+                      <Text style={styles.editInstallmentTitle}>Parcela {i + 1}</Text>
+                      <Text style={styles.editInstallmentDue}>Vencimento: {parc.vencimento || 'Não definido'}</Text>
+                    </View>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Marcar parcela ${i + 1} como ${parc.status === 'paga' ? 'pendente' : 'paga'}`} onPress={() => alternarStatusParcela(i)} style={[styles.installmentStatus, parc.status === 'paga' ? styles.installmentStatusPaid : styles.installmentStatusPending]}>
+                      <Text style={[styles.installmentStatusText, parc.status === 'paga' ? styles.installmentStatusPaidText : styles.installmentStatusPendingText]}>{parc.status === 'paga' ? 'Paga' : 'Pendente'}</Text>
                     </TouchableOpacity>
                   </View>
-                                      <CampoEdicao label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarParcela(i, 'valor', formatarMoedaInput(v))} placeholder="R$ 0,00" teclado="numeric" />
-                    <CampoEdicao label="Observações" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex: Assinatura do contrato" />
+                  <CampoEdicao label="Valor da parcela" valor={parc.valor} aoMudar={(v) => atualizarValorParcela(i, v)} placeholder="R$ 0,00" teclado="decimal-pad" alinharTextoAoMeio />
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={styles.editLabel}>Vencimento</Text>
+                    <CampoDataHora
+                      modo="date"
+                      valor={parc.vencimento || ''}
+                      aoMudar={(valor) => atualizarParcela(i, 'vencimento', valor)}
+                    />
+                    <ErroCampo>{errosEdicao[`parcela_${i}_vencimento`]}</ErroCampo>
+                  </View>
+                  <CampoEdicao label="Observações" valor={parc.observacao} aoMudar={(v) => atualizarParcela(i, 'observacao', v)} placeholder="Ex: Assinatura do contrato" />
               </View>
             ))}
-
-            <View style={[styles.editActions, {marginTop: 20}]}>
-              <Button mode="outlined" onPress={() => setEditando(null)} textColor={CORES.textNavy}>Cancelar</Button>
-              <Button mode="contained" onPress={salvarEdicao} loading={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar financeiro</Button>
-            </View>
           </Card.Content></Card>
         </> : <>
           <Text style={styles.sectionTitle}>Resumo Financeiro</Text>
@@ -979,11 +1216,11 @@ const salvarEdicao = async () => {
                 </View>
               )) : <Text style={styles.sectionHint}>Ainda não há despesas registradas para este evento.</Text>}
               <View style={[styles.expenseSummaryRow, styles.expenseSummaryTotal]}>
-                <Text style={styles.expenseSummaryTotalLabel}>Total de despesas dos membros</Text>
+                <Text style={styles.expenseSummaryTotalLabel}>Total de despesas dos profissionais</Text>
                 <Text style={styles.expenseSummaryTotalValue}>{formatarMonetario(totalDespesasEquipe)}</Text>
               </View>
               <View style={[styles.expenseSummaryRow, styles.expenseNetRow]}>
-                <Text style={styles.expenseNetLabel}>Valor total - despesas</Text>
+                <Text style={styles.expenseNetLabel}>Valor Líquido</Text>
                 <Text style={styles.expenseNetValue}>{formatarMonetario(valorLiquidoEvento)}</Text>
               </View>
             </Card.Content>
@@ -997,9 +1234,35 @@ const salvarEdicao = async () => {
 
       </ScrollView>
 
+      {!!editando && (
+        <View style={styles.editActionBar}>
+          <Button
+            mode="outlined"
+            onPress={cancelarEdicao}
+            disabled={salvando}
+            textColor={CORES.textNavy}
+            style={styles.editCancelButton}
+          >
+            Cancelar
+          </Button>
+          <Button
+            mode="contained"
+            onPress={salvarEdicao}
+            loading={salvando}
+            disabled={salvando}
+            buttonColor={CORES.buttonGold}
+            textColor={CORES.textNavy}
+            style={styles.editSaveButton}
+          >
+            Salvar alterações
+          </Button>
+        </View>
+      )}
+
       <Modal visible={modalDespesasVisivel} transparent animationType="fade" onRequestClose={() => setModalDespesasVisivel(false)}>
         <View style={styles.quickModalOverlay}>
-          <ScrollView style={styles.quickModalCard} keyboardShouldPersistTaps="handled">
+          <View style={styles.expenseModalCard}>
+            <ScrollView style={styles.quickModalScroll} contentContainerStyle={styles.quickModalContent} keyboardShouldPersistTaps="handled">
             <View style={styles.quickModalHeader}>
               <Text style={styles.quickModalTitle}>
                 {mostrarSeletorDespesa ? 'Selecionar tipo de despesa' : `Despesas de ${profissionalDespesas?.nomeProfissional || 'profissional'}`}
@@ -1015,6 +1278,7 @@ const salvarEdicao = async () => {
               <>
                 <View style={styles.expenseTypeSearch}>
                   <Feather name="search" size={17} color={CORES.textMuted} />
+                  <SeparadorCampoIcone />
                   <TextInput
                     value={buscaTipoDespesa}
                     onChangeText={setBuscaTipoDespesa}
@@ -1065,7 +1329,9 @@ const salvarEdicao = async () => {
                     </View>
                   </View>
                 ))}
-                {!profissionalDespesas?.despesas?.length && <Text style={styles.quickModalHint}>Ainda não há despesas registradas para este profissional.</Text>}
+                {!profissionalDespesas?.despesas?.length && profissionalDespesas?.statusConfirmacao !== 'Cancelado' && (
+                  <Text style={styles.quickModalHint}>Ainda não há despesas registradas para este profissional.</Text>
+                )}
                 {profissionalDespesas?.statusConfirmacao === 'Cancelado' && (
                   <Text style={styles.quickModalHint}>O convite foi cancelado. Não é possível adicionar novas despesas.</Text>
                 )}
@@ -1103,7 +1369,8 @@ const salvarEdicao = async () => {
                 )}
               </>
             )}
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
 
@@ -1254,15 +1521,19 @@ const salvarEdicao = async () => {
       </Modal>
 
       <Modal visible={modalClienteVisivel} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-           <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
+        <View style={styles.clientModalOverlay}>
+           <ScrollView
+             style={styles.clientModalCard}
+             contentContainerStyle={styles.clientModalContent}
+             keyboardShouldPersistTaps="handled"
+           >
               <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 15 }}>Cadastrar Novo Cliente</Text>
-              <CampoEdicao label="Nome Completo *" valor={formNovoCliente.nome} aoMudar={v => setFormNovoCliente({...formNovoCliente, nome: v})} placeholder="Ex: Ana Costa" />
-              <CampoEdicao label="CPF ou CNPJ *" valor={formNovoCliente.documento} aoMudar={v => setFormNovoCliente({...formNovoCliente, documento: formatarCpfCnpj(v)})} placeholder="000.000.000-00" teclado="numeric" />
-              <CampoEdicao label="Telefone" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="(00) 00000-0000" teclado="phone-pad" />
-              <CampoEdicao label="Instagram" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
+              <CampoEdicao compacto label="Nome completo *" valor={formNovoCliente.nome} aoMudar={v => setFormNovoCliente({...formNovoCliente, nome: v})} placeholder="Ex.: Ana Costa" />
+              <CampoEdicao compacto label="CPF ou CNPJ *" valor={formNovoCliente.documento} aoMudar={v => setFormNovoCliente({...formNovoCliente, documento: formatarCpfCnpj(v)})} placeholder="000.000.000-00" teclado="numeric" />
+              <CampoEdicao compacto label="Telefone (opcional)" valor={formNovoCliente.telefone} aoMudar={v => setFormNovoCliente({...formNovoCliente, telefone: formatarTelefone(v)})} placeholder="(00) 00000-0000" teclado="phone-pad" />
+              <CampoEdicao compacto label="Instagram (opcional)" valor={formNovoCliente.instagram} aoMudar={v => setFormNovoCliente({...formNovoCliente, instagram: v})} placeholder="@perfil" />
               
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
+              <View style={styles.clientModalActions}>
                  <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalClienteVisivel(false)} textColor={CORES.textNavy} disabled={carregandoOpcoes}>Cancelar</Button>
                  <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoClienteDetalhado} loading={carregandoOpcoes}>Salvar</Button>
               </View>
@@ -1277,7 +1548,7 @@ const salvarEdicao = async () => {
          opcoes={opcoesSelecao}
          carregando={carregandoOpcoes}
          onSelecionar={escolherOpcao}
-         onAdicionarNovo={tipoSelecao === 'metodoPagamento' || tipoSelecao === 'tipoDespesa' ? null : salvarNovoItemNaSelecao}
+         onAdicionarNovo={tipoSelecao === 'metodoPagamento' || tipoSelecao === 'qtdParcelas' || tipoSelecao === 'tipoDespesa' ? null : salvarNovoItemNaSelecao}
       />
 
       <ModalAdicionarProfissional

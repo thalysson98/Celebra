@@ -81,6 +81,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 |---|---|:---:|:---:|---|
 | `id_usuario` | texto | Sim | Chave Primária | Identificador único (mesmo UID do Firebase Auth) |
 | `nome_completo` | texto | Sim | - | Nome e sobrenome do usuário |
+| `cpf` | texto | Sim | - | CPF válido, armazenado somente com 11 dígitos |
 | `email` | texto | Sim | - | E-mail autenticado de login |
 | `telefone` | texto | Não | - | Telefone ou WhatsApp com DDD |
 | `papel` | booleano | Sim | - | `true` para administrador ou `false` para funcionário |

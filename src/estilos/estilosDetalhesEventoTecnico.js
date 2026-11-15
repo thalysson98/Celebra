@@ -10,7 +10,7 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
   headerTitle: { color: CORES.textWhite, fontFamily: FONTES.bold, fontSize: 22 },
   notificationBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 150 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 230 },
   
   subtitleText: { color: '#334155', fontFamily: FONTES.body, fontSize: 14, marginBottom: 15 },
   boldText: { fontFamily: FONTES.bold },
@@ -32,10 +32,21 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
   noteText: { fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13, lineHeight: 20 },
   
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: CORES.cardDivider },
+  personRowSelf: { backgroundColor: '#F0F7FF', marginHorizontal: -16, paddingHorizontal: 16, borderRadius: 10, borderBottomWidth: 0 },
   personIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: CORES.sheetBgSubtle, alignItems: 'center', justifyContent: 'center' },
+  personIconSelf: { backgroundColor: '#DBEAFE' },
   personInfo: { flex: 1 },
   personName: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 15, fontWeight: '700' },
   personMeta: { fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13, marginTop: 2 },
+  productionNotesCard: { backgroundColor: '#102B46', borderRadius: 16, borderWidth: 1, borderColor: '#244C70', elevation: 2, marginBottom: 16 },
+  productionNotesContent: { padding: 18 },
+  productionNotesHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  productionNotesIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2F80A8' },
+  productionNotesHeadingText: { flex: 1 },
+  productionNotesTitle: { fontFamily: FONTES.bold, color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  productionNotesSubtitle: { fontFamily: FONTES.body, color: '#C5D2DF', fontSize: 12, marginTop: 3 },
+  productionNotesDivider: { height: 3, width: 46, borderRadius: 2, backgroundColor: CORES.buttonGold, marginTop: 16, marginBottom: 14 },
+  productionNotesText: { fontFamily: FONTES.semibold, color: '#FFFFFF', fontSize: 14, lineHeight: 22 },
   
   sectionHint: { fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13, marginBottom: 12 },
   

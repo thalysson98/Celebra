@@ -12,7 +12,7 @@ export const estilosEditarEmpresa = StyleSheet.create({
   tituloSecao: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 18, fontWeight: '700', marginBottom: 12 },
   grupo: { marginTop: 10 },
   rotulo: { fontFamily: FONTES.semibold, color: CORES.textNavy, fontSize: 13, fontWeight: '600', marginBottom: 6 },
-  campo: { fontFamily: FONTES.body, minHeight: 46, borderWidth: 1, borderColor: CORES.cardDivider, borderRadius: 10, paddingHorizontal: 12, color: CORES.textNavy, backgroundColor: '#FFFFFF', fontSize: 14 },
+  campo: { fontFamily: FONTES.body, minHeight: 46, borderWidth: 1, borderColor: CORES.cardDivider, borderRadius: 10, paddingHorizontal: 12, color: CORES.textNavy, backgroundColor: '#FFFFFF', fontSize: 14, textAlignVertical: 'center' },
   linha: { flexDirection: 'row', gap: 10 },
   flex: { flex: 1 },
   erro: { fontFamily: FONTES.body, color: '#B42318', backgroundColor: '#FEF3F2', borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 13, lineHeight: 19 },

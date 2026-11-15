@@ -68,7 +68,9 @@ service cloud.firestore {
         && request.resource.data.id_empresa == null
         && request.resource.data.ativo == true
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.nome_completo is string;
+        && request.resource.data.nome_completo is string
+        && request.resource.data.cpf is string
+        && request.resource.data.cpf.matches('^[0-9]{11}$');
       allow read: if autenticado() && (
         request.auth.uid == userId
         || (resource.data.papel == false
@@ -77,7 +79,9 @@ service cloud.firestore {
       );
       allow update: if autenticado() && request.auth.uid == userId
         && (
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone', 'pushToken'])
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'cpf', 'telefone', 'pushToken'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['cpf'])
+              || (request.resource.data.cpf is string && request.resource.data.cpf.matches('^[0-9]{11}$')))
             && request.resource.data.id_usuario == resource.data.id_usuario
             && request.resource.data.papel == resource.data.papel
             && request.resource.data.id_empresa == resource.data.id_empresa
@@ -259,6 +263,21 @@ service cloud.firestore {
       allow update: if organizadorDaEmpresa(resource.data.id_empresa)
         && request.resource.data.id_empresa == resource.data.id_empresa
         && request.resource.data.id_tipo_local == resource.data.id_tipo_local
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
+    }
+
+    match /tipos_despesa/{id} {
+      allow read: if membroDaEmpresa(resource.data.id_empresa);
+      allow create: if organizadorDaEmpresa(request.resource.data.id_empresa)
+        && request.resource.data.id_empresa == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.id_empresa
+        && request.resource.data.id_tipo_despesa == id
+        && request.resource.data.nome is string
+        && request.resource.data.ativo is bool;
+      allow update: if organizadorDaEmpresa(resource.data.id_empresa)
+        && request.resource.data.id_empresa == resource.data.id_empresa
+        && request.resource.data.id_tipo_despesa == resource.data.id_tipo_despesa
         && request.resource.data.nome is string
         && request.resource.data.ativo is bool;
       allow delete: if false;

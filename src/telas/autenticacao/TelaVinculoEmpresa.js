@@ -61,7 +61,8 @@ export default function TelaVinculoEmpresa({ user, onLogout, onVinculoConcluido 
                 setCodigo(valor.replace(/\s/g, ''));
                 if (mensagemErro) setMensagemErro('');
               }}
-              placeholder="Ex.: kQXkMPQavUAzQmPxzisU"
+              placeholder=""
+              placeholderTextColor="#a8b6c9"
               style={styles.campoCodigo}
               autoCapitalize="none"
               autoCorrect={false}

@@ -146,7 +146,7 @@ export const estilosAutenticacao = StyleSheet.create({
     backgroundColor: '#FFF5F5',
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 0,
   },
   textInput: {
     flex: 1,
@@ -154,6 +154,7 @@ export const estilosAutenticacao = StyleSheet.create({
     fontSize: 14,
     color: CORES_AUTENTICACAO.textDark,
     paddingVertical: 0,
+    textAlignVertical: 'center',
     outlineStyle: 'none',
   },
   eyeIcon: {

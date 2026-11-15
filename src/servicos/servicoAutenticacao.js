@@ -9,6 +9,7 @@ import {
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados, firebaseEstaConfigurado } from '../configuracao/configuracaoFirebase';
 import { obterPerfilUsuario } from './servicoUsuario';
+import { normalizarCpf, validarCpf } from '../compartilhado/validacaoCpf';
 
 function traduzirErroFirebase(erro) {
   const codigo = erro?.code || '';
@@ -30,15 +31,16 @@ function traduzirErroFirebase(erro) {
 
 function validarNome(nome) {
   const nomeLimpo = String(nome || '').trim().replace(/\s+/g, ' ');
-  if (nomeLimpo.length < 2) throw new Error('Informe seu nome completo.');
+  if (nomeLimpo.split(' ').filter(Boolean).length < 2) throw new Error('Informe seu nome e sobrenome.');
   if (nomeLimpo.length > 120) throw new Error('O nome completo deve ter no máximo 120 caracteres.');
   return nomeLimpo;
 }
 
-function dadosPerfilInicial(uid, nome, email) {
+function dadosPerfilInicial(uid, nome, email, cpf) {
   return {
     id_usuario: uid,
     nome_completo: nome,
+    cpf,
     email,
     telefone: '',
     papel: false,
@@ -48,12 +50,13 @@ function dadosPerfilInicial(uid, nome, email) {
   };
 }
 
-function perfilInicialParaSessao(uid, nome, email) {
+function perfilInicialParaSessao(uid, nome, email, cpf) {
   return {
     uid,
     id: uid,
     name: nome,
     displayName: nome,
+    cpf,
     email,
     papel: false,
     idEmpresa: null,
@@ -64,9 +67,12 @@ function perfilInicialParaSessao(uid, nome, email) {
   };
 }
 
-export async function registrarUsuario({ nomeCompleto, name, username, email, password }) {
+export async function registrarUsuario({ nomeCompleto, name, username, cpf, email, password }) {
   if (!firebaseEstaConfigurado) throw new Error('Configure as chaves do Firebase no arquivo src/configuracao/configuracaoFirebase.js.');
   const nomeLimpo = validarNome(nomeCompleto || name || username);
+  const cpfLimpo = normalizarCpf(cpf);
+  if (!cpfLimpo) throw new Error('Informe seu CPF.');
+  if (!validarCpf(cpfLimpo)) throw new Error('Informe um CPF válido.');
   const emailLimpo = String(email || '').trim().toLowerCase();
 
   let usuarioCriado = null;
@@ -75,8 +81,8 @@ export async function registrarUsuario({ nomeCompleto, name, username, email, pa
     const usuarioFirebase = credencialUsuario.user;
     usuarioCriado = usuarioFirebase;
     await updateProfile(usuarioFirebase, { displayName: nomeLimpo });
-    await setDoc(doc(bancoDados, 'usuarios', usuarioFirebase.uid), dadosPerfilInicial(usuarioFirebase.uid, nomeLimpo, emailLimpo));
-    return perfilInicialParaSessao(usuarioFirebase.uid, nomeLimpo, emailLimpo);
+    await setDoc(doc(bancoDados, 'usuarios', usuarioFirebase.uid), dadosPerfilInicial(usuarioFirebase.uid, nomeLimpo, emailLimpo, cpfLimpo));
+    return perfilInicialParaSessao(usuarioFirebase.uid, nomeLimpo, emailLimpo, cpfLimpo);
   } catch (erro) {
     // Se o Auth já tinha a conta, mas o documento usuarios foi apagado,
     // recupera o cadastro usando a senha informada e recria somente o perfil.
@@ -86,8 +92,8 @@ export async function registrarUsuario({ nomeCompleto, name, username, email, pa
         const perfilExistente = await obterPerfilUsuario(credencialExistente.user);
         if (perfilExistente.profileStatus === 'perfil_nao_cadastrado' || perfilExistente.ativo !== true) {
           await updateProfile(credencialExistente.user, { displayName: nomeLimpo });
-          await setDoc(doc(bancoDados, 'usuarios', credencialExistente.user.uid), dadosPerfilInicial(credencialExistente.user.uid, nomeLimpo, emailLimpo));
-          return perfilInicialParaSessao(credencialExistente.user.uid, nomeLimpo, emailLimpo);
+          await setDoc(doc(bancoDados, 'usuarios', credencialExistente.user.uid), dadosPerfilInicial(credencialExistente.user.uid, nomeLimpo, emailLimpo, cpfLimpo));
+          return perfilInicialParaSessao(credencialExistente.user.uid, nomeLimpo, emailLimpo, cpfLimpo);
         }
         await signOut(autenticacao);
       } catch {
