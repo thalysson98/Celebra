@@ -1,4 +1,4 @@
-import { notificarNovoEventoParaTecnico } from '../../servicos/servicoNotificacoes';
+import { notificarNovoEventoParaTecnico, notificarRemocaoConvocacao } from '../../servicos/servicoNotificacoes';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
@@ -621,10 +621,10 @@ const salvarEdicao = async () => {
     setModalExcluirVisivel(true);
   };
 
-  const confirmarExclusaoTecnico = async () => {
-    const alvo = profissionalAlvo; 
+    const confirmarExclusaoTecnico = async () => {
+    const alvo = profissionalAlvo;
     setModalExcluirVisivel(false);
-    
+
     setTimeout(async () => {
       setCarregando(true);
       try {
@@ -632,10 +632,21 @@ const salvarEdicao = async () => {
           await removerProfissionalInformativo(idEvento, alvo.idUsuario);
         } else {
           await removerConvite(alvo.idConvite, idEvento, alvo.idUsuario);
+          try {
+            await notificarRemocaoConvocacao({
+              idUsuario: alvo.idUsuario,
+              idEvento,
+              nomeEvento: evento?.nome || evento?.titulo,
+              dataEvento: evento?.dataInicio,
+              funcao: alvo.funcao,
+            });
+          } catch (erroNotificacao) {
+            console.log('Erro ao notificar remoção da convocação:', erroNotificacao?.message);
+          }
         }
         await carregarEvento();
         mostrarSucesso("Sucesso", "O Profissional foi removido da equipe.");
-      } catch(e) {
+      } catch (e) {
         setCarregando(false);
         mostrarErro("Não foi possível remover este profissional.");
       }

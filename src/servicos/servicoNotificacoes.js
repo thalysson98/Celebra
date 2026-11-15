@@ -35,6 +35,31 @@ if (Platform.OS !== 'web') {
 const bannersLocaisDisparados = new Set();
 const notificacoesCriadasSessao = new Set();
 
+export async function notificarRemocaoConvocacao({
+  idUsuario,
+  idEvento,
+  nomeEvento,
+  dataEvento,
+  funcao,
+  nomeEmpresa,
+}) {
+  if (!idUsuario || !idEvento) return false;
+
+  const dataFormatada = formatarDataNotificacao(dataEvento);
+  const idNotificacao = `convocacao_removida_${idEvento}_${idUsuario}_${Date.now()}`;
+  return criarNotificacaoUnica(
+    idNotificacao,
+    {
+      idUsuario,
+      idEvento,
+      tipo: 'convocacao_removida',
+      titulo: 'Convocação removida',
+      mensagem: `${nomeEmpresa || 'O organizador'} removeu sua convocação${funcao ? ` como ${funcao}` : ''} do evento "${nomeEvento || 'Evento'}" (${dataFormatada}).`,
+    },
+    { dispararBannerLocal: false, enviarPushRemoto: true }
+  );
+}
+
 export async function inicializarNotificacoesDispositivo(idUsuario) {
   if (Platform.OS === 'web') return null;
 
