@@ -1,5 +1,5 @@
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,6 +17,36 @@ const CATEGORIAS = [
   { chave: 'tiposDespesa', titulo: 'Tipos de despesa', singular: 'tipo de despesa', descricao: 'Padronize as despesas registradas para a equipe.' },
   { chave: 'locaisSalvos', titulo: 'Locais', singular: 'local', descricao: 'Gerencie os espaços utilizados pela empresa.' },
   { chave: 'clientes', titulo: 'Clientes', singular: 'cliente', descricao: 'Consulte e mantenha os dados dos clientes.' },
+];
+
+const ESTADOS_BRASIL = [
+  { sigla: 'AC', nome: 'Acre' },
+  { sigla: 'AL', nome: 'Alagoas' },
+  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' },
+  { sigla: 'BA', nome: 'Bahia' },
+  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' },
+  { sigla: 'ES', nome: 'Espírito Santo' },
+  { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'MT', nome: 'Mato Grosso' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' },
+  { sigla: 'PA', nome: 'Pará' },
+  { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PE', nome: 'Pernambuco' },
+  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' },
+  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' },
+  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' },
 ];
 
 const obterNome = (item) => item.nome || item.nomeDoLocal || '';
@@ -62,18 +92,40 @@ const formatarTelefoneBrasil = (valor) => {
   return `+55 (${ddd}) ${parteInicial}${parteFinal ? `-${parteFinal}` : ''}`;
 };
 
-const CampoModal = ({ label, icone, editable, ...props }) => {
+const CampoModal = ({ label, icone, editable = true, style, containerStyle, onFocus, onBlur, ...props }) => {
+  const [focado, setFocado] = useState(false);
+
   return (
-    <View style={styles.modalField}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={[styles.modalInputContainer, !editable && styles.readOnlyInput]} pointerEvents="box-none">
-        <Feather name={icone} size={17} color={CORES.textMuted} pointerEvents="none" />
-        <SeparadorCampoIcone />
+    <View style={[styles.modalField, style]}>
+      {label ? <Text style={styles.inputLabel}>{label}</Text> : null}
+      <View
+        style={[
+          styles.modalInputContainer,
+          focado && styles.modalInputContainerFocused,
+          !editable && styles.readOnlyInput,
+          containerStyle,
+        ]}
+        pointerEvents="box-none"
+      >
+        {icone ? (
+          <>
+            <Feather name={icone} size={17} color={focado ? CORES.textNavy : CORES.textMuted} pointerEvents="none" />
+            <SeparadorCampoIcone />
+          </>
+        ) : null}
         <TextInput
           {...props}
           editable={editable}
           pointerEvents="auto"
           placeholderTextColor={CORES.textSubtle}
+          onFocus={(e) => {
+            setFocado(true);
+            onFocus && onFocus(e);
+          }}
+          onBlur={(e) => {
+            setFocado(false);
+            onBlur && onBlur(e);
+          }}
           style={styles.modalInput}
         />
       </View>
@@ -105,6 +157,16 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [tiposLocal, setTiposLocal] = useState([]);
+  const [seletorEstadoVisivel, setSeletorEstadoVisivel] = useState(false);
+  const [buscaEstado, setBuscaEstado] = useState('');
+
+  const estadosFiltrados = useMemo(() => {
+    const termo = buscaEstado.trim().toLowerCase();
+    if (!termo) return ESTADOS_BRASIL;
+    return ESTADOS_BRASIL.filter(
+      (e) => e.sigla.toLowerCase().includes(termo) || e.nome.toLowerCase().includes(termo)
+    );
+  }, [buscaEstado]);
 
   const empresaId = usuario?.idEmpresa || usuario?.companyId;
 
@@ -148,10 +210,18 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
     setItemEditando(item);
     setModoLeitura(somenteLeitura);
     setNome(item ? obterNome(item) : '');
+    setSeletorEstadoVisivel(false);
+    setBuscaEstado('');
     setDadosComplementares({
-      documento: item?.documento || '', email: item?.email || '', telefone: item?.telefone || '',
+      documento: item?.documento || item?.cpf_cnpj || item?.cpf || '',
+      email: item?.email || '',
+      telefone: item?.telefone || '',
       observacoes: item?.observacoes || item?.descricao || '',
-      rua: item?.rua || '', numero: item?.numero || '', bairro: item?.bairro || '', cidade: item?.cidade || '', estado: item?.estado || '',
+      rua: item?.rua || '',
+      numero: item?.numero || '',
+      bairro: item?.bairro || '',
+      cidade: item?.cidade || '',
+      estado: item?.estado || '',
     });
     if (categoriaAtiva.chave === 'locaisSalvos') {
       repositorioEventos.obterOpcoesSelect('tiposLocal', empresaId).then(setTiposLocal).catch(() => setTiposLocal([]));
@@ -163,6 +233,8 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
     const valor = nome.trim();
     if (!valor) {
       if (categoriaAtiva.chave === 'clientes') mostrarErro('Nome do cliente é obrigatório.');
+      else if (categoriaAtiva.chave === 'locaisSalvos') mostrarErro('Nome do local é obrigatório.');
+      else mostrarErro(`Nome do ${categoriaAtiva.singular} é obrigatório.`);
       return;
     }
 
@@ -171,7 +243,7 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
       return;
     }
 
-    if (categoriaAtiva.chave === 'clientes' && dadosComplementares.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dadosComplementares.email.trim())) {
+    if (categoriaAtiva.chave === 'clientes' && dadosComplementares.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dadosComplementares.email.trim())) {
       mostrarErro('Informe um e-mail válido, como nome@dominio.com.');
       return;
     }
@@ -192,16 +264,22 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
         nome: valor,
         ...(categoriaAtiva.chave === 'clientes' && {
           documento: formatarCpfCnpj(dadosComplementares.documento),
-          email: dadosComplementares.email.trim(),
+          email: dadosComplementares.email ? dadosComplementares.email.trim() : '',
           telefone: formatarTelefoneBrasil(dadosComplementares.telefone),
-          instagram: dadosComplementares.instagram.trim(),
-          observacoes: dadosComplementares.observacoes.trim(),
+          instagram: dadosComplementares.instagram ? dadosComplementares.instagram.trim() : '',
+          observacoes: dadosComplementares.observacoes ? dadosComplementares.observacoes.trim() : '',
         }),
-        ...(['tiposEvento', 'tiposProfissional', 'tiposLocal'].includes(categoriaAtiva.chave) && { descricao: dadosComplementares.observacoes.trim() }),
+        ...(['tiposEvento', 'tiposProfissional', 'tiposLocal', 'tiposDespesa'].includes(categoriaAtiva.chave) && {
+          descricao: dadosComplementares.observacoes ? dadosComplementares.observacoes.trim() : '',
+        }),
         ...(categoriaAtiva.chave === 'locaisSalvos' && {
           endereco_completo: enderecoCompleto,
-          rua: dadosComplementares.rua, numero: dadosComplementares.numero, bairro: dadosComplementares.bairro, cidade: dadosComplementares.cidade, estado: dadosComplementares.estado,
-          observacoes: dadosComplementares.observacoes.trim()
+          rua: dadosComplementares.rua,
+          numero: dadosComplementares.numero,
+          bairro: dadosComplementares.bairro,
+          cidade: dadosComplementares.cidade,
+          estado: dadosComplementares.estado,
+          observacoes: dadosComplementares.observacoes ? dadosComplementares.observacoes.trim() : '',
         }),
       };
 
@@ -336,7 +414,13 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
         />
       </View>
 
-      <Modal visible={modalCadastroVisivel} transparent animationType="fade" onRequestClose={() => setModalCadastroVisivel(false)}>
+      <Modal
+        visible={modalCadastroVisivel}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setModalCadastroVisivel(false)}
+      >
         <View style={styles.modalOverlay}>
           <ScrollView
             style={styles.modalCard}
@@ -347,42 +431,269 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
           >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{modoLeitura ? `Detalhes` : `${itemEditando ? 'Editar' : 'Adicionar'} ${categoriaAtiva.singular}`}</Text>
-              <TouchableOpacity onPress={() => setModalCadastroVisivel(false)} style={styles.closeButton}>
+              <TouchableOpacity
+                onPress={() => setModalCadastroVisivel(false)}
+                style={styles.closeButton}
+              >
                 <MaterialCommunityIcons name="close" size={21} color={CORES.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Nome</Text>
-            <TextInput editable={!modoLeitura} value={nome} onChangeText={setNome} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
+            {/* Campo Nome (presente em todas as abas/categorias) */}
+            <CampoModal
+              label={
+                categoriaAtiva.chave === 'clientes'
+                  ? 'Nome do cliente *'
+                  : categoriaAtiva.chave === 'locaisSalvos'
+                  ? 'Nome do local *'
+                  : `Nome do ${categoriaAtiva.singular} *`
+              }
+              icone={
+                categoriaAtiva.chave === 'clientes'
+                  ? 'user'
+                  : categoriaAtiva.chave === 'locaisSalvos'
+                  ? 'map-pin'
+                  : categoriaAtiva.chave === 'tiposEvento'
+                  ? 'calendar'
+                  : categoriaAtiva.chave === 'tiposProfissional'
+                  ? 'briefcase'
+                  : categoriaAtiva.chave === 'tiposDespesa'
+                  ? 'dollar-sign'
+                  : 'tag'
+              }
+              editable={!modoLeitura}
+              value={nome}
+              onChangeText={setNome}
+              placeholder={
+                categoriaAtiva.chave === 'clientes'
+                  ? 'Ex: Maria Silva'
+                  : categoriaAtiva.chave === 'locaisSalvos'
+                  ? 'Ex: Espaço Celebrar'
+                  : categoriaAtiva.chave === 'tiposEvento'
+                  ? 'Ex: Casamento, Aniversário, Corporativo...'
+                  : categoriaAtiva.chave === 'tiposProfissional'
+                  ? 'Ex: Técnico de Som, Iluminador, DJ...'
+                  : categoriaAtiva.chave === 'tiposLocal'
+                  ? 'Ex: Salão de Festas, Buffet, Chácara...'
+                  : categoriaAtiva.chave === 'tiposDespesa'
+                  ? 'Ex: Alimentação, Transporte, Hospedagem...'
+                  : `Digite o nome do ${categoriaAtiva.singular}`
+              }
+            />
 
-            {categoriaAtiva.chave === 'locaisSalvos' && <>
-              <Text style={styles.inputLabel}>Rua / Endereço</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.rua} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, rua: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} />
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Número</Text><TextInput editable={!modoLeitura} value={dadosComplementares.numero} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, numero: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
-                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Bairro</Text><TextInput editable={!modoLeitura} value={dadosComplementares.bairro} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, bairro: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 2 }}><Text style={styles.inputLabel}>Cidade</Text><TextInput editable={!modoLeitura} value={dadosComplementares.cidade} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, cidade: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
-                <View style={{ flex: 1 }}><Text style={styles.inputLabel}>Estado</Text><TextInput editable={!modoLeitura} value={dadosComplementares.estado} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, estado: v }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} /></View>
-              </View>
-            </>}
+            {/* Campos específicos da aba Locais */}
+            {categoriaAtiva.chave === 'locaisSalvos' && (
+              <>
+                <CampoModal
+                  label="Rua / Endereço"
+                  icone="map-pin"
+                  editable={!modoLeitura}
+                  value={dadosComplementares.rua}
+                  onChangeText={(v) => setDadosComplementares((a) => ({ ...a, rua: v }))}
+                  placeholder="Ex: Av. Paulista ou Rua das Flores"
+                />
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <CampoModal
+                    style={{ flex: 1 }}
+                    label="Número"
+                    icone="hash"
+                    editable={!modoLeitura}
+                    value={dadosComplementares.numero}
+                    onChangeText={(v) => setDadosComplementares((a) => ({ ...a, numero: v }))}
+                    placeholder="123"
+                  />
+                  <CampoModal
+                    style={{ flex: 2 }}
+                    label="Bairro"
+                    icone="map"
+                    editable={!modoLeitura}
+                    value={dadosComplementares.bairro}
+                    onChangeText={(v) => setDadosComplementares((a) => ({ ...a, bairro: v }))}
+                    placeholder="Centro"
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <CampoModal
+                    style={{ flex: 2 }}
+                    label="Cidade"
+                    icone="globe"
+                    editable={!modoLeitura}
+                    value={dadosComplementares.cidade}
+                    onChangeText={(v) => setDadosComplementares((a) => ({ ...a, cidade: v }))}
+                    placeholder="São Paulo"
+                  />
+                  <View style={{ flex: 1, marginBottom: 14 }}>
+                    <Text style={styles.inputLabel}>Estado</Text>
+                    <TouchableOpacity
+                      activeOpacity={modoLeitura ? 1 : 0.7}
+                      onPress={() => {
+                        if (!modoLeitura) {
+                          Keyboard.dismiss();
+                          setSeletorEstadoVisivel(true);
+                        }
+                      }}
+                      style={[
+                        styles.modalInputContainer,
+                        seletorEstadoVisivel && styles.modalInputContainerFocused,
+                        modoLeitura && styles.readOnlyInput,
+                        { justifyContent: 'space-between', paddingRight: 10 },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Selecionar Estado"
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <Feather name="flag" size={17} color={CORES.textMuted} />
+                        <SeparadorCampoIcone />
+                        <Text
+                          style={[
+                            styles.modalInputText,
+                            !dadosComplementares.estado && { color: CORES.textSubtle },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {dadosComplementares.estado || 'UF'}
+                        </Text>
+                      </View>
+                      {!modoLeitura && (
+                        <Feather name="chevron-down" size={16} color={CORES.textMuted} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
 
-            {categoriaAtiva.chave === 'clientes' && <>
-              <Text style={styles.inputLabel}>CPF ou CNPJ *</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.documento} onChangeText={(v) => setDadosComplementares((a) => ({ ...a, documento: formatarCpfCnpj(v) }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="numeric" />
-            </>}
-
-            {categoriaAtiva.chave === 'clientes' && <>
-              <Text style={styles.inputLabel}> E-mail</Text>
-              <TextInput editable={!modoLeitura} value={dadosComplementares.email} onChangeText={(v) => setDadosComplementares((a) => ({ ...a }))} style={[styles.modalInput, modoLeitura && styles.readOnlyInput]} keyboardType="email" />
-            </>}
+            {/* Campos específicos da aba Clientes */}
+            {categoriaAtiva.chave === 'clientes' && (
+              <>
+                <CampoModal
+                  label="CPF ou CNPJ *"
+                  icone="file-text"
+                  editable={!modoLeitura}
+                  value={dadosComplementares.documento}
+                  onChangeText={(v) => setDadosComplementares((a) => ({ ...a, documento: formatarCpfCnpj(v) }))}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  keyboardType="numeric"
+                />
+                <CampoModal
+                  label="E-mail"
+                  icone="mail"
+                  editable={!modoLeitura}
+                  value={dadosComplementares.email}
+                  onChangeText={(v) => setDadosComplementares((a) => ({ ...a, email: v }))}
+                  placeholder="cliente@email.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <CampoModal
+                  label="Telefone / WhatsApp"
+                  icone="phone"
+                  editable={!modoLeitura}
+                  value={dadosComplementares.telefone}
+                  onChangeText={(v) => setDadosComplementares((a) => ({ ...a, telefone: formatarTelefoneBrasil(v) }))}
+                  placeholder="+55 (00) 00000-0000"
+                  keyboardType="phone-pad"
+                />
+              </>
+            )}
 
             <View style={styles.modalActions}>
               <Button onPress={() => setModalCadastroVisivel(false)} textColor={CORES.textMuted}>Cancelar</Button>
               {!modoLeitura && <Button mode="contained" onPress={salvar} loading={salvando} buttonColor={CORES.buttonGold} textColor={CORES.textNavy}>Salvar</Button>}
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal Seletor de Estados do Brasil (por cima de tudo) */}
+      <Modal
+        visible={seletorEstadoVisivel}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setSeletorEstadoVisivel(false);
+          setBuscaEstado('');
+        }}
+      >
+        <View style={styles.seletorOverlay}>
+          <View style={styles.seletorCard}>
+            <View style={styles.seletorHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Feather name="map-pin" size={19} color={CORES.buttonGold} />
+                <Text style={styles.seletorTitle}>Selecione o Estado</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSeletorEstadoVisivel(false);
+                  setBuscaEstado('');
+                }}
+                style={styles.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar seleção de estado"
+              >
+                <MaterialCommunityIcons name="close" size={22} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.seletorSearchBox}>
+              <Feather name="search" size={16} color={CORES.textMuted} />
+              <SeparadorCampoIcone />
+              <TextInput
+                value={buscaEstado}
+                onChangeText={setBuscaEstado}
+                placeholder="Buscar estado ou sigla..."
+                placeholderTextColor={CORES.textSubtle}
+                style={styles.seletorSearchInput}
+                autoCapitalize="words"
+              />
+              {buscaEstado.length > 0 && (
+                <TouchableOpacity onPress={() => setBuscaEstado('')}>
+                  <MaterialCommunityIcons name="close-circle" size={16} color={CORES.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <FlatList
+              data={estadosFiltrados}
+              keyExtractor={(item) => item.sigla}
+              style={styles.seletorList}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const selecionado = dadosComplementares.estado === item.sigla;
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[styles.estadoItem, selecionado && styles.estadoItemSelecionado]}
+                    onPress={() => {
+                      setDadosComplementares((a) => ({ ...a, estado: item.sigla }));
+                      setSeletorEstadoVisivel(false);
+                      setBuscaEstado('');
+                    }}
+                  >
+                    <View style={[styles.estadoSiglaBadge, selecionado && styles.estadoSiglaBadgeSelecionado]}>
+                      <Text style={[styles.estadoSiglaTexto, selecionado && styles.estadoSiglaTextoSelecionado]}>
+                        {item.sigla}
+                      </Text>
+                    </View>
+                    <Text style={[styles.estadoNomeTexto, selecionado && styles.estadoNomeTextoSelecionado]}>
+                      {item.nome}
+                    </Text>
+                    {selecionado && (
+                      <Feather name="check" size={18} color={CORES.buttonGold} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13 }}>
+                    Nenhum estado encontrado.
+                  </Text>
+                </View>
+              }
+            />
+          </View>
         </View>
       </Modal>
 
