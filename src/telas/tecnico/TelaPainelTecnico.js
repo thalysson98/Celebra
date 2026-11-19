@@ -357,6 +357,14 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const selectedDateUnavailable = unavailableDates.some(
     (item) => item.dateKey === selectedAgendaDateKey
   );
+  const hasAcceptedAssignmentOnSelectedDay = selectedDayAssignments.some(
+    (a) => a.status === 'accepted'
+  );
+  const hasPendingAssignmentOnSelectedDay = selectedDayAssignments.some(
+    (a) => a.status === 'pending'
+  );
+  const cannotMarkUnavailableOnSelectedDay =
+    !selectedDateUnavailable && (hasAcceptedAssignmentOnSelectedDay || hasPendingAssignmentOnSelectedDay);
 
   // --------------------------------------------------------------------------
   // 4. AÇÕES DE PERFIL, PREFERÊNCIAS, SEGURANÇA E AGENDA
@@ -447,11 +455,18 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
 
   /**
    * Abre o modal de confirmação para adicionar ou remover indisponibilidade no dia selecionado,
-   * bloqueando caso já exista um evento confirmado naquela data.
+   * bloqueando caso já exista um evento confirmado ou convite pendente naquela data.
    */
   const openAvailabilityDialog = () => {
-    if (!selectedDateUnavailable && selectedDayAssignments.some((a) => a.status === 'accepted')) {
+    if (!selectedDateUnavailable && hasAcceptedAssignmentOnSelectedDay) {
       mostrarErro('Você tem um evento aceito neste dia.', 'Data com compromisso');
+      return;
+    }
+    if (!selectedDateUnavailable && hasPendingAssignmentOnSelectedDay) {
+      mostrarErro(
+        'Você possui um convite pendente neste dia. Aceite ou recuse o convite antes de marcar indisponibilidade.',
+        'Convite pendente na data'
+      );
       return;
     }
     setAvailabilityDialogVisible(true);
@@ -461,6 +476,16 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
    * Confirma a marcação ou remoção de indisponibilidade do técnico na data selecionada.
    */
   const confirmAvailabilityChange = async () => {
+    if (!selectedDateUnavailable && (hasAcceptedAssignmentOnSelectedDay || hasPendingAssignmentOnSelectedDay)) {
+      mostrarErro(
+        hasAcceptedAssignmentOnSelectedDay
+          ? 'Você tem um evento aceito neste dia.'
+          : 'Você possui um convite pendente neste dia. Aceite ou recuse o convite antes de marcar indisponibilidade.',
+        'Ação não permitida'
+      );
+      setAvailabilityDialogVisible(false);
+      return;
+    }
     setUpdatingAvailability(true);
     try {
       if (selectedDateUnavailable) {
@@ -616,20 +641,24 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <TouchableOpacity
           style={[
             styles.agendaAvailabilityButton,
-            selectedDayAssignments.some((a) => a.status === 'accepted') &&
-              !selectedDateUnavailable &&
-              styles.agendaAvailabilityDisabled,
+            cannotMarkUnavailableOnSelectedDay && styles.agendaAvailabilityDisabled,
           ]}
           onPress={openAvailabilityDialog}
-          disabled={
-            selectedDayAssignments.some((a) => a.status === 'accepted') && !selectedDateUnavailable
-          }
+          disabled={cannotMarkUnavailableOnSelectedDay}
         >
           <Feather name={selectedDateUnavailable ? 'x-circle' : 'slash'} size={15} color={COLORS.textWhite} />
           <Text style={styles.agendaAvailabilityButtonText}>
             {selectedDateUnavailable ? 'Remover indisponibilidade' : 'Adicionar indisponibilidade'}
           </Text>
         </TouchableOpacity>
+
+        {cannotMarkUnavailableOnSelectedDay && (
+          <Text style={styles.agendaBlockedHint}>
+            {hasAcceptedAssignmentOnSelectedDay
+              ? 'Não é possível marcar indisponibilidade em dias com evento confirmado.'
+              : 'Responda ao convite pendente deste dia antes de marcar indisponibilidade.'}
+          </Text>
+        )}
 
         {availabilityError ? <Text style={styles.errorText}>{availabilityError}</Text> : null}
 
