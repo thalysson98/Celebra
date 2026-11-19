@@ -610,8 +610,8 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   const salvarEvento = async () => {
     if (salvando) return;
     
-    if (!formulario.titulo.trim() || !formulario.tipoEvento.trim() || !formulario.cliente.trim() || !formulario.dataInicio.trim()) {
-      mostrarErro('Preencha título, tipo de evento, cliente e data obrigatória.');
+    if (!formulario.tipoEvento.trim() || !formulario.titulo.trim() || !formulario.cliente.trim() || !formulario.dataInicio.trim()) {
+      mostrarErro('Preencha tipo de evento, título, cliente e data obrigatória.');
       irParaSecao('Geral');
       return;
     }
@@ -667,9 +667,9 @@ export default function TelaCriarEvento({ navigation, usuario }) {
           <Text style={styles.sectionHeading}>Dados do evento</Text>
           <Text style={styles.sectionHint}>Os campos com * são obrigatórios.</Text>
 
+          <CampoSelecao label="Tipo de evento *" valor={formulario.tipoEvento} placeholder="Selecionar tipo" icone="party-popper" onPress={() => abrirSelecao('tipoEvento')} />
           <CampoInput label="Título do evento" valor={formulario.titulo} aoMudar={(v) => atualizar('titulo', v)} placeholder="Ex.: Ana & Pedro" obrigatorio />
           <CampoSelecao label="Cliente *" valor={formulario.cliente} placeholder="Selecionar cliente" icone="account-outline" onPress={() => abrirSelecao('cliente')} />
-          <CampoSelecao label="Tipo de evento *" valor={formulario.tipoEvento} placeholder="Selecionar tipo" icone="party-popper" onPress={() => abrirSelecao('tipoEvento')} />
 
           <View style={styles.row}>
             <View style={styles.column}>

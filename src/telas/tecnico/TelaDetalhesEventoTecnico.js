@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from 'react';
 import {
   Linking,
@@ -107,7 +106,13 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const quantidadeConvidados = Number(eventoDetalhado?.numConvidados ?? 0);
 
   return (
-    <View style={styles.screen}>
+    <View
+      style={[
+        styles.screen,
+        { minHeight: 0 },
+        Platform.OS === 'web' && { height: '100vh', maxHeight: '100vh', overflow: 'hidden' },
+      ]}
+    >
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -123,7 +128,22 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
       {carregandoDetalhes ? (
         <View style={styles.center}><ActivityIndicator size="large" color={CORES.buttonGold} /></View>
       ) : (
-        <ScrollView style={styles.body} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        // Ajuste Web: habilita scroll com mouse (overflowY: 'auto') e adiciona paddingBottom maior quando há botões fixos de convocação pendente
+        <ScrollView
+          style={[
+            styles.body,
+            { flex: 1, minHeight: 0 },
+            Platform.OS === 'web' && { overflowY: 'auto' },
+          ]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              flexGrow: 1,
+              paddingBottom: assignment?.status === 'pending' ? 220 : 60,
+            },
+          ]}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}
+        >
           
           {isAccepted ? (
              <Text style={styles.subtitleText}>
@@ -258,7 +278,6 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         </View>
       )}
 
-      
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' }}>

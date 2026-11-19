@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -258,7 +259,11 @@ export default function TelaNotificacoes({ navigation, route }) {
       </View>
 
       {/* LISTA DE CARDS DAS NOTIFICAÇÕES */}
-      <ScrollView contentContainerStyle={estilos.listaContainer}>
+      <ScrollView
+        style={estilos.listaScroll}
+        contentContainerStyle={estilos.listaContainer}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
+      >
         {carregando ? (
           <ActivityIndicator size="large" color={CORES.buttonGold} style={{ marginTop: 40 }} />
         ) : notificacoesFiltradas.length === 0 ? (
@@ -343,7 +348,11 @@ export default function TelaNotificacoes({ navigation, route }) {
 const estilos = StyleSheet.create({
   tela: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: '#F8FAFC',
+    ...(Platform.OS === 'web'
+      ? { height: '100vh', maxHeight: '100vh', overflow: 'hidden' }
+      : {}),
   },
   cabecalho: {
     backgroundColor: CORES.bgHeaderDark,
@@ -393,8 +402,14 @@ const estilos = StyleSheet.create({
   textoAbaAtiva: {
     color: '#FFFFFF',
   },
+  listaScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
   listaContainer: {
+    flexGrow: 1,
     padding: 16,
+    paddingBottom: 40,
     gap: 12,
   },
   card: {
