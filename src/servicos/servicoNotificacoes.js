@@ -23,7 +23,6 @@ import { bancoDados } from '../configuracao/configuracaoFirebase';
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
       shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: true,
@@ -94,6 +93,10 @@ export async function inicializarNotificacoesDispositivo(idUsuario) {
       return null;
     }
 
+    if (Platform.OS === 'android' && isRunningInExpoGo()) {
+      return null;
+    }
+
     const projectId =
       Constants?.expoConfig?.extra?.eas?.projectId ??
       Constants?.easConfig?.projectId ??
@@ -107,7 +110,7 @@ export async function inicializarNotificacoesDispositivo(idUsuario) {
 
     return pushToken;
   } catch (erro) {
-    console.error('Erro ao inicializar notificações:', erro?.message || erro);
+    console.log('Aviso ao inicializar notificações:', erro?.message || erro);
     return null;
   }
 }

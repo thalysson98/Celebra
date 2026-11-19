@@ -761,4 +761,74 @@ export const estilosPainelTecnico = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+
+  // Estilos complementares extraídos da TelaPainelTecnico (Agenda, Perfil, Abas e Modais de Feedback)
+  agendaSectionContainer: {
+    marginTop: 24,
+  },
+  agendaDayEventsContainer: {
+    marginTop: 16,
+  },
+  profileTestNotificationCard: {
+    marginTop: 12,
+  },
+  profileTestNotificationIcon: {
+    backgroundColor: '#FEF3C7',
+  },
+  tabLabelActive: {
+    color: CORES.textNavy,
+  },
+  tabLabelInactive: {
+    color: CORES.textSubtle,
+  },
+  feedbackModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  feedbackModalCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  feedbackSuccessIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E6F8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  feedbackErrorIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  feedbackModalTitle: {
+    fontFamily: FONTES.bold,
+    fontSize: 18,
+    color: CORES.textNavy,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  feedbackModalDescription: {
+    fontFamily: FONTES.body,
+    fontSize: 14,
+    color: CORES.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  feedbackModalButton: {
+    width: '100%',
+    borderRadius: 10,
+  },
 });

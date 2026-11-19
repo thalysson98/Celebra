@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { Platform } from 'react-native';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 const configuracaoFirebase = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -21,7 +23,20 @@ export const isFirebaseConfigured = firebaseEstaConfigurado;
 // Evita inicializar o Firebase repetidas vezes durante o Fast Refresh do Expo
 const app = getApps().length === 0 ? initializeApp(configuracaoFirebase) : getApp();
 
-export const autenticacao = getAuth(app);
+function obterAutenticacao(aplicativo) {
+  if (Platform.OS === 'web' || typeof getReactNativePersistence !== 'function') {
+    return getAuth(aplicativo);
+  }
+  try {
+    return initializeAuth(aplicativo, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+  } catch {
+    return getAuth(aplicativo);
+  }
+}
+
+export const autenticacao = obterAutenticacao(app);
 export const auth = autenticacao;
 
 export const bancoDados = getFirestore(app);

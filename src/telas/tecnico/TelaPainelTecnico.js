@@ -1,8 +1,11 @@
 // ============================================================================
 // src/telas/tecnico/TelaPainelTecnico.js
-// Painel principal do Técnico com suporte a troca de abas via rota,
-// notificações em tempo real, rolagem Web e barra inferior padronizada.
+// Painel principal do Técnico: gerencia as abas Início (resumo e agenda mensal
+// com controle de indisponibilidade), Eventos (listagem, busca, filtros de data
+// e ordenação de convocações) e Perfil (dados cadastrais, preferências de
+// notificação e segurança), além de escutar convites e notificações em tempo real.
 // ============================================================================
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   inicializarNotificacoesDispositivo,
@@ -40,20 +43,36 @@ import Cabecalho from '../../componentes/Cabecalho';
 import FiltroIntervaloDatas, { obterChaveDataLocal } from '../../compartilhado/FiltroIntervaloDatas';
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
+// ============================================================================
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO, CONVERSÃO DE DATAS E MÁSCARAS
+// ============================================================================
+
+/**
+ * Converte valores de data do Firestore (Timestamp, String ou Date) para objeto Date válido.
+ */
 function toDate(value) {
   if (!value) return null;
   const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * Normaliza textos removendo acentos e convertendo para minúsculas para facilitar buscas.
+ */
 function normalizeSearch(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 }
 
+/**
+ * Remove todos os caracteres não numéricos de uma string.
+ */
 function onlyDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+/**
+ * Aplica máscara de CPF no formato 000.000.000-00.
+ */
 function formatCpf(value) {
   const digits = onlyDigits(value).slice(0, 11);
   return digits
@@ -62,6 +81,9 @@ function formatCpf(value) {
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 }
 
+/**
+ * Aplica máscara de telefone brasileiro com DDD no formato (00) 00000-0000.
+ */
 function formatPhone(value) {
   const digits = onlyDigits(value).slice(0, 11);
   if (digits.length <= 2) return digits;
@@ -70,6 +92,9 @@ function formatPhone(value) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+/**
+ * Extrai até duas iniciais do nome do técnico para exibição no avatar do perfil.
+ */
 function getInitials(value) {
   return String(value || 'Técnico')
     .trim()
@@ -80,6 +105,9 @@ function getInitials(value) {
     .toLocaleUpperCase('pt-BR');
 }
 
+/**
+ * Gera uma chave de data local no padrão AAAA-MM-DD para indexação no calendário da agenda.
+ */
 function getLocalDateKey(value) {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, '0');
@@ -87,10 +115,16 @@ function getLocalDateKey(value) {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Formata uma data por extenso em português (ex: "15 de novembro de 2026") para o modal da agenda.
+ */
 function formatAgendaDate(value) {
   return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }).format(value);
 }
 
+/**
+ * Formata uma data no padrão curto DD/MM/AAAA para exibição nos cards de evento.
+ */
 function formatShortDate(value) {
   const date = toDate(value);
   if (!date) return 'Data a confirmar';
@@ -100,8 +134,15 @@ function formatShortDate(value) {
   return `${d}/${m}/${y}`;
 }
 
+// ============================================================================
+// COMPONENTE PRINCIPAL DO PAINEL DO TÉCNICO
+// ============================================================================
+
 export default function TelaPainelTecnico({ navigation, route, user, onLogout }) {
+  // Margens seguras do dispositivo para ajuste da barra inferior (hotbar)
   const insets = useSafeAreaInsets();
+
+  // Estados principais de convocações (assignments), aba ativa e filtros de busca de eventos
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,6 +153,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
 
+  // Estados de dados do perfil do técnico, modal de edição e preferência de notificações
   const [profile, setProfile] = useState(() => ({
     ...user,
     displayName: user.name || user.displayName || '',
@@ -124,6 +166,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   );
   const [isSavingNotificationPreference, setSavingNotificationPreference] = useState(false);
 
+  // Estados do calendário da agenda mensal e gerenciamento de datas de indisponibilidade
   const [agendaMonth, setAgendaMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -139,30 +182,43 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const [isUpdatingAvailability, setUpdatingAvailability] = useState(false);
   const [isAvailabilityDialogVisible, setAvailabilityDialogVisible] = useState(false);
 
+  // Estados para controle dos modais padronizados de feedback (sucesso e erro)
   const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
   const [msgSucesso, setMsgSucesso] = useState({ titulo: '', descricao: '' });
   const [modalErroVisivel, setModalErroVisivel] = useState(false);
   const [msgErro, setMsgErro] = useState({ titulo: '', descricao: '' });
 
+  /**
+   * Exibe o modal de confirmação/sucesso com mensagem e título customizados.
+   */
   const mostrarSucesso = (descricao, titulo = 'Sucesso') => {
     setMsgSucesso({ titulo, descricao });
     setModalSucessoVisivel(true);
   };
 
+  /**
+   * Exibe o modal de alerta/erro com mensagem e título customizados.
+   */
   const mostrarErro = (descricao, titulo = 'Atenção') => {
     setMsgErro({ titulo, descricao });
     setModalErroVisivel(true);
   };
 
-  // --- ITEM 2 ADICIONADO: Escuta se outra tela (ex: Notificações) pediu para abrir uma aba específica ---
+  // --------------------------------------------------------------------------
+  // 1. SINCRONIZAÇÃO DE ROTA, CONVOCAÇÕES E INDISPONIBILIDADES EM TEMPO REAL
+  // --------------------------------------------------------------------------
+
+  // Permite que outra tela (ex: TelaNotificacoes) solicite a abertura de uma aba específica
   useEffect(() => {
     if (route?.params?.abaInicial) {
       setActiveTab(route.params.abaInicial);
     }
   }, [route?.params?.abaInicial]);
 
+  // Referência para identificar novos convites pendentes recebidos em tempo real
   const convitesAnterioresRef = useRef(null);
 
+  // Escuta em tempo real as convocações (convites) do técnico no Firestore
   useEffect(() => {
     setLoading(true);
     const unsubscribe = subscribeToTechnicianAssignments(
@@ -198,6 +254,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     return unsubscribe;
   }, [user.uid]);
 
+  // Escuta em tempo real as datas marcadas como indisponíveis pelo técnico no Firestore
   useEffect(() => {
     setAvailabilityLoading(true);
     const unsubscribe = subscribeToTechnicianUnavailability(
@@ -215,17 +272,19 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     return unsubscribe;
   }, [user.uid]);
 
-  // --- INÍCIO DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
+  // --------------------------------------------------------------------------
+  // 2. SISTEMA DE NOTIFICAÇÕES AUTOMÁTICAS E LEMBRETES DE PROXIMIDADE
+  // --------------------------------------------------------------------------
   const [notificacoesSistema, setNotificacoesSistema] = useState([]);
   const notificacoesAnterioresRef = useRef(null);
 
-  // Conta quantas notificações não lidas existem para mostrar no sininho
+  // Calcula o total de notificações não lidas para exibir no badge do sininho no cabeçalho
   const totalNaoLidas = useMemo(
     () => notificacoesSistema.filter((n) => !n.lida).length,
     [notificacoesSistema]
   );
 
-  // 1. Registra o celular para notificações externas e escuta a coleção 'notificacoes' em tempo real
+  // Registra o token push do dispositivo e escuta a coleção 'notificacoes' em tempo real
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -234,7 +293,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     const cancelarAssinatura = assinarNotificacoesUsuario(
       user.uid,
       (lista) => {
-        // Quando uma nova notificação chega em tempo real, dispara o banner local no aparelho
+        // Dispara o banner local no aparelho sempre que uma nova notificação não lida chega
         if (notificacoesAnterioresRef.current !== null) {
           const idsAnteriores = new Set(notificacoesAnterioresRef.current.map((n) => n.id));
           const novas = lista.filter((n) => !idsAnteriores.has(n.id) && !n.lida);
@@ -253,7 +312,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     };
   }, [user?.uid]);
 
-  // 2. Quando a lista 'assignments' carregar, checa automaticamente a regra de 7 dias, 3 dias antes e no dia do evento
+  // Avalia automaticamente lembretes de 7 dias, 3 dias antes e no dia do evento ao atualizar a lista
   useEffect(() => {
     if (user?.uid && assignments?.length > 0 && eventsNotificationsEnabled) {
       const listaFormatada = assignments.map((a) => ({
@@ -266,21 +325,30 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
       processarLembretesListaEventos(user.uid, listaFormatada);
     }
   }, [user?.uid, assignments, eventsNotificationsEnabled]);
-  // --- FIM DO BLOCO DE NOTIFICAÇÕES AUTOMÁTICAS ---
 
+  // --------------------------------------------------------------------------
+  // 3. LISTAS DERIVADAS (MEMOIZED) PARA RESUMO E AGENDA
+  // --------------------------------------------------------------------------
+
+  // Convocações pendentes de resposta do técnico
   const pendingAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === 'pending'),
     [assignments]
   );
+
+  // Convocações já aceitas/confirmadas pelo técnico
   const confirmedAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === 'accepted'),
     [assignments]
   );
+
+  // Todos os eventos relevantes para exibição no calendário (aceitos e pendentes)
   const allAssignmentsForAgenda = useMemo(
     () => assignments.filter((a) => a.status === 'accepted' || a.status === 'pending'),
     [assignments]
   );
 
+  // Dados filtrados para o dia atualmente selecionado no calendário da agenda
   const selectedAgendaDateKey = getLocalDateKey(selectedAgendaDay);
   const selectedDayAssignments = allAssignmentsForAgenda.filter((assignment) => {
     const date = toDate(assignment.eventDate);
@@ -290,6 +358,13 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     (item) => item.dateKey === selectedAgendaDateKey
   );
 
+  // --------------------------------------------------------------------------
+  // 4. AÇÕES DE PERFIL, PREFERÊNCIAS, SEGURANÇA E AGENDA
+  // --------------------------------------------------------------------------
+
+  /**
+   * Preenche o formulário de edição com os dados atuais do técnico e abre o modal de perfil.
+   */
   const openProfileEditor = () => {
     setProfileForm({
       displayName: profile.displayName || profile.name || '',
@@ -299,6 +374,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     setProfileEditorVisible(true);
   };
 
+  /**
+   * Valida e salva as alterações de nome, CPF e telefone do perfil do técnico no Firestore.
+   */
   const saveProfile = async () => {
     if (!profileForm.displayName.trim()) {
       mostrarErro('Informe seu nome para exibição.', 'Campo obrigatório');
@@ -317,6 +395,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
   };
 
+  /**
+   * Atualiza a preferência de recebimento de notificações de eventos e equipe.
+   */
   const changeEventsNotificationPreference = async (enabled) => {
     const previousValue = eventsNotificationsEnabled;
     setEventsNotificationsEnabled(enabled);
@@ -338,6 +419,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
   };
 
+  /**
+   * Envia um e-mail de redefinição de senha via Firebase Auth para o endereço da conta logada.
+   */
   const sendPasswordReset = async () => {
     if (!profile.email) {
       mostrarErro('Esta conta não possui um e-mail para redefinição.', 'E-mail indisponível');
@@ -351,6 +435,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
   };
 
+  /**
+   * Navega entre os meses do calendário da agenda (+1 para próximo mês, -1 para mês anterior).
+   */
   const changeAgendaMonth = (amount) => {
     const nextMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + amount, 1);
     setAgendaMonth(nextMonth);
@@ -358,6 +445,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     setAgendaDaySelected(false);
   };
 
+  /**
+   * Abre o modal de confirmação para adicionar ou remover indisponibilidade no dia selecionado,
+   * bloqueando caso já exista um evento confirmado naquela data.
+   */
   const openAvailabilityDialog = () => {
     if (!selectedDateUnavailable && selectedDayAssignments.some((a) => a.status === 'accepted')) {
       mostrarErro('Você tem um evento aceito neste dia.', 'Data com compromisso');
@@ -366,6 +457,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     setAvailabilityDialogVisible(true);
   };
 
+  /**
+   * Confirma a marcação ou remoção de indisponibilidade do técnico na data selecionada.
+   */
   const confirmAvailabilityChange = async () => {
     setUpdatingAvailability(true);
     try {
@@ -382,6 +476,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
   };
 
+  /**
+   * Serializa os campos de data da convocação e navega para a tela de detalhes do evento.
+   */
   const openEventDetails = (assignment) => {
     const serializableAssignment = {
       ...assignment,
@@ -392,6 +489,14 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     navigation.navigate('TechnicianEventDetails', { assignment: serializableAssignment });
   };
 
+  // --------------------------------------------------------------------------
+  // 5. FUNÇÕES DE RENDERIZAÇÃO DAS SEÇÕES E ABAS (INÍCIO, AGENDA, EVENTOS, PERFIL)
+  // --------------------------------------------------------------------------
+
+  /**
+   * Renderiza o calendário mensal interativo da agenda do técnico, a legenda de cores,
+   * o botão de controle de indisponibilidade e a lista de eventos do dia selecionado.
+   */
   const renderAgenda = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -401,6 +506,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     const leadingDays = firstDayOfMonth.getDay();
     const totalCells = Math.ceil((leadingDays + daysInMonth) / 7) * 7;
 
+    // Monta as células da grade do calendário combinando dias do mês, eventos e indisponibilidades
     const calendarDays = Array.from({ length: totalCells }, (_, index) => {
       const date = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), index - leadingDays + 1);
       const dateKey = getLocalDateKey(date);
@@ -428,9 +534,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     const monthTitleCapitalized = `${monthTitle.charAt(0).toLocaleUpperCase('pt-BR')}${monthTitle.slice(1)}`;
 
     return (
-      <View style={{ marginTop: 24 }}>
+      <View style={styles.agendaSectionContainer}>
         <Text style={styles.sectionTitle}>Sua Agenda</Text>
         <View style={styles.agendaCalendarCard}>
+          {/* Cabeçalho de navegação entre meses do calendário */}
           <View style={styles.agendaCalendarHeader}>
             <Text style={styles.agendaMonthTitle}>{monthTitleCapitalized}</Text>
             <View style={styles.agendaMonthControls}>
@@ -443,6 +550,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             </View>
           </View>
 
+          {/* Cabeçalho dos dias da semana */}
           <View style={styles.agendaWeekdays}>
             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
               <Text key={day} style={styles.agendaWeekday}>
@@ -451,6 +559,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             ))}
           </View>
 
+          {/* Grade de dias do mês */}
           <View style={styles.agendaCalendarGrid}>
             {calendarDays.map((day) => (
               <TouchableOpacity
@@ -464,7 +573,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
                   }
                 }}
               >
-                {/* Mantém a cor de fundo do dia/evento e aplica a borda amarela ao redor quando selecionado */}
+                {/* Círculo indicador de status do dia (confirmado, pendente, indisponível ou selecionado) */}
                 <View
                   style={[
                     styles.agendaDayCircle,
@@ -492,6 +601,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             ))}
           </View>
 
+          {/* Legenda visual de cores da agenda */}
           <View style={styles.agendaLegend}>
             <View style={[styles.agendaLegendDot, styles.agendaLegendEvent]} />
             <Text style={styles.agendaLegendText}>Confirmado</Text>
@@ -502,6 +612,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
           </View>
         </View>
 
+        {/* Botão para marcar ou remover indisponibilidade no dia selecionado */}
         <TouchableOpacity
           style={[
             styles.agendaAvailabilityButton,
@@ -522,8 +633,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
 
         {availabilityError ? <Text style={styles.errorText}>{availabilityError}</Text> : null}
 
+        {/* Lista de eventos agendados na data clicada pelo técnico */}
         {isAgendaDaySelected && selectedDayAssignments.length > 0 && (
-          <View style={{ marginTop: 16 }}>
+          <View style={styles.agendaDayEventsContainer}>
             <Text style={styles.agendaSectionTitle}>Eventos do dia</Text>
             <View style={styles.agendaEventList}>
               {selectedDayAssignments.map((assignment) => (
@@ -536,7 +648,6 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
                     <Feather name="calendar" size={16} color={COLORS.textNavy} />
                   </View>
                   <View style={styles.agendaEventDetails}>
-                    {/* CORREÇÃO 1: Removido o sinal '-' solto e unido com ' • ' */}
                     <Text style={styles.agendaEventTitle}>
                       {formatShortDate(assignment.eventDate)} • {assignment.eventTitle}
                     </Text>
@@ -567,6 +678,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     );
   };
 
+  /**
+   * Renderiza a aba Início ('home'), composta pelos cartões de resumo rápido
+   * (eventos pendentes e eventos aceitos) seguidos pelo calendário da agenda.
+   */
   const renderHome = () => (
     <>
       <View style={styles.summaryRow}>
@@ -598,6 +713,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     </>
   );
 
+  /**
+   * Renderiza a aba Eventos ('events') com barra de busca textual, filtro por intervalo
+   * de datas, botão de ordenação cronológica e alternância entre aceitos e pendentes.
+   */
   const renderEvents = () => {
     const eventFilters = [
       { key: 'mine', label: 'Seus eventos aceitos' },
@@ -606,6 +725,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     const statusByFilter = { mine: 'accepted', pending: 'pending' };
     const searchTerms = normalizeSearch(eventSearch).split(/\s+/).filter(Boolean);
 
+    // Filtra as convocações por status, período de datas e termos pesquisados, ordenando por data
     const visibleAssignments = assignments
       .filter((assignment) => assignment.status === statusByFilter[eventFilter])
       .filter((assignment) => {
@@ -625,17 +745,15 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         );
         return searchTerms.every((term) => combinedString.includes(term));
       })
-      .sort(
-        (first, second) => {
-          const firstDate = obterChaveDataLocal(first.eventDate);
-          const secondDate = obterChaveDataLocal(second.eventDate);
-          if (!firstDate && !secondDate) return 0;
-          if (!firstDate) return 1;
-          if (!secondDate) return -1;
-          const comparison = firstDate.localeCompare(secondDate);
-          return eventSortAscending ? comparison : -comparison;
-        }
-      );
+      .sort((first, second) => {
+        const firstDate = obterChaveDataLocal(first.eventDate);
+        const secondDate = obterChaveDataLocal(second.eventDate);
+        if (!firstDate && !secondDate) return 0;
+        if (!firstDate) return 1;
+        if (!secondDate) return -1;
+        const comparison = firstDate.localeCompare(secondDate);
+        return eventSortAscending ? comparison : -comparison;
+      });
 
     const monthLabel = visibleAssignments.length
       ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
@@ -645,6 +763,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
 
     return (
       <>
+        {/* Controles de busca por texto, filtro por período e ordenação */}
         <View style={styles.eventSearchControls}>
           <View style={styles.eventSearchBox}>
             <Feather name="search" size={18} color={COLORS.textMuted} />
@@ -658,7 +777,11 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
               returnKeyType="search"
             />
             {!!eventSearch && (
-              <TouchableOpacity onPress={() => setEventSearch('')} accessibilityRole="button" accessibilityLabel="Limpar busca">
+              <TouchableOpacity
+                onPress={() => setEventSearch('')}
+                accessibilityRole="button"
+                accessibilityLabel="Limpar busca"
+              >
                 <Feather name="x-circle" size={17} color={COLORS.textMuted} />
               </TouchableOpacity>
             )}
@@ -668,7 +791,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             dataFinal={eventEndDate}
             aoMudarDataInicial={setEventStartDate}
             aoMudarDataFinal={setEventEndDate}
-            aoLimpar={() => { setEventStartDate(''); setEventEndDate(''); }}
+            aoLimpar={() => {
+              setEventStartDate('');
+              setEventEndDate('');
+            }}
             ativo={Boolean(eventStartDate || eventEndDate)}
             tituloModal="Filtros dos eventos"
             subtituloModal="Defina o período dos eventos"
@@ -685,6 +811,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
           </TouchableOpacity>
         </View>
 
+        {/* Pílulas de filtro por categoria (Aceitos / Pendentes) */}
         <View style={styles.eventFilters}>
           {eventFilters.map((filter) => {
             const selected = eventFilter === filter.key;
@@ -703,6 +830,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
           })}
         </View>
 
+        {/* Listagem dos cartões de eventos ou estado vazio */}
         {loading ? (
           <ActivityIndicator color={COLORS.buttonGold} style={styles.loader} />
         ) : error ? (
@@ -735,6 +863,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     );
   };
 
+  /**
+   * Renderiza o cartão individual de um evento na listagem da aba Eventos.
+   */
   const renderEventCard = (assignment) => {
     return (
       <Card
@@ -747,9 +878,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             <Text style={styles.tipoBadge}>
               {assignment.eventTypeName || assignment.professionalTypeName || 'Evento'}
             </Text>
-            <Text style={styles.dataTexto}>
-              {formatShortDate(assignment.eventDate)}
-            </Text>
+            <Text style={styles.dataTexto}>{formatShortDate(assignment.eventDate)}</Text>
           </View>
 
           <Text style={styles.tituloEvento}>{assignment.eventTitle || 'Evento sem título'}</Text>
@@ -788,8 +917,13 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     );
   };
 
+  /**
+   * Renderiza a aba Perfil ('profile') com informações pessoais do técnico,
+   * chave de notificações, redefinição de senha, botão de teste de notificação e logout.
+   */
   const renderProfile = () => (
     <>
+      {/* Cartão de identificação e dados cadastrais do técnico */}
       <View style={styles.userProfileCard}>
         <View style={styles.userProfileHeading}>
           <View style={styles.userProfileAvatar}>
@@ -824,6 +958,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         </TouchableOpacity>
       </View>
 
+      {/* Preferências de Notificações */}
       <Text style={styles.profileSectionTitle}>Notificações</Text>
       <View style={styles.profilePreferenceCard}>
         <View style={styles.profilePreferenceCopy}>
@@ -842,6 +977,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         )}
       </View>
 
+      {/* Configurações de segurança e teste de notificação */}
       <Text style={styles.profileSectionTitle}>Configurações</Text>
       <TouchableOpacity style={styles.profileSecurityCard} onPress={sendPasswordReset} activeOpacity={0.8}>
         <View style={styles.profileSecurityIcon}>
@@ -854,26 +990,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.profileSecurityCard, { marginTop: 12 }]}
-        onPress={() => {
-          dispararNotificacaoBarraCelular(
-            'Celebra: Notificação de Teste',
-            'Isso é um aviso externo na barra de notificações!'
-          );
-        }}
-        activeOpacity={0.8}
-      >
-        <View style={[styles.profileSecurityIcon, { backgroundColor: '#FEF3C7' }]}>
-          <Feather name="bell" size={17} color="#D97706" />
-        </View>
-        <View style={styles.profilePreferenceCopy}>
-          <Text style={styles.profilePreferenceTitle}>Testar Notificação Externa</Text>
-          <Text style={styles.profilePreferenceSubtitle}>Dispara aviso na barra do celular</Text>
-        </View>
-        <Feather name="chevron-right" size={17} color={COLORS.textMuted} />
-      </TouchableOpacity>
-
+      {/* Botão de encerramento de sessão */}
       <TouchableOpacity style={styles.profileLogout} onPress={onLogout} activeOpacity={0.8}>
         <Feather name="log-out" size={16} color="#FFFFFF" />
         <Text style={styles.profileLogoutText}>Sair da conta</Text>
@@ -881,6 +998,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     </>
   );
 
+  /**
+   * Renderiza um botão individual da barra de navegação inferior (hotbar),
+   * exibindo badge numérico na aba Início quando há convocações pendentes.
+   */
   const renderTabButton = (tab, label, icon) => {
     const selected = activeTab === tab;
     return (
@@ -897,7 +1018,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
           <Text
             style={[
               estilosNavegacao.tabLabel,
-              { color: selected ? CORES.textNavy : COLORS.textSubtle },
+              selected ? styles.tabLabelActive : styles.tabLabelInactive,
             ]}
           >
             {label}
@@ -907,9 +1028,12 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     );
   };
 
+  // --------------------------------------------------------------------------
+  // 6. RENDERIZAÇÃO PRINCIPAL DA TELA E MODAIS (JSX)
+  // --------------------------------------------------------------------------
   return (
     <View style={styles.screen}>
-      {/* Exibe a bolinha com o total não lido e envia o ID e os eventos ao abrir o sininho */}
+      {/* CABEÇALHO SUPERIOR COM CONTADOR DE NOTIFICAÇÕES NÃO LIDAS */}
       <Cabecalho
         titulo={
           activeTab === 'home'
@@ -928,6 +1052,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         }
       />
 
+      {/* ÁREA CENTRAL DE CONTEÚDO DA ABA ATIVA */}
       <ScrollView
         style={styles.mainContent}
         contentContainerStyle={styles.content}
@@ -938,63 +1063,18 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         {activeTab === 'profile' && renderProfile()}
       </ScrollView>
 
+      {/* MODAL DE FEEDBACK: SUCESSO */}
       <Modal visible={modalSucessoVisivel} transparent animationType="fade">
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#FFF',
-              borderRadius: 20,
-              padding: 24,
-              width: '100%',
-              alignItems: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: '#E6F8F0',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 15,
-              }}
-            >
+        <View style={styles.feedbackModalOverlay}>
+          <View style={styles.feedbackModalCard}>
+            <View style={styles.feedbackSuccessIconCircle}>
               <Feather name="check" size={32} color="#10B981" />
             </View>
-            <Text
-              style={{
-                fontFamily: FONTES.bold,
-                fontSize: 18,
-                color: CORES.textNavy,
-                marginBottom: 8,
-                textAlign: 'center',
-              }}
-            >
-              {msgSucesso.titulo}
-            </Text>
-            <Text
-              style={{
-                fontFamily: FONTES.body,
-                fontSize: 14,
-                color: CORES.textMuted,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}
-            >
-              {msgSucesso.descricao}
-            </Text>
+            <Text style={styles.feedbackModalTitle}>{msgSucesso.titulo}</Text>
+            <Text style={styles.feedbackModalDescription}>{msgSucesso.descricao}</Text>
             <Button
               mode="contained"
-              style={{ width: '100%', borderRadius: 10 }}
+              style={styles.feedbackModalButton}
               buttonColor={CORES.buttonGold}
               textColor={CORES.textNavy}
               onPress={() => setModalSucessoVisivel(false)}
@@ -1005,63 +1085,18 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         </View>
       </Modal>
 
+      {/* MODAL DE FEEDBACK: ERRO */}
       <Modal visible={modalErroVisivel} transparent animationType="fade">
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#FFF',
-              borderRadius: 20,
-              padding: 24,
-              width: '100%',
-              alignItems: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: '#FEE2E2',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 15,
-              }}
-            >
+        <View style={styles.feedbackModalOverlay}>
+          <View style={styles.feedbackModalCard}>
+            <View style={styles.feedbackErrorIconCircle}>
               <Feather name="alert-triangle" size={32} color="#EF4444" />
             </View>
-            <Text
-              style={{
-                fontFamily: FONTES.bold,
-                fontSize: 18,
-                color: CORES.textNavy,
-                marginBottom: 8,
-                textAlign: 'center',
-              }}
-            >
-              {msgErro.titulo}
-            </Text>
-            <Text
-              style={{
-                fontFamily: FONTES.body,
-                fontSize: 14,
-                color: CORES.textMuted,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}
-            >
-              {msgErro.descricao}
-            </Text>
+            <Text style={styles.feedbackModalTitle}>{msgErro.titulo}</Text>
+            <Text style={styles.feedbackModalDescription}>{msgErro.descricao}</Text>
             <Button
               mode="contained"
-              style={{ width: '100%', borderRadius: 10 }}
+              style={styles.feedbackModalButton}
               buttonColor="#EF4444"
               textColor="#FFF"
               onPress={() => setModalErroVisivel(false)}
@@ -1072,6 +1107,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         </View>
       </Modal>
 
+      {/* MODAL DE EDIÇÃO DOS DADOS CADASTRAIS DO PERFIL */}
       <Modal
         visible={isProfileEditorVisible}
         transparent
@@ -1146,6 +1182,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* MODAL DE CONFIRMAÇÃO DE INDISPONIBILIDADE NA AGENDA */}
       <Modal
         visible={isAvailabilityDialogVisible}
         transparent
@@ -1195,6 +1232,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         </View>
       </Modal>
 
+      {/* BARRA DE NAVEGAÇÃO INFERIOR (HOTBAR) */}
       <View style={obterEstiloHotbar(insets.bottom)}>
         {renderTabButton('home', 'Início', 'home')}
         {renderTabButton('events', 'Eventos', 'tag')}
