@@ -26,6 +26,12 @@ import { repositorioEventos } from '../../servicos/repositorioEventos';
 import { exportarEventoParaPdf } from '../../servicos/servicoExportacaoEvento';
 import CartaoLocal from '../../componentes/CartaoLocal';
 
+function converterParaData(valor) {
+  if (!valor) return null;
+  const data = typeof valor.toDate === 'function' ? valor.toDate() : new Date(valor);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 // ============================================================================
 // COMPONENTE PRINCIPAL DA TELA DE DETALHES DO EVENTO DO TÉCNICO
 // ============================================================================
@@ -136,21 +142,25 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const titulo = eventoDetalhado?.titulo || assignment?.eventTitle || 'Evento Sem Título';
 
   // Formata a data de início do evento no padrão DD/MM/AAAA
+  const dataInicioEvento = converterParaData(eventoDetalhado?.data_inicio || assignment?.eventDate);
   let dataFormatada = 'Data a confirmar';
   if (eventoDetalhado?.dataInicio) {
     dataFormatada = eventoDetalhado.dataInicio;
-  } else if (assignment?.eventDate) {
-    const d = new Date(assignment.eventDate);
-    dataFormatada = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  } else if (dataInicioEvento) {
+    dataFormatada = `${String(dataInicioEvento.getDate()).padStart(2, '0')}/${String(dataInicioEvento.getMonth() + 1).padStart(2, '0')}/${dataInicioEvento.getFullYear()}`;
   }
 
   // Formata o horário de início do evento no padrão HH:MMh
   let horaFormatada = 'Horário a confirmar';
   if (eventoDetalhado?.horaInicio) {
     horaFormatada = eventoDetalhado.horaInicio;
-  } else if (assignment?.eventDate) {
-    const d = new Date(assignment.eventDate);
-    horaFormatada = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}h`;
+  } else if (dataInicioEvento) {
+    horaFormatada = new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(dataInicioEvento);
+  } else if (assignment?.eventTime) {
+    horaFormatada = assignment.eventTime;
   }
 
   const notas =
@@ -159,12 +169,17 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
     'Nenhuma observação registrada.';
 
   // Prepara e ordena cronologicamente os locais do evento pelo horário
-  const locaisBase =
-    eventoDetalhado?.locais?.length > 0
-      ? eventoDetalhado.locais
-      : assignment?.eventAddress
-        ? [{ enderecoLocal: assignment.eventAddress, tipoLocal: 'Local Principal' }]
-        : [];
+  let locaisBase = [];
+  if (eventoDetalhado) {
+    locaisBase =
+      eventoDetalhado.locais?.length > 0
+        ? eventoDetalhado.locais
+        : eventoDetalhado.locais_detalhados || [];
+  } else if (assignment?.eventLocations?.length > 0) {
+    locaisBase = assignment.eventLocations;
+  } else if (assignment?.eventAddress) {
+    locaisBase = [{ enderecoLocal: assignment.eventAddress, tipoLocal: 'Local Principal' }];
+  }
   const locaisOrdenados = [...locaisBase].sort((a, b) =>
     (a.horaLocal || horaFormatada).localeCompare(b.horaLocal || horaFormatada)
   );
@@ -176,7 +191,12 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
       p.statusConfirmacao === 'Informativo' ||
       p.enviarConvite === false
   );
-  const quantidadeConvidados = Number(eventoDetalhado?.numConvidados ?? 0);
+  const quantidadeConvidados = Number(
+    eventoDetalhado?.quantidade_convidados ??
+    eventoDetalhado?.numConvidados ??
+    assignment?.guestCount ??
+    0
+  );
 
   const exportarPdf = async () => {
     setExportandoPdf(true);

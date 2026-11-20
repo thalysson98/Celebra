@@ -11,6 +11,12 @@ function valorData(valor) {
   return Number.isNaN(convertido) ? Number.MAX_SAFE_INTEGER : convertido;
 }
 
+function converterParaData(valor) {
+  if (!valor) return null;
+  const data = typeof valor.toDate === 'function' ? valor.toDate() : new Date(valor);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 async function obterDocumento(colecao, id) {
   if (!id) return null;
   const snapshot = await getDoc(doc(bancoDados, colecao, id));
@@ -166,11 +172,22 @@ async function mapearConvite(snapshot) {
   const local = evento.id_locais && evento.id_locais.length > 0 ? await obterDocumento('locais', evento.id_locais[0]) : null;
   const tipoEvento = await obterDocumento('tipos_evento', evento.id_tipo_evento);
   const status = { pendente: 'pending', aceito: 'accepted', recusado: 'declined', cancelado: 'cancelled' }[convite.situacao] || 'pending';
+  const dataInicio = converterParaData(evento.data_inicio);
+  const locais = Array.isArray(evento.locais_detalhados)
+    ? evento.locais_detalhados.map((item) => ({
+        ...item,
+        enderecoLocal: item.enderecoLocal || item.endereco_completo || item.endereco || '',
+        tipoLocal: item.tipoLocal || item.nome_tipo_local || item.tipo || '',
+      }))
+    : [];
 
   return {
     id: snapshot.id, idEvento: convite.id_evento, idUsuario: convite.id_usuario, idEmpresa: convite.id_empresa,
     status, eventTitle: evento.titulo || 'Evento sem título', eventDate: evento.data_inicio || null,
     eventAddress: local?.endereco_completo || '', eventTypeName: tipoEvento?.nome || '',
+    eventTime: dataInicio ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(dataInicio) : '',
+    guestCount: Number(evento.quantidade_convidados) || 0,
+    eventLocations: locais,
     roleName: convite.nome_tipo_profissional || '', nomeEmpresa: convite.nomeEmpresa || 'O Organizador',
     inviteDate: convite.enviado_em || null, respondedAt: convite.respondido_em || null,
   };
