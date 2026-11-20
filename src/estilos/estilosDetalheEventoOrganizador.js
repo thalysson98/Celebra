@@ -18,6 +18,7 @@ export const styles = StyleSheet.create({
   
   sheet: { flex: 1, backgroundColor: '#F3F5F8' },
   content: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 36 },
+  eventTitle: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 24, fontWeight: '700', marginBottom: 8 },
   sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { fontFamily: FONTES.medium, color: CORES.textNavy, fontSize: 18, fontWeight: '500', marginTop: 8, marginBottom: 12 },
   sectionHint: { fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 12 },

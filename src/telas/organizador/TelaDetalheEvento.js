@@ -13,6 +13,7 @@ import { reenviarConvite, removerConvite, removerProfissionalInformativo, atuali
 import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 import ModalSelecao from '../../componentes/ModalSelecao';
 import CartaoLocal from '../../componentes/CartaoLocal'; 
+import { exportarEventoParaPdf } from '../../servicos/servicoExportacaoEvento';
 import {
   formatarCpfCnpj,
   formatarTelefone,
@@ -24,6 +25,9 @@ import {
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 const ABAS = ['Geral', 'Equipe', 'Financeiro'];
+
+const convitePendente = (status) =>
+  String(status || '').toLocaleLowerCase('pt-BR').includes('pendente');
 
 const converterValorMonetario = (valor) => {
   if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
@@ -142,6 +146,7 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const { idEvento } = route.params || {};
   const [evento, setEvento] = useState(null);
   const [carregando, setCarregando] = useState(true);
+  const [exportandoPdf, setExportandoPdf] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState(
     route.params?.abaInicial === 'Financeiro'
       ? 'Financeiro'
@@ -345,6 +350,10 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   };
 
   const salvarDespesaProfissional = async () => {
+    if (convitePendente(profissionalDespesas?.statusConfirmacao) && !idDespesaEditando) {
+      mostrarErro('Não é possível adicionar despesas para um profissional com convite pendente.');
+      return;
+    }
     if (profissionalDespesas?.statusConfirmacao === 'Cancelado' && !idDespesaEditando) {
       mostrarErro('Não é possível adicionar despesas para um profissional com convite cancelado.');
       return;
@@ -798,7 +807,28 @@ const salvarEdicao = async () => {
   const parcelasDivergentes = (totalEditando > 0 || somaParcelasEditando > 0) &&
     Math.abs(somaParcelasEditando - totalEditando) > 0.05;
   
-  const locaisOrdenados = [...evento.locais].sort((a, b) => (a.horaLocal || evento.horaInicio || '').localeCompare(b.horaLocal || evento.horaInicio || ''));
+  const locaisOrdenados = [...(evento.locais || [])].sort((a, b) => (a.horaLocal || evento.horaInicio || '').localeCompare(b.horaLocal || evento.horaInicio || ''));
+
+  const exportarPdf = async () => {
+    setExportandoPdf(true);
+    try {
+      await exportarEventoParaPdf({
+        titulo: evento.titulo,
+        tipo: evento.tipoEvento,
+        data: evento.dataInicio,
+        horario: evento.horaInicio,
+        cliente: evento.cliente?.nome,
+        convidados: evento.numConvidados,
+        locais: locaisOrdenados,
+        equipe,
+        notas: evento.notasProducao,
+      });
+    } catch (error) {
+      mostrarErro(error.message || 'Não foi possível exportar o PDF do evento.');
+    } finally {
+      setExportandoPdf(false);
+    }
+  };
 
   let tituloSelecaoUI = 'Selecionar';
   if(tipoSelecao==='cliente') tituloSelecaoUI = 'Selecionar cliente';
@@ -823,11 +853,10 @@ const salvarEdicao = async () => {
       )}
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.content}>
-        
         {abaAtiva === 'Geral' && !editando && (
           <Card style={{ backgroundColor: CORES.cardWhite, borderRadius: 16, padding: 0, marginBottom: 20, elevation: 1 }}>
             <Card.Content style={{ padding: 20 }}>
-              <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 24, fontWeight: '700', marginBottom: 8 }}>{evento.titulo}</Text>
+              <Text style={styles.eventTitle}>{evento.titulo}</Text>
               
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                  <Feather name="user" size={20} color={CORES.buttonGold} style={{ marginRight: 8 }} />
@@ -993,6 +1022,26 @@ const salvarEdicao = async () => {
             </Card.Content>
           </Card>
           
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Exportar evento em PDF"
+            onPress={exportarPdf}
+            disabled={exportandoPdf}
+            style={[
+              styles.editPrimaryButton,
+              { backgroundColor: '#e2953d', marginBottom: 10, opacity: exportandoPdf ? 0.65 : 1 },
+            ]}
+          >
+            {exportandoPdf ? (
+              <ActivityIndicator size="small" color={CORES.textNavy} />
+            ) : (
+              <Feather name="share" size={16} color={CORES.textNavy} />
+            )}
+            <Text style={styles.editPrimaryText}>
+              {exportandoPdf ? 'Gerando PDF...' : 'Exportar PDF'}
+            </Text>
+          </TouchableOpacity>
+
           {!eventoConcluido && (
              <TouchableOpacity onPress={() => setEditando('geral')} style={styles.editPrimaryButton}>
                <Text style={styles.editPrimaryText}>Editar dados gerais e locais</Text>
@@ -1346,6 +1395,11 @@ const salvarEdicao = async () => {
                 {profissionalDespesas?.statusConfirmacao === 'Cancelado' && (
                   <Text style={styles.quickModalHint}>O convite foi cancelado. Não é possível adicionar novas despesas.</Text>
                 )}
+                {convitePendente(profissionalDespesas?.statusConfirmacao) && !idDespesaEditando && (
+                  <Text style={styles.quickModalHint}>
+                    Confirme o convite antes de adicionar despesas para este profissional.
+                  </Text>
+                )}
                 {!!idDespesaExcluindo && (
                   <View style={styles.expenseDeleteConfirmation}>
                     <Text style={styles.quickModalHint}>Confirmar exclusão desta despesa?</Text>
@@ -1355,18 +1409,32 @@ const salvarEdicao = async () => {
                     </View>
                   </View>
                 )}
-                <CampoSelecaoDetalhes label="Tipo da despesa" campo="tipoDespesa" valor={tipoDespesa} placeholder="Selecione o tipo de despesa" icone="tag" aoClicar={abrirSelecao} />
-                <CampoEdicao label="Valor" valor={valorDespesa} aoMudar={(valor) => setValorDespesa(formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="numeric" />
+                {(!convitePendente(profissionalDespesas?.statusConfirmacao) || idDespesaEditando) && (
+                  <>
+                    <CampoSelecaoDetalhes label="Tipo da despesa" campo="tipoDespesa" valor={tipoDespesa} placeholder="Selecione o tipo de despesa" icone="tag" aoClicar={abrirSelecao} />
+                    <CampoEdicao label="Valor" valor={valorDespesa} aoMudar={(valor) => setValorDespesa(formatarMoedaInput(valor))} placeholder="R$ 0,00" teclado="numeric" />
+                  </>
+                )}
                 <Button
                   mode="contained"
                   onPress={salvarDespesaProfissional}
                   loading={salvandoAcaoRapida}
-                  disabled={salvandoAcaoRapida || (profissionalDespesas?.statusConfirmacao === 'Cancelado' && !idDespesaEditando)}
+                  disabled={
+                    salvandoAcaoRapida ||
+                    (convitePendente(profissionalDespesas?.statusConfirmacao) && !idDespesaEditando) ||
+                    (profissionalDespesas?.statusConfirmacao === 'Cancelado' && !idDespesaEditando)
+                  }
                   buttonColor={CORES.buttonGold}
                   textColor={CORES.textNavy}
                   style={styles.quickModalAction}
                 >
-                  {idDespesaEditando ? 'Salvar alterações' : profissionalDespesas?.statusConfirmacao === 'Cancelado' ? 'Convite cancelado' : 'Adicionar despesa'}
+                  {idDespesaEditando
+                    ? 'Salvar alterações'
+                    : convitePendente(profissionalDespesas?.statusConfirmacao)
+                      ? 'Convite pendente'
+                      : profissionalDespesas?.statusConfirmacao === 'Cancelado'
+                        ? 'Convite cancelado'
+                        : 'Adicionar despesa'}
                 </Button>
                 {!!idDespesaEditando && (
                   <Button

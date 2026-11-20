@@ -13,6 +13,7 @@ Registrar a tela de detalhe baseada no frame **Detalhes do evento** do Figma. O 
 - **Locais** apresenta endereços e instruções cadastrados. Na ausência de `eventLocations`, usa o endereço resumido da convocação como local principal.
 - **Equipe** mostra os integrantes fornecidos no snapshot `teamMembers`. Como o modelo atual consulta convocações individuais do técnico, sem essa lista a tela apresenta a participação do usuário atual e explica que os demais integrantes não estão disponíveis nesse registro.
 - O botão voltar fecha o detalhe e retorna à aba de origem. A navegação inferior fica oculta durante o detalhe, como na referência do Figma.
+- O botão **Exportar PDF** gera um resumo do evento com data, horário, convidados, locais, equipe e notas da produção. No Android e iOS, abre o compartilhamento nativo para selecionar o WhatsApp ou outro aplicativo; na Web, abre a impressão do navegador para salvar como PDF.
 
 ## Origem e disponibilidade dos dados
 

@@ -23,6 +23,7 @@ import { CORES, FONTES } from '../../tema/cores';
 import { estilosDetalhesEventoTecnico as styles } from '../../estilos/estilosDetalhesEventoTecnico';
 import { respondToAssignment } from '../../servicos/servicoEscala';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
+import { exportarEventoParaPdf } from '../../servicos/servicoExportacaoEvento';
 import CartaoLocal from '../../componentes/CartaoLocal';
 
 // ============================================================================
@@ -37,6 +38,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const [respondendo, setRespondendo] = useState(false);
   const [eventoDetalhado, setEventoDetalhado] = useState(null);
   const [carregandoDetalhes, setCarregandoDetalhes] = useState(true);
+  const [exportandoPdf, setExportandoPdf] = useState(false);
 
   // Estados para controle dos modais de feedback visual (sucesso e erro)
   const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
@@ -158,10 +160,11 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
 
   // Prepara e ordena cronologicamente os locais do evento pelo horário
   const locaisBase =
-    eventoDetalhado?.locais ||
-    (assignment?.eventAddress
-      ? [{ enderecoLocal: assignment.eventAddress, tipoLocal: 'Local Principal' }]
-      : []);
+    eventoDetalhado?.locais?.length > 0
+      ? eventoDetalhado.locais
+      : assignment?.eventAddress
+        ? [{ enderecoLocal: assignment.eventAddress, tipoLocal: 'Local Principal' }]
+        : [];
   const locaisOrdenados = [...locaisBase].sort((a, b) =>
     (a.horaLocal || horaFormatada).localeCompare(b.horaLocal || horaFormatada)
   );
@@ -174,6 +177,29 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
       p.enviarConvite === false
   );
   const quantidadeConvidados = Number(eventoDetalhado?.numConvidados ?? 0);
+
+  const exportarPdf = async () => {
+    setExportandoPdf(true);
+    try {
+      await exportarEventoParaPdf({
+        titulo,
+        tipo: eventoDetalhado?.tipoEvento || assignment?.eventTypeName,
+        data: dataFormatada,
+        horario: horaFormatada,
+        cliente: eventoDetalhado?.cliente?.nome || assignment?.clientName,
+        convidados: quantidadeConvidados,
+        funcao: assignment?.roleName,
+        organizador: empresa,
+        locais: locaisOrdenados,
+        equipe,
+        notas,
+      });
+    } catch (error) {
+      mostrarErro(error.message || 'Não foi possível exportar o PDF do evento.');
+    } finally {
+      setExportandoPdf(false);
+    }
+  };
 
   // --------------------------------------------------------------------------
   // 4. RENDERIZAÇÃO DA INTERFACE (JSX)
@@ -224,6 +250,32 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
               evento.
             </Text>
           )}
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={exportarPdf}
+            disabled={exportandoPdf}
+            style={{
+              minHeight: 46,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              backgroundColor: CORES.buttonGold,
+              borderRadius: 11,
+              marginBottom: 18,
+              opacity: exportandoPdf ? 0.65 : 1,
+            }}
+          >
+            {exportandoPdf ? (
+              <ActivityIndicator size="small" color={CORES.textNavy} />
+            ) : (
+              <Feather name="share" size={16} color={CORES.textNavy} />
+            )}
+            <Text style={{ color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 14 }}>
+              {exportandoPdf ? 'Gerando PDF...' : 'Exportar PDF'}
+            </Text>
+          </TouchableOpacity>
 
           {/* CARTÃO PRINCIPAL: RESUMO DO EVENTO (TIPO, TÍTULO, FUNÇÃO, DATA, HORÁRIO E CONVIDADOS) */}
           <Card style={[styles.card, styles.mainEventCard]}>
