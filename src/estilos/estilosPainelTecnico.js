@@ -567,6 +567,13 @@ export const estilosPainelTecnico = StyleSheet.create({
     fontSize: 13,
   },
   agendaAvailabilityDisabled: { opacity: 0.45 },
+  agendaBlockedHint: {
+    color: CORES.textMuted,
+    fontFamily: FONTES.body,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   agendaSectionTitle: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 16, marginBottom: 10 },
   agendaEventList: { backgroundColor: CORES.cardWhite, borderRadius: 14, paddingHorizontal: 13 },
   agendaEventCard: {

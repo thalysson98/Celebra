@@ -260,7 +260,7 @@ export async function agendarAlarmesLocaisEvento({ idEvento, nomeEvento, dataEve
       diasAntes: 3,
       hora: 9,
       identifier: `alarme_3d_${idEvento}`,
-      title: 'Atenção: Evento em 3 dias!',
+      title: 'Evento em 3 dias!',
       body: `Faltam apenas 3 dias para o evento "${nomeEvento}" (${dataFormatada}). Prepare-se!`,
     },
     {
@@ -500,8 +500,8 @@ export async function verificarLembretesProximidadeEvento({
 
   if (diasRestantes <= 3 && diasRestantes > 0) {
     const titulo = diasRestantes === 3
-      ? 'Atenção: Evento em 3 dias!'
-      : `Atenção: Evento muito próximo (${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'})!`;
+      ? 'Evento em 3 dias!'
+      : `Evento muito próximo (${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'})!`;
     await criarNotificacaoUnica(
       `lembrete_3d_${idEvento}_${idUsuario}`,
       {
