@@ -105,6 +105,10 @@ export const styles = StyleSheet.create({
   teamCount: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 12, fontWeight: '700' },
   addTeamButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: CORES.buttonGold, borderRadius: 10, marginBottom: 14 },
   addTeamButtonText: { color: CORES.textNavy, fontFamily: FONTES.semibold, fontSize: 12, fontWeight: '600' },
+  teamStatusSectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: CORES.cardDivider },
+  teamStatusSectionTitle: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 14, fontWeight: '700' },
+  teamStatusSectionCount: { minWidth: 24, height: 24, paddingHorizontal: 7, borderRadius: 12, backgroundColor: CORES.sheetBgSubtle, alignItems: 'center', justifyContent: 'center' },
+  teamStatusSectionCountText: { fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 11, fontWeight: '700' },
   
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: CORES.cardDivider },
   personIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: CORES.sheetBgSubtle, alignItems: 'center', justifyContent: 'center' },

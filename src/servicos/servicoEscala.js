@@ -2,7 +2,10 @@
 import { arrayUnion, arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, writeBatch, updateDoc } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
 import { normalizarParaChaveData, verificarIndisponibilidadeTecnicoNaData } from './servicoIndisponibilidade';
-import { notificarNovoEventoParaTecnico } from './servicoNotificacoes';
+import {
+  notificarNovoEventoParaTecnico,
+  notificarConviteReenviadoParaTecnico,
+} from './servicoNotificacoes';
 
 function valorData(valor) {
   if (!valor) return Number.MAX_SAFE_INTEGER;
@@ -15,6 +18,19 @@ function converterParaData(valor) {
   if (!valor) return null;
   const data = typeof valor.toDate === 'function' ? valor.toDate() : new Date(valor);
   return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function mapearSituacaoConvite(situacao) {
+  return {
+    pendente: 'pending',
+    pending: 'pending',
+    aceito: 'accepted',
+    accepted: 'accepted',
+    recusado: 'declined',
+    declined: 'declined',
+    cancelado: 'cancelled',
+    cancelled: 'cancelled',
+  }[situacao] || null;
 }
 
 async function obterDocumento(colecao, id) {
@@ -48,6 +64,14 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
 
   for (const profissional of convidados) {
     const idUsuario = profissional.idUsuario || profissional.id;
+    if (profissional.idTipoProfissional) {
+      const tipoProfissional = await getDoc(
+        doc(bancoDados, 'tipos_profissional', profissional.idTipoProfissional)
+      );
+      if (tipoProfissional.exists() && tipoProfissional.data().ativo === false) {
+        throw new Error(`O tipo de profissional "${profissional.funcao || tipoProfissional.data().nome || 'selecionado'}" está inativo e não pode ser usado em um novo evento.`);
+      }
+    }
     const indisponivel = await verificarIndisponibilidadeTecnicoNaData(idUsuario, dadosEvento.data_inicio);
     if (indisponivel) {
       const dataEvento = normalizarParaChaveData(dadosEvento.data_inicio).split('-').reverse().join('/');
@@ -122,8 +146,40 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
 
 export async function reenviarConvite(idConvite) {
   const ref = doc(bancoDados, 'convites', idConvite);
+  const snapConvite = await getDoc(ref);
+
+  if (!snapConvite.exists()) {
+    throw new Error('Este convite não existe mais.');
+  }
+
+  const dadosConvite = snapConvite.data();
+  if (!['recusado', 'declined'].includes(dadosConvite.situacao)) {
+    throw new Error('Somente convites recusados podem ser reenviados.');
+  }
+
+  const eventoSnap = await getDoc(doc(bancoDados, 'eventos', dadosConvite.id_evento));
+  if (!eventoSnap.exists()) {
+    throw new Error('O evento deste convite não foi encontrado.');
+  }
+
+  const indisponivel = await verificarIndisponibilidadeTecnicoNaData(
+    dadosConvite.id_usuario,
+    eventoSnap.data().data_inicio
+  );
+  if (indisponivel) {
+    const dataEvento = normalizarParaChaveData(eventoSnap.data().data_inicio)
+      ?.split('-')
+      .reverse()
+      .join('/');
+    throw new Error(
+      `Não é possível reenviar o convite. O profissional marcou indisponibilidade na data do evento${dataEvento ? ` (${dataEvento})` : ''}. Solicite que ele retire a indisponibilidade e tente novamente.`
+    );
+  }
+
+  let reenvioRealizado = false;
   try {
     await updateDoc(ref, { situacao: 'pendente', enviado_em: serverTimestamp() });
+    reenvioRealizado = true;
   } catch {
     const snap = await getDoc(ref);
     if (snap.exists()) {
@@ -131,7 +187,18 @@ export async function reenviarConvite(idConvite) {
       await deleteDoc(ref);
       const { respondido_em, ...resto } = dados;
       await setDoc(ref, { ...resto, situacao: 'pendente', enviado_em: serverTimestamp() });
+      reenvioRealizado = true;
     }
+  }
+
+  if (reenvioRealizado) {
+    await notificarConviteReenviadoParaTecnico({
+      idUsuario: dadosConvite.id_usuario,
+      idEvento: dadosConvite.id_evento,
+      nomeEvento: eventoSnap.data().titulo || 'Evento',
+      dataEvento: eventoSnap.data().data_inicio,
+      funcao: dadosConvite.nome_tipo_profissional || 'Técnico',
+    });
   }
 }
 
@@ -169,35 +236,75 @@ async function mapearConvite(snapshot) {
   const convite = snapshot.data();
   const evento = await obterDocumento('eventos', convite.id_evento);
   if (!evento) return null;
-  const local = evento.id_locais && evento.id_locais.length > 0 ? await obterDocumento('locais', evento.id_locais[0]) : null;
+  const idLocalPrincipal = evento.id_locais?.[0] || evento.id_local;
+  const local = idLocalPrincipal ? await obterDocumento('locais', idLocalPrincipal) : null;
   const tipoEvento = await obterDocumento('tipos_evento', evento.id_tipo_evento);
-  const status = { pendente: 'pending', aceito: 'accepted', recusado: 'declined', cancelado: 'cancelled' }[convite.situacao] || 'pending';
+  const status = mapearSituacaoConvite(convite.situacao);
   const dataInicio = converterParaData(evento.data_inicio);
   const locais = Array.isArray(evento.locais_detalhados)
     ? evento.locais_detalhados.map((item) => ({
         ...item,
+        horaLocal: item.horaLocal || item.hora_local || item.horarioLocal || item.horario_local || item.horario || item.hora || '',
         enderecoLocal: item.enderecoLocal || item.endereco_completo || item.endereco || '',
         tipoLocal: item.tipoLocal || item.nome_tipo_local || item.tipo || '',
       }))
     : [];
+  if (!locais.length && local) {
+    locais.push({
+      nomeDoLocal: local.nome || '',
+      enderecoLocal: local.endereco_completo || '',
+      tipoLocal: local.nome_tipo_local || '',
+      horaLocal: local.horaLocal || local.hora_local || local.horarioLocal || local.horario_local || local.horario || local.hora || '',
+    });
+  }
 
   return {
     id: snapshot.id, idEvento: convite.id_evento, idUsuario: convite.id_usuario, idEmpresa: convite.id_empresa,
     status, eventTitle: evento.titulo || 'Evento sem título', eventDate: evento.data_inicio || null,
     eventAddress: local?.endereco_completo || '', eventTypeName: tipoEvento?.nome || '',
-    eventTime: dataInicio ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(dataInicio) : '',
-    guestCount: Number(evento.quantidade_convidados) || 0,
+    eventTime: evento.hora_inicio || evento.horaInicio || (dataInicio
+      ? new Intl.DateTimeFormat('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'UTC',
+        }).format(dataInicio)
+      : ''),
+    guestCount: Number(
+      evento.quantidade_convidados ??
+      evento.quantidadeConvidados ??
+      evento.num_convidados ??
+      evento.numConvidados ??
+      evento.guestCount
+    ) || 0,
     eventLocations: locais,
     roleName: convite.nome_tipo_profissional || '', nomeEmpresa: convite.nomeEmpresa || 'O Organizador',
     inviteDate: convite.enviado_em || null, respondedAt: convite.respondido_em || null,
   };
 }
 
+export function subscribeToTechnicianAssignmentStatus(idConvite, aoReceber, aoErro) {
+  if (!idConvite) {
+    aoReceber(null);
+    return () => {};
+  }
+
+  return onSnapshot(
+    doc(bancoDados, 'convites', idConvite),
+    (snapshot) => aoReceber(snapshot.exists() ? mapearSituacaoConvite(snapshot.data().situacao) : null),
+    aoErro
+  );
+}
+
 export function subscribeToTechnicianAssignments(uidTecnico, aoReceber, aoErro) {
   const consulta = query(collection(bancoDados, 'convites'), where('id_usuario', '==', uidTecnico));
   return onSnapshot(consulta, async (snapshot) => {
     try {
-      const convocacoes = (await Promise.all(snapshot.docs.map(mapearConvite))).filter(Boolean).sort((a, b) => valorData(a.eventDate) - valorData(b.eventDate));
+      const convitesVisiveis = snapshot.docs.filter((documento) =>
+        ['pendente', 'pending', 'aceito', 'accepted'].includes(documento.data().situacao)
+      );
+      const convocacoes = (await Promise.all(convitesVisiveis.map(mapearConvite)))
+        .filter(Boolean)
+        .sort((a, b) => valorData(a.eventDate) - valorData(b.eventDate));
       aoReceber(convocacoes);
     } catch (e) { aoErro?.(e); }
   }, aoErro);

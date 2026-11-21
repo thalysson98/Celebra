@@ -1,13 +1,11 @@
 // src/navegacao/NavegadorOrganizador.js
 import React from 'react';
-import { View, StyleSheet, Platform, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CORES, FONTES } from '../tema/cores';
-import { estilosNavegacao, obterEstiloHotbar } from '../estilos/estilosNavegacao';
+import BarraInferior from '../componentes/BarraInferior';
 import TelaInicioOrganizador from '../telas/organizador/TelaInicioOrganizador';
 import TelaListaEventos from '../telas/organizador/TelaListaEventos';
 import TelaAdministrandoOrganizador from '../telas/organizador/TelaAdministrandoOrganizador';
@@ -19,6 +17,13 @@ import TelaNotificacoes from '../telas/TelaNotificacoes';
 
 const Aba = createBottomTabNavigator();
 const Pilha = createStackNavigator();
+
+const CONFIGURACAO_ABAS_ORGANIZADOR = {
+  Inicio: { rotulo: 'Início', iconeAtivo: 'home', iconeInativo: 'home-outline' },
+  Eventos: { rotulo: 'Eventos', iconeAtivo: 'calendar-month', iconeInativo: 'calendar-month-outline' },
+  Administrando: { rotulo: 'Gestão', iconeAtivo: 'cog', iconeInativo: 'cog-outline' },
+  Perfil: { rotulo: 'Perfil', icone: 'domain' },
+};
 
 function NavegadorEventos({ onLogout, usuario }) {
   return (
@@ -50,29 +55,53 @@ function NavegadorPerfil({ onLogout, usuario, setCurrentUser }) {
 }
 
 function AbasOrganizador({ onLogout, usuario, setCurrentUser }) {
-  const insets = useSafeAreaInsets();
-  
   return (
     <Aba.Navigator
       initialRouteName="Inicio"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: CORES.textNavy,
-        tabBarInactiveTintColor: CORES.textSubtle,
-        tabBarStyle: obterEstiloHotbar(insets.bottom),
-        tabBarShowLabel: false,
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={({ state, navigation }) => (
+        <BarraInferior
+          abaAtiva={state.routes[state.index].key}
+          abas={state.routes.map((route, index) => {
+            const configuracao = CONFIGURACAO_ABAS_ORGANIZADOR[route.name];
+            const selecionada = state.index === index;
+
+            return {
+              chave: route.key,
+              rotulo: configuracao.rotulo,
+              ComponenteIcone: MaterialCommunityIcons,
+              icone: configuracao.icone,
+              iconeAtivo: configuracao.iconeAtivo,
+              iconeInativo: configuracao.iconeInativo,
+              aoSelecionar: () => {
+                const evento = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!selecionada && !evento.defaultPrevented) {
+                  navigation.navigate(route.name, route.params);
+                }
+              },
+              aoPressionarLongo: () => navigation.emit({
+                type: 'tabLongPress',
+                target: route.key,
+              }),
+            };
+          })}
+        />
+      )}
     >
-      <Aba.Screen name="Inicio" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Início</Text></View>) }}>
+      <Aba.Screen name="Inicio">
         {(props) => <TelaInicioOrganizador {...props} usuario={usuario} />}
       </Aba.Screen>
-      <Aba.Screen name="Eventos" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'calendar-month' : 'calendar-month-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Eventos</Text></View>) }}>
+      <Aba.Screen name="Eventos">
         {() => <NavegadorEventos onLogout={onLogout} usuario={usuario} />}
       </Aba.Screen>
-      <Aba.Screen name="Administrando" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Gestão</Text></View>) }}>
+      <Aba.Screen name="Administrando">
         {(props) => <TelaAdministrandoOrganizador {...props} usuario={usuario} />}
       </Aba.Screen>
-      <Aba.Screen name="Perfil" options={{ tabBarIcon: ({ color, focused }) => (<View style={estilosNavegacao.tabContainer}><View style={focused ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}><MaterialCommunityIcons name="domain" size={24} color={focused ? CORES.textNavy : color}/></View><Text style={[estilosNavegacao.tabLabel, { color: focused ? CORES.textNavy : color }]}>Perfil</Text></View>) }}>
+      <Aba.Screen name="Perfil">
         {() => <NavegadorPerfil onLogout={onLogout} usuario={usuario} setCurrentUser={setCurrentUser} />}
       </Aba.Screen>
     </Aba.Navigator>

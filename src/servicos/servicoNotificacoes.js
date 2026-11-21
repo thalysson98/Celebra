@@ -422,6 +422,30 @@ export async function notificarNovoEventoParaTecnico({
   });
 }
 
+export async function notificarConviteReenviadoParaTecnico({
+  idUsuario,
+  idEvento,
+  nomeEvento,
+  dataEvento,
+  funcao,
+}) {
+  if (!idUsuario || !idEvento) return;
+
+  const dataFormatada = formatarDataNotificacao(dataEvento);
+  const idNotificacao = `convite_reenviado_${idEvento}_${idUsuario}_${Date.now()}`;
+  await criarNotificacaoUnica(
+    idNotificacao,
+    {
+      idUsuario,
+      idEvento,
+      tipo: 'novo_evento',
+      titulo: 'Convite reenviado',
+      mensagem: `O organizador reenviou o convite para você atuar como ${funcao || 'profissional'} no evento "${nomeEvento || 'Evento'}" (${dataFormatada}).`,
+    },
+    { enviarPushRemoto: true }
+  );
+}
+
 export async function notificarEventoCancelado({
   idUsuario,
   idDestinatario,

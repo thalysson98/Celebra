@@ -17,12 +17,19 @@ const textoOuFallback = (valor) => {
 };
 
 const montarHtmlEvento = (evento) => {
+  const convidados =
+    evento.quantidade_convidados ??
+    evento.quantidadeConvidados ??
+    evento.num_convidados ??
+    evento.numConvidados ??
+    evento.guestCount ??
+    evento.convidados;
   const locais = (evento.locais || []).map((local) => `
     <article class="item">
       <h3>${textoSeguro(local.nomeDoLocal || local.nomeEstabelecimento || local.nome || local.tipoLocal || 'Local')}</h3>
       <p><strong>Tipo:</strong> ${textoSeguro(textoOuFallback(local.tipoLocal))}</p>
       <p><strong>Endereço:</strong> ${textoSeguro(textoOuFallback(local.enderecoLocal || local.endereco || local.endereco_completo))}</p>
-      <p><strong>Horário:</strong> ${textoSeguro(textoOuFallback(local.horaLocal || evento.horario))}</p>
+      <p><strong>Horário:</strong> ${textoSeguro(textoOuFallback(local.horaLocal || local.hora_local || local.horarioLocal || local.horario_local || local.horario || local.hora))}</p>
       ${local.observacoesLocal ? `<p><strong>Observações:</strong> ${textoSeguro(local.observacoesLocal)}</p>` : ''}
     </article>
   `).join('');
@@ -63,7 +70,7 @@ const montarHtmlEvento = (evento) => {
         </header>
         <h2>Informações do evento</h2>
         <p><strong>Cliente:</strong> ${textoSeguro(textoOuFallback(evento.cliente))}</p>
-        <p><strong>Convidados:</strong> ${textoSeguro(textoOuFallback(evento.convidados))}</p>
+        <p><strong>Convidados:</strong> ${textoSeguro(textoOuFallback(convidados))}</p>
         ${evento.funcao ? `<p><strong>Sua função:</strong> ${textoSeguro(evento.funcao)}</p>` : ''}
         ${evento.organizador ? `<p><strong>Organizador:</strong> ${textoSeguro(evento.organizador)}</p>` : ''}
         <h2>Locais</h2>

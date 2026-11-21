@@ -10,14 +10,14 @@ Registrar a tela de detalhe baseada no frame **Detalhes do evento** do Figma. O 
 - As abas **Geral**, **Locais** e **Equipe** alternam o conteúdo sem sair do detalhe.
 - A área de destaque apresenta tipo, título, data e horário. Se houver `coverImageUrl`, ela é exibida; sem uma imagem cadastrada, a tela usa uma ilustração local.
 - **Geral** mostra o cliente, notas da produção e os dados disponíveis da função, horário e quantidade de convidados.
-- **Locais** apresenta endereços e instruções cadastrados. Na ausência de `eventLocations`, usa o endereço resumido da convocação como local principal.
+- **Locais** apresenta endereços, instruções e o horário próprio de cada local. Sem horário próprio, mostra **Horário a confirmar**, sem copiar o horário geral do evento. Na ausência de `eventLocations`, usa o endereço resumido da convocação como local principal.
 - **Equipe** mostra os integrantes fornecidos no snapshot `teamMembers`. Como o modelo atual consulta convocações individuais do técnico, sem essa lista a tela apresenta a participação do usuário atual e explica que os demais integrantes não estão disponíveis nesse registro.
 - O botão voltar fecha o detalhe e retorna à aba de origem. A navegação inferior fica oculta durante o detalhe, como na referência do Figma.
-- O botão **Exportar PDF** gera um resumo do evento com data, horário, convidados, locais, equipe e notas da produção. No Android e iOS, abre o compartilhamento nativo para selecionar o WhatsApp ou outro aplicativo; na Web, abre a impressão do navegador para salvar como PDF.
+- Após aceitar a convocação, o técnico pode usar **Exportar PDF** para gerar um resumo do evento com data, horário, quantidade de convidados, horários individuais dos locais, equipe e notas da produção. No Android e iOS, abre o compartilhamento nativo para selecionar o WhatsApp ou outro aplicativo; na Web, abre a impressão do navegador para salvar como PDF.
 
 ## Origem e disponibilidade dos dados
 
-A tela deverá reutilizar o convite de `convites` e carregar os dados relacionados de `eventos`, `clientes` e `locais` pelos respectivos IDs. Não altera documentos. Endereços, clientes e metadados são mostrados apenas quando presentes; conteúdo ausente recebe um estado explicativo.
+A tela verifica o status atual do convite em `convites` antes de carregar os dados do evento. Convites pendentes e aceitos podem ver os detalhes; depois de recusar ou cancelar, o evento fica indisponível. As regras do Firestore também bloqueiam a leitura do documento para convites recusados ou cancelados. A tela não altera documentos além da resposta à convocação. Endereços, clientes e metadados são mostrados apenas quando presentes; conteúdo ausente recebe um estado explicativo.
 
 Campos opcionais que a interface reconhece: `clientEmail`, `clientPhone`, `eventLocations`, `productionNotes` (ou `notes`), `guestCount`, `teamMembers` e `coverImageUrl`. Sua inclusão na tela não significa que esses dados já estejam sendo preenchidos no Firestore. Consulte o [dicionário de dados](dicionario-de-dados.md) para a descrição e os cuidados de acesso.
 

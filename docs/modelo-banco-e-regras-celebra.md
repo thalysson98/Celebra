@@ -33,10 +33,9 @@ O sistema Celebra opera em **dois modos principais**:
 3. Depois de criar a conta, o funcionário informa o ID do documento da empresa (20 caracteres). O app grava `membros` e atualiza `usuarios.id_empresa` em um único lote; as regras do Firestore só permitem isso para o próprio usuário, com `papel = false` e empresa existente. O cliente nunca altera `papel`.
 
 ### 2.2. Eventos Disponíveis vs. Eventos Inscritos
-- **Eventos Inscritos (Confirmados):**
-  - Consulta na coleção `eventos` onde `id_empresa == empresa_do_usuario` e a lista `membros_escalados` **contém** o `id_usuario`.
-- **Eventos Disponíveis (Vagas abertas):**
-  - Consulta na coleção `eventos` com `situacao == "aberto"` onde a lista `membros_escalados` **NÃO contém** o `id_usuario`. O colaborador visualiza o evento para saber que a produtora tem trabalho agendado.
+- O técnico visualiza somente eventos com convocação própria pendente ou aceita.
+- Convites recusados ou cancelados não aparecem na lista do técnico, e a tela de detalhes também verifica o estado atual do convite antes de carregar os dados.
+- As regras do Firestore permitem a leitura do evento ao organizador da empresa e ao técnico somente enquanto sua convocação estiver pendente ou aceita.
 
 ### 2.3. Bloqueio de Agenda (Indisponibilidade)
 - O funcionário acessa seu calendário no app e seleciona as datas em que não pode prestar serviço (ex: compromissos pessoais, viagens).
@@ -47,7 +46,7 @@ O sistema Celebra opera em **dois modos principais**:
 1. O Administrador escala um membro para o evento e cria um registro na tabela `convites` com `situacao = "pendente"`.
 2. O funcionário recebe a notificação no app.
 3. Se o funcionário **aceitar**: o convite vai para `situacao = "aceito"` e o `id_usuario` é adicionado à lista `membros_escalados` do evento.
-4. Se o funcionário **recusar**: o convite vai para `situacao = "recusado"` e o Administrador pode convocar outro profissional.
+4. Se o funcionário **recusar**: o convite vai para `situacao = "recusado"`; o evento deixa de aparecer para aquele técnico e a leitura do documento do evento é bloqueada pelas regras do Firestore. O Administrador pode convocar outro profissional.
 
 ---
 
@@ -209,6 +208,7 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 | `id_cliente` | texto | Sim | Chave Estrangeira → `clientes` | Cliente contratante |
 | `id_local` | texto | Sim | Chave Estrangeira → `locais` | Local principal onde ocorrerá o evento |
 | `data_inicio` | data e hora | Sim | - | Data e horário de início da programação |
+| `hora_inicio` | texto | Sim | - | Horário local no formato `HH:MM`, preservado entre dispositivos |
 | `data_fim` | data e hora | Não | - | Data e horário de término previsto |
 | `quantidade_convidados` | número | Não | - | Estimativa de participantes do evento |
 | `membros_escalados` | lista de textos | Sim | Lista de `id_usuario` | **IDs dos técnicos/membros confirmados no evento** |
@@ -253,4 +253,4 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 
 ## 5. Regras de Segurança do Firebase (`firestore.rules`)
 
-As regras versionadas estão em [`firestore.rules`](../firestore.rules). Elas aplicam o princípio de menor privilégio: o usuário lê o próprio `usuarios/{id_usuario}`, e o organizador ativo pode ler perfis de funcionários da própria empresa para montar a equipe; ninguém pode alterar `papel`, `id_empresa` ou `ativo` pelo perfil. O usuário gerencia somente sua `indisponibilidade`, responde somente aos próprios `convites` e acessa dados da empresa apenas quando está vinculado e ativo. Não use regras genéricas que liberem todas as coleções para qualquer usuário autenticado.
+As regras versionadas estão em [`firestore.rules`](../firestore.rules). Elas aplicam o princípio de menor privilégio: o usuário lê o próprio `usuarios/{id_usuario}`, e o organizador ativo pode ler perfis de funcionários da própria empresa para montar a equipe; ninguém pode alterar `papel`, `id_empresa` ou `ativo` pelo perfil. O usuário gerencia somente sua `indisponibilidade`, responde somente aos próprios `convites`, e organizadores ativos podem consultar notificações vinculadas a eventos da própria empresa para evitar duplicatas. Não use regras genéricas que liberem todas as coleções para qualquer usuário autenticado.
