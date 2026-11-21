@@ -1,14 +1,16 @@
 
-import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Keyboard, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosCriarEventoOrganizador';
+import { estilosAdministrandoOrganizador as stylesGestao } from '../../estilos/estilosAdministrandoOrganizador';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissional';
 import ModalSelecao from '../../componentes/ModalSelecao';
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
+import { ESTADOS_BRASIL } from '../../compartilhado/estadosBrasil';
 
 const SECOES = ['Geral', 'Equipe', 'Financeiro'];
 
@@ -239,6 +241,17 @@ export default function TelaCriarEvento({ navigation, usuario }) {
   
   const [modalLocalVisivel, setModalLocalVisivel] = useState(false);
   const [formNovoLocal, setFormNovoLocal] = useState({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
+  const [seletorEstadoLocalVisivel, setSeletorEstadoLocalVisivel] = useState(false);
+  const [buscaEstadoLocal, setBuscaEstadoLocal] = useState('');
+  const estadosLocalFiltrados = useMemo(() => {
+    const termo = buscaEstadoLocal.trim().toLowerCase();
+    if (!termo) return ESTADOS_BRASIL;
+    return ESTADOS_BRASIL.filter(
+      (estado) =>
+        estado.sigla.toLowerCase().includes(termo) ||
+        estado.nome.toLowerCase().includes(termo)
+    );
+  }, [buscaEstadoLocal]);
   const [modalClienteVisivel, setModalClienteVisivel] = useState(false);
   const [formNovoCliente, setFormNovoCliente] = useState({ nome: '', documento: '', telefone: '', email: '', instagram: '' });
   const [itemEditandoSelecao, setItemEditandoSelecao] = useState(null);
@@ -977,25 +990,230 @@ export default function TelaCriarEvento({ navigation, usuario }) {
         </View>
       </Modal>
 
-      <Modal visible={modalLocalVisivel} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-           <ScrollView style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, maxHeight: '90%' }}>
-              <Text style={{ fontFamily: FONTES.bold, fontSize: 18, color: CORES.textNavy, marginBottom: 15 }}>Cadastrar Novo Local</Text>
-              <CampoInput label="Nome do Local *" valor={formNovoLocal.nome} aoMudar={v => setFormNovoLocal({...formNovoLocal, nome: v})} placeholder="Ex: Sítio Romagna" />
-              <CampoInput label="Rua / Endereço *" valor={formNovoLocal.rua} aoMudar={v => setFormNovoLocal({...formNovoLocal, rua: v})} placeholder="Rua..." />
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><CampoInput label="Número" valor={formNovoLocal.numero} aoMudar={v => setFormNovoLocal({...formNovoLocal, numero: v})} placeholder="123" /></View>
-                <View style={{ flex: 2 }}><CampoInput label="Bairro" valor={formNovoLocal.bairro} aoMudar={v => setFormNovoLocal({...formNovoLocal, bairro: v})} placeholder="Centro" /></View>
+      <Modal
+        visible={modalLocalVisivel}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setModalLocalVisivel(false)}
+      >
+        <View style={styles.localModalOverlay}>
+          <ScrollView
+            style={styles.localModalCard}
+            contentContainerStyle={styles.localModalContent}
+            keyboardShouldPersistTaps="always"
+            nestedScrollEnabled
+          >
+            <View style={styles.localModalHeader}>
+              <Text style={styles.localModalTitle}>Adicionar local</Text>
+              <TouchableOpacity
+                onPress={() => setModalLocalVisivel(false)}
+                style={styles.localModalCloseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar cadastro de local"
+              >
+                <MaterialCommunityIcons name="close" size={21} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <CampoInput
+              label="Nome do local"
+              valor={formNovoLocal.nome}
+              aoMudar={(v) => setFormNovoLocal({ ...formNovoLocal, nome: v })}
+              placeholder="Ex: Sítio Romagna"
+              icone="map-pin"
+              obrigatorio
+            />
+            <CampoInput
+              label="Rua / Endereço"
+              valor={formNovoLocal.rua}
+              aoMudar={(v) => setFormNovoLocal({ ...formNovoLocal, rua: v })}
+              placeholder="Rua..."
+              icone="map"
+              obrigatorio
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <CampoInput
+                  label="Número"
+                  valor={formNovoLocal.numero}
+                  aoMudar={(v) => setFormNovoLocal({ ...formNovoLocal, numero: v })}
+                  placeholder="123"
+                  icone="hash"
+                />
               </View>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 2 }}><CampoInput label="Cidade" valor={formNovoLocal.cidade} aoMudar={v => setFormNovoLocal({...formNovoLocal, cidade: v})} placeholder="Cidade" /></View>
-                <View style={{ flex: 1 }}><CampoInput label="Estado" valor={formNovoLocal.estado} aoMudar={v => setFormNovoLocal({...formNovoLocal, estado: v})} placeholder="SP" /></View>
+              <View style={{ flex: 2 }}>
+                <CampoInput
+                  label="Bairro"
+                  valor={formNovoLocal.bairro}
+                  aoMudar={(v) => setFormNovoLocal({ ...formNovoLocal, bairro: v })}
+                  placeholder="Centro"
+                  icone="map"
+                />
               </View>
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, marginBottom: 30 }}>
-                 <Button mode="outlined" style={{ flex: 1, borderRadius: 10 }} onPress={() => setModalLocalVisivel(false)} textColor={CORES.textNavy}>Cancelar</Button>
-                 <Button mode="contained" style={{ flex: 1, borderRadius: 10 }} buttonColor={CORES.buttonGold} textColor={CORES.textNavy} onPress={salvarNovoLocalDetalhado}>Salvar</Button>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <CampoInput
+                  label="Cidade"
+                  valor={formNovoLocal.cidade}
+                  aoMudar={(v) => setFormNovoLocal({ ...formNovoLocal, cidade: v })}
+                  placeholder="Cidade"
+                  icone="globe"
+                />
               </View>
-           </ScrollView>
+              <View style={{ flex: 1 }}>
+                <View style={{ marginBottom: 14, minWidth: 0 }}>
+                  <Text style={styles.label}>Estado</Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Estado: ${formNovoLocal.estado || 'Selecionar estado'}`}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setBuscaEstadoLocal('');
+                      setSeletorEstadoLocalVisivel(true);
+                    }}
+                    style={styles.control}
+                  >
+                    <Feather name="flag" size={18} color={CORES.textMuted} />
+                    <SeparadorCampoIcone />
+                    <Text
+                      style={[
+                        styles.controlValue,
+                        !formNovoLocal.estado && styles.selectionPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formNovoLocal.estado || 'UF'}
+                    </Text>
+                    <Feather name="chevron-down" size={17} color={CORES.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+            <View style={styles.localModalActions}>
+              <Button
+                onPress={() => setModalLocalVisivel(false)}
+                textColor={CORES.textMuted}
+              >
+                Cancelar
+              </Button>
+              <Button
+                mode="contained"
+                buttonColor={CORES.buttonGold}
+                textColor={CORES.textNavy}
+                onPress={salvarNovoLocalDetalhado}
+              >
+                Salvar
+              </Button>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={seletorEstadoLocalVisivel}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setSeletorEstadoLocalVisivel(false);
+          setBuscaEstadoLocal('');
+        }}
+      >
+        <View style={stylesGestao.seletorOverlay}>
+          <View style={stylesGestao.seletorCard}>
+            <View style={stylesGestao.seletorHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Feather name="map-pin" size={19} color={CORES.buttonGold} />
+                <Text style={stylesGestao.seletorTitle}>Selecione o Estado</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSeletorEstadoLocalVisivel(false);
+                  setBuscaEstadoLocal('');
+                }}
+                style={stylesGestao.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar seleção de estado"
+              >
+                <MaterialCommunityIcons name="close" size={22} color={CORES.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={stylesGestao.seletorSearchBox}>
+              <Feather name="search" size={16} color={CORES.textMuted} />
+              <SeparadorCampoIcone />
+              <TextInput
+                value={buscaEstadoLocal}
+                onChangeText={setBuscaEstadoLocal}
+                placeholder="Buscar estado ou sigla..."
+                placeholderTextColor={CORES.textSubtle}
+                style={stylesGestao.seletorSearchInput}
+                autoCapitalize="words"
+              />
+              {buscaEstadoLocal.length > 0 && (
+                <TouchableOpacity onPress={() => setBuscaEstadoLocal('')}>
+                  <MaterialCommunityIcons name="close-circle" size={16} color={CORES.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <FlatList
+              data={estadosLocalFiltrados}
+              keyExtractor={(item) => item.sigla}
+              style={stylesGestao.seletorList}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const selecionado = formNovoLocal.estado === item.sigla;
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[
+                      stylesGestao.estadoItem,
+                      selecionado && stylesGestao.estadoItemSelecionado,
+                    ]}
+                    onPress={() => {
+                      setFormNovoLocal((atual) => ({ ...atual, estado: item.sigla }));
+                      setSeletorEstadoLocalVisivel(false);
+                      setBuscaEstadoLocal('');
+                    }}
+                  >
+                    <View
+                      style={[
+                        stylesGestao.estadoSiglaBadge,
+                        selecionado && stylesGestao.estadoSiglaBadgeSelecionado,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          stylesGestao.estadoSiglaTexto,
+                          selecionado && stylesGestao.estadoSiglaTextoSelecionado,
+                        ]}
+                      >
+                        {item.sigla}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        stylesGestao.estadoNomeTexto,
+                        selecionado && stylesGestao.estadoNomeTextoSelecionado,
+                      ]}
+                    >
+                      {item.nome}
+                    </Text>
+                    {selecionado && <Feather name="check" size={18} color={CORES.buttonGold} />}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13 }}>
+                    Nenhum estado encontrado.
+                  </Text>
+                </View>
+              }
+            />
+          </View>
         </View>
       </Modal>
 
