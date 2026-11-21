@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -125,13 +126,17 @@ export default function TelaNotificacoes({ navigation, route }) {
     const idEventoAlvo =
       notificacao.eventoId ||
       notificacao.eventId ||
+      notificacao.id_evento ||
       notificacao.assignmentId ||
       notificacao.idEvento;
 
     // 1ª Tentativa: Busca exata pelo ID do evento ou da convocação
     if (idEventoAlvo) {
       const encontradoPorId = assignments.find(
-        (a) => a.id === idEventoAlvo || a.eventId === idEventoAlvo
+        (a) =>
+          a.id === idEventoAlvo ||
+          a.idEvento === idEventoAlvo ||
+          a.eventId === idEventoAlvo
       );
       if (encontradoPorId) return encontradoPorId;
     }
@@ -158,7 +163,10 @@ export default function TelaNotificacoes({ navigation, route }) {
       // Localiza os dados do evento para abrir a tela de detalhes
       const eventoEncontrado = encontrarEventoDaNotificacao(notificacao);
 
-      if (eventoEncontrado) {
+      if (
+        eventoEncontrado &&
+        (eventoEncontrado.status === 'pending' || eventoEncontrado.status === 'accepted')
+      ) {
         // Serializa as datas (mesmo padrão utilizado na TelaPainelTecnico)
         const assignmentSerializado = {
           ...eventoEncontrado,
@@ -171,18 +179,12 @@ export default function TelaNotificacoes({ navigation, route }) {
         navigation.navigate('TechnicianEventDetails', {
           assignment: assignmentSerializado,
         });
-      } else if (notificacao.eventoId || notificacao.eventId) {
-        // Caso o evento não esteja na lista pré-carregada, envia os dados básicos da notificação
-        navigation.navigate('TechnicianEventDetails', {
-          assignment: {
-            id: notificacao.assignmentId || notificacao.eventoId || notificacao.eventId,
-            eventId: notificacao.eventoId || notificacao.eventId,
-            eventTitle: notificacao.titulo || 'Detalhes do Evento',
-          },
-        });
       } else {
-        // Caso seja um aviso geral sem um único evento específico, volta ao painel de eventos
-        navigation.goBack();
+        // Convites recusados, cancelados ou removidos nunca devem abrir detalhes.
+        Alert.alert(
+          'Evento indisponível',
+          'Esta convocação não está mais ativa. Os detalhes do evento não estão disponíveis.'
+        );
       }
     } catch (erro) {
       console.log('Erro ao processar clique na notificação:', erro);
