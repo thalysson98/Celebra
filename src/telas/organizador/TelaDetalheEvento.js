@@ -26,6 +26,19 @@ import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 const ABAS = ['Geral', 'Equipe', 'Financeiro'];
 
+const SECOES_EQUIPE = [
+  { chave: 'confirmado', titulo: 'Confirmados' },
+  { chave: 'recusado', titulo: 'Recusados' },
+  { chave: 'pendente', titulo: 'Pendentes' },
+  { chave: 'cancelado', titulo: 'Cancelados' },
+  { chave: 'informativo', titulo: 'Informativos' },
+];
+
+const STATUS_EQUIPE_CONHECIDOS = new Set(SECOES_EQUIPE.map(({ chave }) => chave));
+
+const normalizarStatusEquipe = (status) =>
+  String(status || '').trim().toLocaleLowerCase('pt-BR');
+
 const convitePendente = (status) =>
   String(status || '').toLocaleLowerCase('pt-BR').includes('pendente');
 
@@ -620,9 +633,13 @@ const salvarEdicao = async () => {
   };
 
   const clickReenviar = async (idConvite) => {
-    await reenviarConvite(idConvite);
-    carregarEvento();
-    mostrarSucesso("Convite Reenviado", "O profissional receberá a notificação novamente.");
+    try {
+      await reenviarConvite(idConvite);
+      await carregarEvento();
+      mostrarSucesso("Convite Reenviado", "O profissional receberá a notificação novamente.");
+    } catch (error) {
+      mostrarErro(error?.message || "Não foi possível reenviar o convite.");
+    }
   };
 
   const abrirModalExcluir = (pessoa) => {
@@ -788,6 +805,17 @@ const salvarEdicao = async () => {
   if (!evento) return <View style={styles.center}><Text>Evento não encontrado.</Text></View>;
 
   const equipe = evento.equipe || [];
+  const secoesEquipe = [
+    ...SECOES_EQUIPE.map((secao) => ({
+      ...secao,
+      membros: equipe.filter((pessoa) => normalizarStatusEquipe(pessoa.statusConfirmacao) === secao.chave),
+    })),
+    {
+      chave: 'outros',
+      titulo: 'Outros',
+      membros: equipe.filter((pessoa) => !STATUS_EQUIPE_CONHECIDOS.has(normalizarStatusEquipe(pessoa.statusConfirmacao))),
+    },
+  ].filter((secao) => secao.membros.length > 0);
   const financeiro = evento.financeiro || {};
   const despesasPorCategoria = equipe.reduce((totais, pessoa) => {
     (pessoa.despesas || []).forEach((despesa) => {
@@ -807,7 +835,7 @@ const salvarEdicao = async () => {
   const parcelasDivergentes = (totalEditando > 0 || somaParcelasEditando > 0) &&
     Math.abs(somaParcelasEditando - totalEditando) > 0.05;
   
-  const locaisOrdenados = [...(evento.locais || [])].sort((a, b) => (a.horaLocal || evento.horaInicio || '').localeCompare(b.horaLocal || evento.horaInicio || ''));
+  const locaisOrdenados = [...(evento.locais || [])].sort((a, b) => (a.horaLocal || '').localeCompare(b.horaLocal || ''));
 
   const exportarPdf = async () => {
     setExportandoPdf(true);
@@ -818,7 +846,13 @@ const salvarEdicao = async () => {
         data: evento.dataInicio,
         horario: evento.horaInicio,
         cliente: evento.cliente?.nome,
-        convidados: evento.numConvidados,
+        quantidade_convidados:
+          evento.quantidade_convidados ??
+          evento.quantidadeConvidados ??
+          evento.num_convidados ??
+          evento.numConvidados ??
+          evento.guestCount ??
+          0,
         locais: locaisOrdenados,
         equipe,
         notas: evento.notasProducao,
@@ -1003,7 +1037,7 @@ const salvarEdicao = async () => {
           
           <Text style={styles.sectionTitle}>Locais do Evento</Text>
           {locaisOrdenados.length > 0 ? locaisOrdenados.map((local, index) => (
-             <CartaoLocal key={index} local={local} fallbackHora={evento.horaInicio} />
+             <CartaoLocal key={index} local={local} />
           )) : <Text style={styles.sectionHint}>Nenhum local cadastrado.</Text>}
           
           <Card style={styles.productionNotesCard}>
@@ -1072,56 +1106,66 @@ const salvarEdicao = async () => {
 
           {equipe.length ? (
             <Card style={styles.card}><Card.Content>
-              {equipe.map((pessoa, index) => (
-                <View key={pessoa.id || index} style={styles.personRow}>
-                  <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
-                  <View style={styles.personInfo}>
-                    <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
-                    <Text style={[styles.personMeta, { marginTop: 2, fontSize: 13, color: '#334155' }]} numberOfLines={1}>{pessoa.funcao}</Text>
-                    
-                    {pessoa.statusConfirmacao !== 'Informativo' && (
-                       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-                         <Text style={[styles.personMeta, {marginTop: 0, fontSize: 12}]}>Situação do convite: </Text>
-                         <Text style={[
-                            pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText : 
-                            pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
-                            pessoa.statusConfirmacao === 'Recusado' ? styles.canceledText : 
-                            styles.pendingText
-                         ]}>
-                           {pessoa.statusConfirmacao}
-                         </Text>
-                       </View>
-                    )}
-                    <Text style={styles.personExpenseTotal}>
-                      Total de despesas: {formatarMonetario((pessoa.despesas || []).reduce((total, despesa) => total + converterValorMonetario(despesa.valor), 0))}
-                    </Text>
+              {secoesEquipe.map((secao) => (
+                <View key={secao.chave}>
+                  <View style={styles.teamStatusSectionHeading}>
+                    <Text style={styles.teamStatusSectionTitle}>{secao.titulo}</Text>
+                    <View style={styles.teamStatusSectionCount}>
+                      <Text style={styles.teamStatusSectionCountText}>{secao.membros.length}</Text>
+                    </View>
                   </View>
-                  
-                  <TouchableOpacity
-                    style={styles.expenseIconButton}
-                    onPress={() => abrirDespesasProfissional(pessoa)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}
-                  >
-                    <Feather name="dollar-sign" size={18} color="#059669" />
-                  </TouchableOpacity>
-                  {!eventoConcluido && (
-                     <View style={styles.actionIconsRow}>
-                       <TouchableOpacity style={styles.iconBtn} onPress={() => { setProfissionalAlvo(pessoa); abrirSelecao('editarProfissional'); }}>
-                          <MaterialCommunityIcons name="pencil-outline" size={20} color={CORES.textNavy} />
-                       </TouchableOpacity>
-                       {pessoa.statusConfirmacao === 'Recusado' && (
-                          <TouchableOpacity style={styles.iconBtn} onPress={() => clickReenviar(pessoa.idConvite)}>
-                             <MaterialCommunityIcons name="refresh" size={20} color={CORES.buttonGold} />
+                  {secao.membros.map((pessoa, index) => (
+                    <View key={pessoa.id || index} style={styles.personRow}>
+                      <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
+                      <View style={styles.personInfo}>
+                        <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
+                        <Text style={[styles.personMeta, { marginTop: 2, fontSize: 13, color: '#334155' }]} numberOfLines={1}>{pessoa.funcao}</Text>
+
+                        {pessoa.statusConfirmacao !== 'Informativo' && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                            <Text style={[styles.personMeta, { marginTop: 0, fontSize: 12 }]}>Situação do convite: </Text>
+                            <Text style={[
+                              pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText :
+                                pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
+                                  pessoa.statusConfirmacao === 'Recusado' ? styles.rejectedText :
+                                    styles.pendingText
+                            ]}>
+                              {pessoa.statusConfirmacao}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={styles.personExpenseTotal}>
+                          Total de despesas: {formatarMonetario((pessoa.despesas || []).reduce((total, despesa) => total + converterValorMonetario(despesa.valor), 0))}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.expenseIconButton}
+                        onPress={() => abrirDespesasProfissional(pessoa)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}
+                      >
+                        <Feather name="dollar-sign" size={18} color="#059669" />
+                      </TouchableOpacity>
+                      {!eventoConcluido && (
+                        <View style={styles.actionIconsRow}>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => { setProfissionalAlvo(pessoa); abrirSelecao('editarProfissional'); }}>
+                            <MaterialCommunityIcons name="pencil-outline" size={20} color={CORES.textNavy} />
                           </TouchableOpacity>
-                       )}
-                       {pessoa.statusConfirmacao !== 'Cancelado' && (
-                          <TouchableOpacity style={styles.iconBtnRed} onPress={() => abrirModalExcluir(pessoa)}>
-                             <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-                          </TouchableOpacity>
-                       )}
-                     </View>
-                  )}
+                          {pessoa.statusConfirmacao === 'Recusado' && (
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => clickReenviar(pessoa.idConvite)}>
+                              <MaterialCommunityIcons name="refresh" size={20} color={CORES.buttonGold} />
+                            </TouchableOpacity>
+                          )}
+                          {pessoa.statusConfirmacao !== 'Cancelado' && (
+                            <TouchableOpacity style={styles.iconBtnRed} onPress={() => abrirModalExcluir(pessoa)}>
+                              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  ))}
                 </View>
               ))}
             </Card.Content></Card>

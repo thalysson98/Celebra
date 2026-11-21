@@ -26,6 +26,10 @@ export const obterEstiloHotbar = (insetsBottom) => {
 };
 
 export const estilosNavegacao = StyleSheet.create({
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+  },
   tabContainer: {
     alignItems: 'center',
     justifyContent: 'center',

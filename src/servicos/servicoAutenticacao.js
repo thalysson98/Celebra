@@ -9,7 +9,7 @@ import {
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { autenticacao, bancoDados, firebaseEstaConfigurado } from '../configuracao/configuracaoFirebase';
 import { obterPerfilUsuario } from './servicoUsuario';
-import { normalizarCpf, validarCpf } from '../compartilhado/validacaoCpf';
+import { normalizarCpf } from '../compartilhado/validacaoCpf';
 
 function traduzirErroFirebase(erro) {
   const codigo = erro?.code || '';
@@ -72,7 +72,6 @@ export async function registrarUsuario({ nomeCompleto, name, username, cpf, emai
   const nomeLimpo = validarNome(nomeCompleto || name || username);
   const cpfLimpo = normalizarCpf(cpf);
   if (!cpfLimpo) throw new Error('Informe seu CPF.');
-  if (!validarCpf(cpfLimpo)) throw new Error('Informe um CPF válido.');
   const emailLimpo = String(email || '').trim().toLowerCase();
 
   let usuarioCriado = null;

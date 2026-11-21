@@ -782,12 +782,6 @@ export const estilosPainelTecnico = StyleSheet.create({
   profileTestNotificationIcon: {
     backgroundColor: '#FEF3C7',
   },
-  tabLabelActive: {
-    color: CORES.textNavy,
-  },
-  tabLabelInactive: {
-    color: CORES.textSubtle,
-  },
   feedbackModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

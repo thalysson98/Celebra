@@ -31,7 +31,7 @@ export default function TelaVinculoEmpresa({ user, onLogout, onVinculoConcluido 
     } catch (erro) {
       const semPermissao = ['permission-denied', 'firestore/permission-denied'].includes(erro?.code);
       setMensagemErro(semPermissao
-        ? 'Não foi possível validar esse ID. Confira com o administrador e confirme se as regras atualizadas do Firebase foram publicadas.'
+        ? 'Não foi possível validar esse ID. Confira com o administrador.'
         : erro?.message || 'Não foi possível vincular à empresa. Confira o ID e tente novamente.');
     } finally {
       setSalvando(false);
@@ -52,7 +52,7 @@ export default function TelaVinculoEmpresa({ user, onLogout, onVinculoConcluido 
 
         <View style={styles.cartao}>
           <Text style={styles.tituloCartao}>Vínculo com a empresa</Text>
-          <Text style={styles.ajuda}>O código é o ID do documento da empresa no Firebase. Ao confirmar, sua conta será associada como funcionário.</Text>
+          <Text style={styles.ajuda}>O código é o documento da empresa utilizado para vinculação. Ao confirmar, sua conta será associada como profissional da empresa.</Text>
           <View style={styles.grupoCampo}>
             <Text style={styles.rotulo}>ID da empresa</Text>
             <TextInput

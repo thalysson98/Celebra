@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { estilosAutenticacao, CORES_AUTENTICACAO } from '../../estilos/estilosAutenticacao';
 import { registrarUsuario } from '../../servicos/servicoAutenticacao';
-import { formatarCpf, normalizarCpf, validarCpf } from '../../compartilhado/validacaoCpf';
+import { formatarCpf, normalizarCpf } from '../../compartilhado/validacaoCpf';
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 
 export default function TelaCadastro({ navigation, onRegisterSuccess }) {
@@ -63,9 +63,6 @@ export default function TelaCadastro({ navigation, onRegisterSuccess }) {
 
     if (!cpfLimpo) {
       setErroCpf('Informe seu CPF.');
-      valido = false;
-    } else if (!validarCpf(cpfLimpo)) {
-      setErroCpf('Informe um CPF válido.');
       valido = false;
     } else {
       setErroCpf('');

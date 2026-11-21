@@ -100,6 +100,8 @@ async function buscarCadastroVinculadoOuCriar(colecao, campoId, empresaId, nome,
         cadastro.id_empresa === empresaId &&
         normalizarTexto(cadastro.nome) === normalizarTexto(nome)
       ) {
+        // Ao editar um evento antigo, o cadastro inativo deve continuar
+        // vinculado ao histórico. Ele não será oferecido em novos eventos.
         return snapshot.id;
       }
     }
@@ -112,6 +114,10 @@ function paraDataJavaScript(valor) {
   if (typeof valor.toDate === 'function') return valor.toDate();
   const data = new Date(valor);
   return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function obterHoraLocal(local) {
+  return local.horaLocal || local.hora_local || local.horarioLocal || local.horario_local || local.horario || local.hora || '';
 }
 
 function mapearEvento(snapshot, relacionados = {}) {
@@ -133,11 +139,21 @@ function mapearEvento(snapshot, relacionados = {}) {
     dataFormatada = `${dia}/${mes}/${ano}`;
   }
 
-  const locaisSalvos = (evento.locais_detalhados || relacionados.locaisAntigos || []).map(l => ({
+  const locaisDetalhados = Array.isArray(evento.locais_detalhados) && evento.locais_detalhados.length
+    ? evento.locais_detalhados
+    : relacionados.locaisAntigos || [];
+  const locaisSalvos = locaisDetalhados.map(l => ({
     ...l,
+    horaLocal: obterHoraLocal(l),
     enderecoLocal: l.enderecoLocal || l.endereco_completo || l.endereco || '',
     tipoLocal: l.tipoLocal || l.nome_tipo_local || l.tipo || ''
   }));
+  const horaInicio =
+    evento.hora_inicio ||
+    evento.horaInicio ||
+    (dataInicio
+      ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(dataInicio)
+      : '');
 
   return {
     id: snapshot.id,
@@ -146,11 +162,17 @@ function mapearEvento(snapshot, relacionados = {}) {
     titulo: evento.titulo || '',
     tipoEvento: tipoEvento?.nome || evento.nome_tipo_evento || '', 
     dataInicio: dataFormatada,
-    horaInicio: dataInicio ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(dataInicio) : '',
+    horaInicio,
     statusTempo: evento.situacao === 'concluido' || evento.situacao === 'cancelado' ? 'concluidos' : 'futuros',
     statusEquipa: pendentes ? 'Equipe Pendente' : nomeEquipa,
     notasProducao: evento.observacoes || '',
-    numConvidados: Number(evento.quantidade_convidados) || 0,
+    numConvidados: Number(
+      evento.quantidade_convidados ??
+      evento.quantidadeConvidados ??
+      evento.num_convidados ??
+      evento.numConvidados ??
+      evento.guestCount
+    ) || 0,
     cliente: cliente ? { id: evento.id_cliente, nome: cliente.nome, documento: cliente.documento || '', email: cliente.email || '', telefone: cliente.telefone || '' } : null,
     locais: locaisSalvos,
     equipe: [
@@ -186,8 +208,13 @@ async function buscarRelacionadosEvento(snapshot) {
   const tipoEventoSnap = evento.id_tipo_evento ? await getDoc(doc(bancoDados, 'tipos_evento', evento.id_tipo_evento)) : null;
   
   let locaisAntigos = [];
-  if (!evento.locais_detalhados && evento.id_locais && evento.id_locais.length > 0) {
-    const locaisPromessas = evento.id_locais.map(id => getDoc(doc(bancoDados, 'locais', id)));
+  const idsLocais = Array.isArray(evento.id_locais) && evento.id_locais.length
+    ? evento.id_locais
+    : evento.id_local
+      ? [evento.id_local]
+      : [];
+  if ((!Array.isArray(evento.locais_detalhados) || evento.locais_detalhados.length === 0) && idsLocais.length) {
+    const locaisPromessas = idsLocais.map(id => getDoc(doc(bancoDados, 'locais', id)));
     const locaisSnaps = await Promise.all(locaisPromessas);
     locaisAntigos = locaisSnaps.filter(s => s.exists()).map(s => {
         const data = s.data();
@@ -195,7 +222,8 @@ async function buscarRelacionadosEvento(snapshot) {
            id: s.id,
            nomeDoLocal: data.nome || '',
            enderecoLocal: data.endereco_completo || '',
-           tipoLocal: data.nome_tipo_local || '' 
+           tipoLocal: data.nome_tipo_local || '',
+           horaLocal: obterHoraLocal(data),
          };
     });
   }
@@ -361,6 +389,26 @@ export const repositorioEventos = {
     
     const titulo = String(dadosNovoEvento.titulo || '').trim();
     const dataInicio = converterDataEvento(dadosNovoEvento.dataInicio, dadosNovoEvento.horaInicio);
+
+    for (const profissional of dadosNovoEvento.equipe || []) {
+      if (!profissional.idTipoProfissional) continue;
+      const tipoProfissionalSnap = await getDoc(
+        doc(bancoDados, 'tipos_profissional', profissional.idTipoProfissional)
+      );
+      if (tipoProfissionalSnap.exists() && tipoProfissionalSnap.data().ativo === false) {
+        throw new Error(`O tipo de profissional "${profissional.funcao || 'selecionado'}" está inativo e não pode ser usado em um novo evento.`);
+      }
+
+      for (const despesa of profissional.despesas || []) {
+        if (!despesa.id_tipo_despesa) continue;
+        const tipoDespesaSnap = await getDoc(
+          doc(bancoDados, 'tipos_despesa', despesa.id_tipo_despesa)
+        );
+        if (tipoDespesaSnap.exists() && tipoDespesaSnap.data().ativo === false) {
+          throw new Error(`O tipo de despesa "${despesa.tipo || despesa.nome || 'selecionado'}" está inativo e não pode ser usado em um novo evento.`);
+        }
+      }
+    }
     
     const [idTipoEvento, idCliente] = await Promise.all([
       buscarOuCriarCadastro('tipos_evento', 'id_tipo_evento', empresaId, dadosNovoEvento.tipoEvento),
@@ -398,7 +446,9 @@ export const repositorioEventos = {
       id_locais: locaisDetalhados.map((l) => l.id_local).filter(Boolean),
       nome_tipo_evento: dadosNovoEvento.tipoEvento,
       locais_detalhados: locaisDetalhados,
-      data_inicio: dataInicio, quantidade_convidados: Number(dadosNovoEvento.numConvidados) || 0,
+      data_inicio: dataInicio,
+      hora_inicio: String(dadosNovoEvento.horaInicio || '00:00').trim(),
+      quantidade_convidados: Number(dadosNovoEvento.numConvidados) || 0,
       membros_escalados: [],
       equipe_informativa: (dadosNovoEvento.equipe || []).filter(p => p.enviarConvite === false).map(p => ({
         id_usuario: p.idUsuario || p.id, id_tipo_profissional: p.idTipoProfissional, nome_profissional: p.nomeProfissional, nome_tipo_profissional: p.funcao,
@@ -447,6 +497,9 @@ export const repositorioEventos = {
       
       const usuario = snapshotUsuario.data();
       const tipo = snapshotTipo.data();
+      if (tipo?.ativo === false) {
+        throw new Error(`O tipo de profissional "${tipo.nome || profissional.funcao || 'selecionado'}" está inativo e não pode ser usado em um novo evento.`);
+      }
       const nomeProfissional = usuario?.nome_completo || profissional.nomeProfissional || 'Colaborador';
       const nomeFuncao = tipo?.nome || profissional.funcao || 'Profissional';
       const dadosProfissional = { ...profissional, idUsuario, idTipoProfissional, nomeProfissional, funcao: nomeFuncao };
@@ -525,7 +578,9 @@ export const repositorioEventos = {
     await updateDoc(referencia, {
       titulo, id_tipo_evento: idTipoEvento, nome_tipo_evento: dadosAtualizados.tipoEvento, id_cliente: idCliente,
        locais_detalhados: locaisDetalhados,
-       data_inicio: dataInicio, quantidade_convidados: Number(dadosAtualizados.numConvidados) || 0,
+       data_inicio: dataInicio,
+       hora_inicio: String(dadosAtualizados.horaInicio || '00:00').trim(),
+       quantidade_convidados: Number(dadosAtualizados.numConvidados) || 0,
       observacoes: String(dadosAtualizados.notasProducao || '').trim(),
       financeiro: dadosAtualizados.financeiro || {},
     });

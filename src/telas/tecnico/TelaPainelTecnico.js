@@ -27,7 +27,6 @@ import {
 } from 'react-native';
 import { Card, Button } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, CORES, FONTES } from '../../tema/cores';
 import { subscribeToTechnicianAssignments } from '../../servicos/servicoEscala';
 import { requestPasswordReset } from '../../servicos/servicoAutenticacao';
@@ -38,7 +37,7 @@ import {
   subscribeToTechnicianUnavailability,
 } from '../../servicos/servicoIndisponibilidade';
 import { estilosPainelTecnico as styles } from '../../estilos/estilosPainelTecnico';
-import { estilosNavegacao, obterEstiloHotbar } from '../../estilos/estilosNavegacao';
+import BarraInferior from '../../componentes/BarraInferior';
 import Cabecalho from '../../componentes/Cabecalho';
 import FiltroIntervaloDatas, { obterChaveDataLocal } from '../../compartilhado/FiltroIntervaloDatas';
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
@@ -139,9 +138,6 @@ function formatShortDate(value) {
 // ============================================================================
 
 export default function TelaPainelTecnico({ navigation, route, user, onLogout }) {
-  // Margens seguras do dispositivo para ajuste da barra inferior (hotbar)
-  const insets = useSafeAreaInsets();
-
   // Estados principais de convocações (assignments), aba ativa e filtros de busca de eventos
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -181,6 +177,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const [availabilityError, setAvailabilityError] = useState('');
   const [isUpdatingAvailability, setUpdatingAvailability] = useState(false);
   const [isAvailabilityDialogVisible, setAvailabilityDialogVisible] = useState(false);
+  const [availabilityDialogContext, setAvailabilityDialogContext] = useState(null);
 
   // Estados para controle dos modais padronizados de feedback (sucesso e erro)
   const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
@@ -357,6 +354,9 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const selectedDateUnavailable = unavailableDates.some(
     (item) => item.dateKey === selectedAgendaDateKey
   );
+  const availabilityDialogWasUnavailable =
+    availabilityDialogContext?.wasUnavailable ?? selectedDateUnavailable;
+  const availabilityDialogDate = availabilityDialogContext?.date || selectedAgendaDay;
   const hasAcceptedAssignmentOnSelectedDay = selectedDayAssignments.some(
     (a) => a.status === 'accepted'
   );
@@ -469,6 +469,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
       );
       return;
     }
+    setAvailabilityDialogContext({
+      wasUnavailable: selectedDateUnavailable,
+      date: new Date(selectedAgendaDay),
+    });
     setAvailabilityDialogVisible(true);
   };
 
@@ -476,7 +480,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
    * Confirma a marcação ou remoção de indisponibilidade do técnico na data selecionada.
    */
   const confirmAvailabilityChange = async () => {
-    if (!selectedDateUnavailable && (hasAcceptedAssignmentOnSelectedDay || hasPendingAssignmentOnSelectedDay)) {
+    if (!availabilityDialogWasUnavailable && (hasAcceptedAssignmentOnSelectedDay || hasPendingAssignmentOnSelectedDay)) {
       mostrarErro(
         hasAcceptedAssignmentOnSelectedDay
           ? 'Você tem um evento aceito neste dia.'
@@ -488,10 +492,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
     setUpdatingAvailability(true);
     try {
-      if (selectedDateUnavailable) {
-        await removeTechnicianUnavailability(user.uid, selectedAgendaDay);
+      if (availabilityDialogWasUnavailable) {
+        await removeTechnicianUnavailability(user.uid, availabilityDialogDate);
       } else {
-        await markTechnicianUnavailable(user.uid, selectedAgendaDay);
+        await markTechnicianUnavailable(user.uid, availabilityDialogDate);
       }
       setAvailabilityDialogVisible(false);
     } catch (changeError) {
@@ -1027,36 +1031,6 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     </>
   );
 
-  /**
-   * Renderiza um botão individual da barra de navegação inferior (hotbar),
-   * exibindo badge numérico na aba Início quando há convocações pendentes.
-   */
-  const renderTabButton = (tab, label, icon) => {
-    const selected = activeTab === tab;
-    return (
-      <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}>
-        <View style={estilosNavegacao.tabContainer}>
-          <View style={selected ? estilosNavegacao.pilulaIconeAtivo : estilosNavegacao.pilulaIconeInativo}>
-            <Feather name={icon} size={24} color={selected ? CORES.textNavy : COLORS.textSubtle} />
-            {tab === 'home' && pendingAssignments.length > 0 && (
-              <View style={estilosNavegacao.badge}>
-                <Text style={estilosNavegacao.badgeText}>{pendingAssignments.length}</Text>
-              </View>
-            )}
-          </View>
-          <Text
-            style={[
-              estilosNavegacao.tabLabel,
-              selected ? styles.tabLabelActive : styles.tabLabelInactive,
-            ]}
-          >
-            {label}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   // --------------------------------------------------------------------------
   // 6. RENDERIZAÇÃO PRINCIPAL DA TELA E MODAIS (JSX)
   // --------------------------------------------------------------------------
@@ -1222,18 +1196,18 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
           <View style={styles.availabilityDialogCard}>
             <View style={styles.profileSecurityIcon}>
               <Feather
-                name={selectedDateUnavailable ? 'calendar' : 'slash'}
+                name={availabilityDialogWasUnavailable ? 'calendar' : 'slash'}
                 size={19}
                 color={COLORS.textNavy}
               />
             </View>
             <Text style={styles.availabilityDialogTitle}>
-              {selectedDateUnavailable ? 'Remover indisponibilidade?' : 'Adicionar indisponibilidade?'}
+              {availabilityDialogWasUnavailable ? 'Remover indisponibilidade?' : 'Adicionar indisponibilidade?'}
             </Text>
             <Text style={styles.availabilityDialogMessage}>
-              {selectedDateUnavailable
-                ? `Você ficará disponível em ${formatAgendaDate(selectedAgendaDay)}.`
-                : `Você ficará indisponível em ${formatAgendaDate(selectedAgendaDay)}.`}
+              {availabilityDialogWasUnavailable
+                ? `Você ficará disponível em ${formatAgendaDate(availabilityDialogDate)}.`
+                : `Você ficará indisponível em ${formatAgendaDate(availabilityDialogDate)}.`}
             </Text>
             <View style={styles.profileEditorActions}>
               <TouchableOpacity
@@ -1252,7 +1226,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
                   <ActivityIndicator size="small" color={COLORS.textNavy} />
                 ) : (
                   <Text style={styles.profileSaveButtonText}>
-                    {selectedDateUnavailable ? 'Remover' : 'Confirmar'}
+                    {availabilityDialogWasUnavailable ? 'Remover' : 'Confirmar'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -1261,12 +1235,33 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         </View>
       </Modal>
 
-      {/* BARRA DE NAVEGAÇÃO INFERIOR (HOTBAR) */}
-      <View style={obterEstiloHotbar(insets.bottom)}>
-        {renderTabButton('home', 'Início', 'home')}
-        {renderTabButton('events', 'Eventos', 'tag')}
-        {renderTabButton('profile', 'Perfil', 'user')}
-      </View>
+      <BarraInferior
+        abaAtiva={activeTab}
+        abas={[
+          {
+            chave: 'home',
+            rotulo: 'Início',
+            ComponenteIcone: Feather,
+            icone: 'home',
+            badge: pendingAssignments.length,
+            aoSelecionar: () => setActiveTab('home'),
+          },
+          {
+            chave: 'events',
+            rotulo: 'Eventos',
+            ComponenteIcone: Feather,
+            icone: 'tag',
+            aoSelecionar: () => setActiveTab('events'),
+          },
+          {
+            chave: 'profile',
+            rotulo: 'Perfil',
+            ComponenteIcone: Feather,
+            icone: 'user',
+            aoSelecionar: () => setActiveTab('profile'),
+          },
+        ]}
+      />
     </View>
   );
 }

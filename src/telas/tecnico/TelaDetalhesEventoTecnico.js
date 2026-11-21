@@ -5,7 +5,7 @@
 // e permitir que o técnico aceite ou recuse convocações pendentes.
 // ============================================================================
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Linking,
   Platform,
@@ -19,9 +19,13 @@ import {
 import { Card, Button } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { autenticacao } from '../../configuracao/configuracaoFirebase';
 import { CORES, FONTES } from '../../tema/cores';
 import { estilosDetalhesEventoTecnico as styles } from '../../estilos/estilosDetalhesEventoTecnico';
-import { respondToAssignment } from '../../servicos/servicoEscala';
+import {
+  respondToAssignment,
+  subscribeToTechnicianAssignmentStatus,
+} from '../../servicos/servicoEscala';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import { exportarEventoParaPdf } from '../../servicos/servicoExportacaoEvento';
 import CartaoLocal from '../../componentes/CartaoLocal';
@@ -45,6 +49,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const [eventoDetalhado, setEventoDetalhado] = useState(null);
   const [carregandoDetalhes, setCarregandoDetalhes] = useState(true);
   const [exportandoPdf, setExportandoPdf] = useState(false);
+  const [statusConvite, setStatusConvite] = useState('checking');
 
   // Estados para controle dos modais de feedback visual (sucesso e erro)
   const [modalSucessoVisivel, setModalSucessoVisivel] = useState(false);
@@ -53,8 +58,14 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const [msgErro, setMsgErro] = useState('');
 
   // Identifica se a convocação já foi aceita pelo técnico e o nome da empresa organizadora
-  const isAccepted = assignment?.status === 'accepted';
+  const isAccepted = statusConvite === 'accepted';
+  const canExportPdf = isAccepted && assignment?.status === 'accepted';
+  const isPending = statusConvite === 'pending';
   const empresa = assignment?.nomeEmpresa || assignment?.companyName || 'O Organizador';
+  const idEvento = assignment?.idEvento || assignment?.eventId;
+  const idUsuario = assignment?.idUsuario || autenticacao?.currentUser?.uid;
+  const idConvite = idEvento && idUsuario ? `${idEvento}_${idUsuario}` : null;
+  const acessoPermitido = isAccepted || isPending;
 
   // --------------------------------------------------------------------------
   // 1. CARREGAMENTO DOS DADOS COMPLEMENTARES DO EVENTO NO FIRESTORE
@@ -65,23 +76,55 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
    * notas de produção e quantidade de convidados) pelo ID do evento.
    */
   const carregarEvento = useCallback(async () => {
-    if (!assignment?.idEvento) return;
+    if (!idEvento) {
+      setEventoDetalhado(null);
+      setCarregandoDetalhes(false);
+      return;
+    }
+
+    setCarregandoDetalhes(true);
     try {
-      const dados = await repositorioEventos.obterEvento(assignment.idEvento);
+      const dados = await repositorioEventos.obterEvento(idEvento);
       setEventoDetalhado(dados);
     } catch (error) {
       mostrarErro('Não foi possível carregar os detalhes complementares do evento.');
     } finally {
       setCarregandoDetalhes(false);
     }
-  }, [assignment?.idEvento]);
+  }, [idEvento]);
 
-  // Recarrega os detalhes sempre que a tela recebe foco na navegação
+  // Verifica o convite atual antes de carregar qualquer dado do evento.
   useFocusEffect(
     useCallback(() => {
-      carregarEvento();
-    }, [carregarEvento])
+      setEventoDetalhado(null);
+      setCarregandoDetalhes(true);
+      setStatusConvite('checking');
+      if (!idConvite) {
+        setStatusConvite('unavailable');
+        setCarregandoDetalhes(false);
+        return undefined;
+      }
+
+      return subscribeToTechnicianAssignmentStatus(
+        idConvite,
+        (status) => setStatusConvite(status || 'unavailable'),
+        () => {
+          setStatusConvite('unavailable');
+          setCarregandoDetalhes(false);
+          mostrarErro('Não foi possível verificar o status atual do convite.');
+        }
+      );
+    }, [idConvite])
   );
+
+  useEffect(() => {
+    if (acessoPermitido) {
+      carregarEvento();
+    } else if (statusConvite !== 'checking') {
+      setEventoDetalhado(null);
+      setCarregandoDetalhes(false);
+    }
+  }, [acessoPermitido, carregarEvento, statusConvite]);
 
   // --------------------------------------------------------------------------
   // 2. FUNÇÕES AUXILIARES DE FEEDBACK E RESPOSTA À CONVOCAÇÃO
@@ -111,8 +154,8 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
     setRespondendo(true);
     try {
       await respondToAssignment({
-        assignmentId: assignment.id,
-        technicianUid: assignment.idUsuario,
+        assignmentId: idConvite,
+        technicianUid: idUsuario,
         status: status,
       });
       mostrarSucesso(
@@ -142,7 +185,9 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const titulo = eventoDetalhado?.titulo || assignment?.eventTitle || 'Evento Sem Título';
 
   // Formata a data de início do evento no padrão DD/MM/AAAA
-  const dataInicioEvento = converterParaData(eventoDetalhado?.data_inicio || assignment?.eventDate);
+  const dataInicioEventoAtual = converterParaData(eventoDetalhado?.data_inicio);
+  const dataInicioEvento =
+    dataInicioEventoAtual || converterParaData(assignment?.eventDate);
   let dataFormatada = 'Data a confirmar';
   if (eventoDetalhado?.dataInicio) {
     dataFormatada = eventoDetalhado.dataInicio;
@@ -152,15 +197,24 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
 
   // Formata o horário de início do evento no padrão HH:MMh
   let horaFormatada = 'Horário a confirmar';
-  if (eventoDetalhado?.horaInicio) {
-    horaFormatada = eventoDetalhado.horaInicio;
+  if (eventoDetalhado?.hora_inicio || eventoDetalhado?.horaInicioLocal) {
+    horaFormatada = eventoDetalhado.hora_inicio || eventoDetalhado.horaInicioLocal;
+  } else if (dataInicioEventoAtual) {
+    horaFormatada = new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(dataInicioEventoAtual);
+  } else if (assignment?.eventTime) {
+    horaFormatada = assignment.eventTime;
   } else if (dataInicioEvento) {
     horaFormatada = new Intl.DateTimeFormat('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'UTC',
     }).format(dataInicioEvento);
-  } else if (assignment?.eventTime) {
-    horaFormatada = assignment.eventTime;
+  } else if (eventoDetalhado?.horaInicio) {
+    horaFormatada = eventoDetalhado.horaInicio;
   }
 
   const notas =
@@ -181,7 +235,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
     locaisBase = [{ enderecoLocal: assignment.eventAddress, tipoLocal: 'Local Principal' }];
   }
   const locaisOrdenados = [...locaisBase].sort((a, b) =>
-    (a.horaLocal || horaFormatada).localeCompare(b.horaLocal || horaFormatada)
+    (a.horaLocal || '').localeCompare(b.horaLocal || '')
   );
 
   // Filtra apenas os profissionais confirmados ou informativos para exibição na equipe
@@ -193,7 +247,10 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   );
   const quantidadeConvidados = Number(
     eventoDetalhado?.quantidade_convidados ??
+    eventoDetalhado?.quantidadeConvidados ??
+    eventoDetalhado?.num_convidados ??
     eventoDetalhado?.numConvidados ??
+    eventoDetalhado?.guestCount ??
     assignment?.guestCount ??
     0
   );
@@ -207,7 +264,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         data: dataFormatada,
         horario: horaFormatada,
         cliente: eventoDetalhado?.cliente?.nome || assignment?.clientName,
-        convidados: quantidadeConvidados,
+        quantidade_convidados: quantidadeConvidados,
         funcao: assignment?.roleName,
         organizador: empresa,
         locais: locaisOrdenados,
@@ -244,9 +301,26 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         </View>
       </View>
 
-      {carregandoDetalhes ? (
+      {statusConvite === 'checking' || (acessoPermitido && carregandoDetalhes) ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={CORES.buttonGold} />
+        </View>
+      ) : !acessoPermitido ? (
+        <View style={styles.center}>
+          <Feather name="lock" size={34} color={CORES.textMuted} />
+          <Text style={[styles.sectionTitle, { textAlign: 'center', marginTop: 16 }]}>
+            Evento indisponível
+          </Text>
+          <Text style={[styles.sectionHint, { textAlign: 'center' }]}>
+            {statusConvite === 'declined'
+              ? 'Você recusou esta convocação. Os detalhes do evento não estão mais disponíveis.'
+              : statusConvite === 'cancelled'
+                ? 'Esta convocação foi cancelada e os detalhes do evento não estão mais disponíveis.'
+                : 'Não foi possível confirmar uma convocação ativa para este evento.'}
+          </Text>
+          <Button mode="contained" onPress={() => navigation.goBack()}>
+            Voltar
+          </Button>
         </View>
       ) : (
         /* CONTEÚDO PRINCIPAL COM ROLAGEM (SCROLL) */
@@ -254,7 +328,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           style={styles.body}
           contentContainerStyle={[
             styles.scrollContent,
-            assignment?.status === 'pending' && styles.scrollContentPending,
+            isPending && styles.scrollContentPending,
           ]}
           showsVerticalScrollIndicator={Platform.OS === 'web'}
         >
@@ -271,31 +345,33 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
             </Text>
           )}
 
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={exportarPdf}
-            disabled={exportandoPdf}
-            style={{
-              minHeight: 46,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              backgroundColor: CORES.buttonGold,
-              borderRadius: 11,
-              marginBottom: 18,
-              opacity: exportandoPdf ? 0.65 : 1,
-            }}
-          >
-            {exportandoPdf ? (
-              <ActivityIndicator size="small" color={CORES.textNavy} />
-            ) : (
-              <Feather name="share" size={16} color={CORES.textNavy} />
-            )}
-            <Text style={{ color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 14 }}>
-              {exportandoPdf ? 'Gerando PDF...' : 'Exportar PDF'}
-            </Text>
-          </TouchableOpacity>
+          {canExportPdf && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={exportarPdf}
+              disabled={exportandoPdf}
+              style={{
+                minHeight: 46,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                backgroundColor: CORES.buttonGold,
+                borderRadius: 11,
+                marginBottom: 18,
+                opacity: exportandoPdf ? 0.65 : 1,
+              }}
+            >
+              {exportandoPdf ? (
+                <ActivityIndicator size="small" color={CORES.textNavy} />
+              ) : (
+                <Feather name="share" size={16} color={CORES.textNavy} />
+              )}
+              <Text style={{ color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 14 }}>
+                {exportandoPdf ? 'Gerando PDF...' : 'Exportar PDF'}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* CARTÃO PRINCIPAL: RESUMO DO EVENTO (TIPO, TÍTULO, FUNÇÃO, DATA, HORÁRIO E CONVIDADOS) */}
           <Card style={[styles.card, styles.mainEventCard]}>
@@ -359,7 +435,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           <Text style={styles.sectionTitle}>Locais do Evento</Text>
           {locaisOrdenados.length > 0 ? (
             locaisOrdenados.map((local, index) => (
-              <CartaoLocal key={index} local={local} fallbackHora={horaFormatada} />
+              <CartaoLocal key={index} local={local} />
             ))
           ) : (
             <Text style={styles.sectionHint}>Nenhum local cadastrado.</Text>
@@ -434,7 +510,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
       )}
 
       {/* BARRA INFERIOR FIXA PARA RESPONDER À CONVOCAÇÃO PENDENTE */}
-      {assignment?.status === 'pending' && !carregandoDetalhes && (
+      {isPending && !carregandoDetalhes && (
         <View style={styles.bottomActionArea}>
           {respondendo ? (
             <ActivityIndicator size="large" color="#10B981" style={styles.respondingLoader} />

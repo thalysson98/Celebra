@@ -5,9 +5,15 @@ import { Card } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CORES, FONTES } from '../tema/cores';
 
-export default function CartaoLocal({ local, fallbackHora }) {
-  
-  const horaLocal = local.horaLocal || fallbackHora || 'Horário a confirmar';
+export default function CartaoLocal({ local }) {
+  const horaLocal =
+    local.horaLocal ||
+    local.hora_local ||
+    local.horarioLocal ||
+    local.horario_local ||
+    local.horario ||
+    local.hora ||
+    'Horário a confirmar';
   const address = local.enderecoLocal || local.endereco || local.endereco_completo || local.nomeDoLocal;
 
   return (

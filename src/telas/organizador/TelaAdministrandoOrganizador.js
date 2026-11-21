@@ -301,11 +301,26 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
   const confirmarInativacao = async () => {
     setModalInativarVisivel(false);
     try {
-      const emUso = await repositorioEventos.verificarUsoEmEvento(categoriaAtiva.chave, itemParaInativar.id, empresaId);
-      if (emUso) {
-        mostrarErro("Este registro está em uso e não pode ser inativado.");
-        return;
+      const podeInativarComHistorico = [
+        'tiposEvento',
+        'tiposProfissional',
+        'tiposLocal',
+        'tiposDespesa',
+        'locaisSalvos',
+      ].includes(categoriaAtiva.chave);
+
+      if (!podeInativarComHistorico) {
+        const emUso = await repositorioEventos.verificarUsoEmEvento(
+          categoriaAtiva.chave,
+          itemParaInativar.id,
+          empresaId
+        );
+        if (emUso) {
+          mostrarErro("Este registro está em uso e não pode ser inativado.");
+          return;
+        }
       }
+
       await repositorioEventos.arquivarItemSelect(categoriaAtiva.chave, itemParaInativar.id, empresaId);
       await carregarItens();
       mostrarSucesso("Sucesso", "Cadastro inativado.");
