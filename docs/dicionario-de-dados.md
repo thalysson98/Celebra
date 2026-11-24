@@ -17,9 +17,10 @@ Este dicionário foi alinhado ao [modelo oficial de banco e regras](modelo-banco
 |---|---|:---:|---|
 | `id_usuario` | string | sim | UID do Firebase Authentication e chave do documento. |
 | `nome_completo` | string | sim | Nome usado no perfil. |
-| `cpf` | string | sim | CPF válido armazenado somente com 11 dígitos. |
+| `cpf` | string | sim | CPF válido armazenado somente com 11 dígitos (não pode ser alterado após o cadastro). |
 | `email` | string | sim | E-mail de login. |
 | `telefone` | string | não | Telefone/WhatsApp com DDD. |
+| `notificacoes_eventos` | boolean | não | Preferência para receber notificações de eventos e equipe (padrão `true`). |
 | `papel` | boolean | sim | `true` para administrador; `false` para funcionário. |
 | `id_empresa` | string/null | não | Empresa vinculada; fica nulo até o vínculo. |
 | `ativo` | boolean | sim | Libera ou bloqueia o acesso. |

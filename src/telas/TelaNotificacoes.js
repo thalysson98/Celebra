@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,8 +16,10 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { autenticacao } from '../configuracao/configuracaoFirebase';
 import { CORES, FONTES } from '../tema/cores';
+import { subscribeToTechnicianAssignments } from '../servicos/servicoEscala';
 import {
   assinarNotificacoesUsuario,
   alterarStatusLeituraNotificacao,
@@ -66,14 +68,46 @@ function formatarDataHoraNotificacao(timestamp) {
 // ============================================================================
 
 export default function TelaNotificacoes({ navigation, route }) {
-  // Estados para controle da aba ativa ('nao_lidas' ou 'lidas'), lista e carregamento
+  // Margem inferior segura para o final da lista não ficar atrás da barra do celular
+  const insets = useSafeAreaInsets();
+
+  // Estados para controlar abas, notificações, loading inicial e loading ao clicar em um evento
   const [abaAtiva, setAbaAtiva] = useState('nao_lidas');
   const [notificacoes, setNotificacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [abrindoNotificacaoId, setAbrindoNotificacaoId] = useState(null);
+  const [avisoIndisponivelVisivel, setAvisoIndisponivelVisivel] = useState(false);
 
-  // Recupera o ID do usuário e a lista de eventos (assignments) enviados pela TelaPainelTecnico
+  // Recupera o ID do usuário e a lista inicial de eventos recebida pela navegação
   const idUsuario = route?.params?.idUsuario || autenticacao?.currentUser?.uid;
-  const assignments = route?.params?.assignments || [];
+  const assignmentsIniciais = route?.params?.assignments || [];
+  const [assignments, setAssignments] = useState(assignmentsIniciais);
+  const [carregandoConvocacoes, setCarregandoConvocacoes] = useState(
+    assignmentsIniciais.length === 0
+  );
+
+  // Mantém a lista de convocações atualizada em tempo real para abrir o evento correto ao clicar
+  useEffect(() => {
+    if (!idUsuario) {
+      setCarregandoConvocacoes(false);
+      return;
+    }
+
+    const cancelarConvocacoes = subscribeToTechnicianAssignments(
+      idUsuario,
+      (lista) => {
+        setAssignments(lista || []);
+        setCarregandoConvocacoes(false);
+      },
+      () => {
+        setCarregandoConvocacoes(false);
+      }
+    );
+
+    return () => {
+      if (typeof cancelarConvocacoes === 'function') cancelarConvocacoes();
+    };
+  }, [idUsuario]);
 
   // --------------------------------------------------------------------------
   // 1. ESCUTA EM TEMPO REAL DAS NOTIFICAÇÕES NO FIRESTORE
@@ -122,6 +156,14 @@ export default function TelaNotificacoes({ navigation, route }) {
   const encontrarEventoDaNotificacao = (notificacao) => {
     if (!assignments || assignments.length === 0) return null;
 
+    // Notificações de convocação removida ou evento cancelado não devem abrir nenhum evento
+    if (
+      notificacao.tipo === 'convocacao_removida' ||
+      notificacao.tipo === 'evento_cancelado'
+    ) {
+      return null;
+    }
+
     // Captura possíveis nomes de campos que guardam o ID do evento na notificação
     const idEventoAlvo =
       notificacao.eventoId ||
@@ -130,18 +172,19 @@ export default function TelaNotificacoes({ navigation, route }) {
       notificacao.assignmentId ||
       notificacao.idEvento;
 
-    // 1ª Tentativa: Busca exata pelo ID do evento ou da convocação
+    // 1ª Tentativa: Se a notificação tem ID do evento, busca apenas por esse ID exato
     if (idEventoAlvo) {
-      const encontradoPorId = assignments.find(
-        (a) =>
-          a.id === idEventoAlvo ||
-          a.idEvento === idEventoAlvo ||
-          a.eventId === idEventoAlvo
+      return (
+        assignments.find(
+          (a) =>
+            a.id === idEventoAlvo ||
+            a.idEvento === idEventoAlvo ||
+            a.eventId === idEventoAlvo
+        ) || null
       );
-      if (encontradoPorId) return encontradoPorId;
     }
 
-    // 2ª Tentativa: Busca pelo nome do evento contido no título ou mensagem da notificação
+    // 2ª Tentativa (apenas para notificações antigas sem ID): busca pelo nome do evento
     const textoNotificacao = `${notificacao.titulo || ''} ${notificacao.mensagem || ''}`.toLowerCase();
     return assignments.find(
       (a) => a.eventTitle && textoNotificacao.includes(a.eventTitle.toLowerCase())
@@ -150,10 +193,14 @@ export default function TelaNotificacoes({ navigation, route }) {
 
   /**
    * Ação executada ao clicar em cima do card da notificação:
-   * 1. Marca automaticamente como lida no Firestore (vai para o campo "Lidas").
-   * 2. Direciona o técnico para a tela de detalhes do evento correspondente.
+   * 1. Ativa o loading para evitar cliques repetidos.
+   * 2. Marca a notificação como lida no Firestore (vai para a aba "Lidas").
+   * 3. Abre a tela de detalhes do evento correspondente ou avisa se não estiver mais ativo.
    */
   const aoClicarEmNotificacao = async (notificacao) => {
+    if (abrindoNotificacaoId) return;
+
+    setAbrindoNotificacaoId(notificacao.id);
     try {
       // Se ainda não estiver lida, atualiza para lida (true) no banco
       if (!notificacao.lida) {
@@ -180,14 +227,13 @@ export default function TelaNotificacoes({ navigation, route }) {
           assignment: assignmentSerializado,
         });
       } else {
-        // Convites recusados, cancelados ou removidos nunca devem abrir detalhes.
-        Alert.alert(
-          'Evento indisponível',
-          'Esta convocação não está mais ativa. Os detalhes do evento não estão disponíveis.'
-        );
+        // Convites recusados, cancelados ou removidos nunca devem abrir detalhes
+        setAvisoIndisponivelVisivel(true);
       }
     } catch (erro) {
       console.log('Erro ao processar clique na notificação:', erro);
+    } finally {
+      setAbrindoNotificacaoId(null);
     }
   };
 
@@ -263,10 +309,13 @@ export default function TelaNotificacoes({ navigation, route }) {
       {/* LISTA DE CARDS DAS NOTIFICAÇÕES */}
       <ScrollView
         style={estilos.listaScroll}
-        contentContainerStyle={estilos.listaContainer}
+        contentContainerStyle={[
+          estilos.listaContainer,
+          { paddingBottom: 40 + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={Platform.OS === 'web'}
       >
-        {carregando ? (
+        {carregando || carregandoConvocacoes ? (
           <ActivityIndicator size="large" color={CORES.buttonGold} style={{ marginTop: 40 }} />
         ) : notificacoesFiltradas.length === 0 ? (
           <View style={estilos.vazioContainer}>
@@ -278,68 +327,114 @@ export default function TelaNotificacoes({ navigation, route }) {
             </Text>
           </View>
         ) : (
-          notificacoesFiltradas.map((item) => (
-            /* CARD DA NOTIFICAÇÃO (Clicar no corpo abre o evento e marca como lida) */
-            <TouchableOpacity
-              key={item.id}
-              style={estilos.card}
-              activeOpacity={0.85}
-              onPress={() => aoClicarEmNotificacao(item)}
-            >
-              {/* Parte superior do Card: Ícone + Textos + Seta indicativa */}
-              <View style={estilos.cardLinhaSuperior}>
-                <View style={estilos.iconeCirculo}>
-                  <Feather
-                    name={item.tipo === 'evento_cancelado' ? 'x-circle' : item.tipo === 'convocacao_removida' ? 'user-x' : 'bell'}
-                    size={20}
-                    color={CORES.textNavy}
-                  />
+          notificacoesFiltradas.map((item) => {
+            const estaAbrindo = abrindoNotificacaoId === item.id;
+            return (
+              /* CARD DA NOTIFICAÇÃO (Clicar no corpo abre o evento e marca como lida) */
+              <TouchableOpacity
+                key={item.id}
+                style={[estilos.card, estaAbrindo && estilos.cardAbrindo]}
+                activeOpacity={0.85}
+                disabled={Boolean(abrindoNotificacaoId)}
+                onPress={() => aoClicarEmNotificacao(item)}
+              >
+                {/* Parte superior do Card: Ícone + Textos + Seta/Loading indicativo */}
+                <View style={estilos.cardLinhaSuperior}>
+                  <View style={estilos.iconeCirculo}>
+                    <Feather
+                      name={item.tipo === 'evento_cancelado' ? 'x-circle' : item.tipo === 'convocacao_removida' ? 'user-x' : 'bell'}
+                      size={20}
+                      color={CORES.textNavy}
+                    />
+                  </View>
+
+                  <View style={estilos.cardConteudo}>
+                    <Text style={estilos.cardTitulo}>{item.titulo}</Text>
+                    <Text style={estilos.cardMensagem}>{item.mensagem}</Text>
+                    <Text style={estilos.cardData}>
+                      {formatarDataHoraNotificacao(item.criado_em || item.createdAt)}
+                    </Text>
+                  </View>
+
+                  {estaAbrindo ? (
+                    <ActivityIndicator size="small" color={CORES.buttonGold} />
+                  ) : (
+                    <Feather name="chevron-right" size={18} color="#94A3B8" />
+                  )}
                 </View>
 
-                <View style={estilos.cardConteudo}>
-                  <Text style={estilos.cardTitulo}>{item.titulo}</Text>
-                  <Text style={estilos.cardMensagem}>{item.mensagem}</Text>
-                  <Text style={estilos.cardData}>
-                    {formatarDataHoraNotificacao(item.criado_em || item.createdAt)}
-                  </Text>
-                </View>
-
-                <Feather name="chevron-right" size={18} color="#94A3B8" />
-              </View>
-
-              {/* Rodapé no canto inferior direito: Botão para alternar entre Lida e Não Lida */}
-              <View style={estilos.cardRodapeDireito}>
-                <TouchableOpacity
-                  style={[
-                    estilos.botaoStatusLeitura,
-                    item.lida ? estilos.botaoStatusNaoLida : estilos.botaoStatusLida,
-                  ]}
-                  activeOpacity={0.75}
-                  onPress={(evento) => {
-                    // Impede que o clique no botão dispare o clique do card inteiro na Web/Mobile
-                    if (evento?.stopPropagation) evento.stopPropagation();
-                    aoAlternarLeituraManual(item);
-                  }}
-                >
-                  <Feather
-                    name={item.lida ? 'rotate-ccw' : 'check'}
-                    size={13}
-                    color={item.lida ? '#475569' : CORES.textNavy}
-                  />
-                  <Text
+                {/* Rodapé no canto inferior direito: Botão para alternar entre Lida e Não Lida */}
+                <View style={estilos.cardRodapeDireito}>
+                  <TouchableOpacity
                     style={[
-                      estilos.textoBotaoStatus,
-                      item.lida ? estilos.textoBotaoNaoLida : estilos.textoBotaoLida,
+                      estilos.botaoStatusLeitura,
+                      item.lida ? estilos.botaoStatusNaoLida : estilos.botaoStatusLida,
                     ]}
+                    activeOpacity={0.75}
+                    disabled={Boolean(abrindoNotificacaoId)}
+                    onPress={(evento) => {
+                      // Impede que o clique no botão dispare o clique do card inteiro na Web/Mobile
+                      if (evento?.stopPropagation) evento.stopPropagation();
+                      aoAlternarLeituraManual(item);
+                    }}
                   >
-                    {item.lida ? 'Marcar como não lida' : 'Marcar como lida'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))
+                    <Feather
+                      name={item.lida ? 'rotate-ccw' : 'check'}
+                      size={13}
+                      color={item.lida ? '#475569' : CORES.textNavy}
+                    />
+                    <Text
+                      style={[
+                        estilos.textoBotaoStatus,
+                        item.lida ? estilos.textoBotaoNaoLida : estilos.textoBotaoLida,
+                      ]}
+                    >
+                      {item.lida ? 'Marcar como não lida' : 'Marcar como lida'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
+
+      {/* OVERLAY DE LOADING AO ABRIR UMA NOTIFICAÇÃO DE EVENTO */}
+      {Boolean(abrindoNotificacaoId) && (
+        <View style={estilos.overlayCarregandoEvento}>
+          <View style={estilos.cardCarregandoEvento}>
+            <ActivityIndicator size="large" color={CORES.buttonGold} />
+            <Text style={estilos.textoCarregandoEvento}>Abrindo evento...</Text>
+          </View>
+        </View>
+      )}
+
+      {/* MODAL DE AVISO PARA EVENTO INDISPONÍVEL */}
+      <Modal
+        visible={avisoIndisponivelVisivel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvisoIndisponivelVisivel(false)}
+      >
+        <View style={estilos.modalOverlay}>
+          <View style={estilos.modalCard}>
+            <View style={estilos.modalIconeCirculo}>
+              <Feather name="lock" size={26} color="#EF4444" />
+            </View>
+            <Text style={estilos.modalTitulo}>Evento indisponível</Text>
+            <Text style={estilos.modalDescricao}>
+              Esta convocação não está mais ativa. Os detalhes do evento não estão disponíveis.
+            </Text>
+            <TouchableOpacity
+              style={estilos.modalBotao}
+              activeOpacity={0.85}
+              onPress={() => setAvisoIndisponivelVisivel(false)}
+            >
+              <Text style={estilos.modalBotaoTexto}>Ok, entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -421,6 +516,11 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  // Destaque suave no card enquanto o evento da notificação está sendo aberto
+  cardAbrindo: {
+    opacity: 0.72,
+    borderColor: CORES.buttonGold,
+  },
   cardLinhaSuperior: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -498,5 +598,81 @@ const estilos = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     textAlign: 'center',
+  },
+  // Estilos do overlay de loading ao abrir evento e do modal de aviso de indisponibilidade
+  overlayCarregandoEvento: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(16, 43, 70, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  cardCarregandoEvento: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 28,
+    paddingVertical: 22,
+    alignItems: 'center',
+    gap: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  textoCarregandoEvento: {
+    fontFamily: FONTES.semibold,
+    fontSize: 14,
+    color: CORES.textNavy,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+  },
+  modalIconeCirculo: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  modalTitulo: {
+    fontFamily: FONTES.bold,
+    fontSize: 18,
+    color: CORES.textNavy,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalDescricao: {
+    fontFamily: FONTES.body,
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalBotao: {
+    width: '100%',
+    backgroundColor: CORES.buttonGold,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalBotaoTexto: {
+    fontFamily: FONTES.bold,
+    fontSize: 14,
+    color: CORES.textNavy,
   },
 });

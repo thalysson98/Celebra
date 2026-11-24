@@ -95,10 +95,11 @@ service cloud.firestore {
       );
       allow update: if autenticado() && request.auth.uid == userId
         && (
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'cpf', 'telefone', 'pushToken'])
-            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['cpf'])
-              || (request.resource.data.cpf is string && request.resource.data.cpf.matches('^[0-9]{11}$')))
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome_completo', 'telefone', 'pushToken', 'notificacoes_eventos'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['notificacoes_eventos'])
+              || request.resource.data.notificacoes_eventos is bool)
             && request.resource.data.id_usuario == resource.data.id_usuario
+            && request.resource.data.cpf == resource.data.cpf
             && request.resource.data.papel == resource.data.papel
             && request.resource.data.id_empresa == resource.data.id_empresa
             && request.resource.data.ativo == resource.data.ativo)

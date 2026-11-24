@@ -728,6 +728,27 @@ export const estilosPainelTecnico = StyleSheet.create({
     paddingHorizontal: 12,
     textAlignVertical: 'center',
   },
+  // Estilo do campo CPF travado (somente leitura) no modal de edição do perfil
+  profileFieldInputDisabledRow: {
+    minHeight: 43,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#EEF2F6',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  profileFieldInputDisabledText: {
+    flex: 1,
+    color: CORES.textMuted,
+    fontFamily: FONTES.body,
+    fontSize: 14,
+    paddingVertical: 10,
+    textAlignVertical: 'center',
+  },
   profileEmailNote: { color: CORES.textMuted, fontFamily: FONTES.body, fontSize: 11, marginTop: 10 },
   profileEditorActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 18 },
   profileCancelButton: {

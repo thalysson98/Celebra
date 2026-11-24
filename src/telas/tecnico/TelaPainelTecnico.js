@@ -160,7 +160,21 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   const [eventsNotificationsEnabled, setEventsNotificationsEnabled] = useState(
     user.notificationPreferences?.eventsAndTeam ?? true
   );
+  // Referência para os ouvintes em tempo real saberem se a chave de notificações está ligada ou desligada
+  const eventsNotificationsEnabledRef = useRef(eventsNotificationsEnabled);
   const [isSavingNotificationPreference, setSavingNotificationPreference] = useState(false);
+
+  // Atualiza a referência sempre que o técnico ligar ou desligar a chave de notificações
+  useEffect(() => {
+    eventsNotificationsEnabledRef.current = eventsNotificationsEnabled;
+  }, [eventsNotificationsEnabled]);
+
+  // Sincroniza o estado inicial da chave quando os dados do usuário carregarem
+  useEffect(() => {
+    if (typeof user.notificationPreferences?.eventsAndTeam === 'boolean') {
+      setEventsNotificationsEnabled(user.notificationPreferences.eventsAndTeam);
+    }
+  }, [user.notificationPreferences?.eventsAndTeam]);
 
   // Estados do calendário da agenda mensal e gerenciamento de datas de indisponibilidade
   const [agendaMonth, setAgendaMonth] = useState(() => {
@@ -227,15 +241,17 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
             convitesAnterioresRef.current.filter((a) => a.status === 'pending').map((a) => a.id)
           );
           const novosConvites = lista.filter((a) => a.status === 'pending' && !idsAnteriores.has(a.id));
-          for (const novo of novosConvites) {
-            const idEventoAlvo = novo.idEvento || novo.id;
-            const idNotifNovo = `novo_evento_${idEventoAlvo}_${user.uid}`;
-            const dataFmt = formatShortDate(novo.eventDate);
-            dispararNotificacaoBarraCelular(
-              'Novo evento lançado para você!',
-              `Você foi escalado como ${novo.roleName || 'profissional'} no evento "${novo.eventTitle || 'Evento'}" (${dataFmt}).`,
-              idNotifNovo
-            );
+          if (eventsNotificationsEnabledRef.current) {
+            for (const novo of novosConvites) {
+              const idEventoAlvo = novo.idEvento || novo.id;
+              const idNotifNovo = `novo_evento_${idEventoAlvo}_${user.uid}`;
+              const dataFmt = formatShortDate(novo.eventDate);
+              dispararNotificacaoBarraCelular(
+                'Novo evento lançado para você!',
+                `Você foi escalado como ${novo.roleName || 'profissional'} no evento "${novo.eventTitle || 'Evento'}" (${dataFmt}).`,
+                idNotifNovo
+              );
+            }
           }
         }
         convitesAnterioresRef.current = lista;
@@ -281,17 +297,22 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     [notificacoesSistema]
   );
 
-  // Registra o token push do dispositivo e escuta a coleção 'notificacoes' em tempo real
+  // Registra o token push do dispositivo apenas quando as notificações estiverem ativadas
+  useEffect(() => {
+    if (user?.uid && eventsNotificationsEnabled) {
+      inicializarNotificacoesDispositivo(user.uid);
+    }
+  }, [user?.uid, eventsNotificationsEnabled]);
+
+  // Escuta a coleção 'notificacoes' em tempo real
   useEffect(() => {
     if (!user?.uid) return;
-
-    inicializarNotificacoesDispositivo(user.uid);
 
     const cancelarAssinatura = assinarNotificacoesUsuario(
       user.uid,
       (lista) => {
         // Dispara o banner local no aparelho sempre que uma nova notificação não lida chega
-        if (notificacoesAnterioresRef.current !== null) {
+        if (notificacoesAnterioresRef.current !== null && eventsNotificationsEnabledRef.current) {
           const idsAnteriores = new Set(notificacoesAnterioresRef.current.map((n) => n.id));
           const novas = lista.filter((n) => !idsAnteriores.has(n.id) && !n.lida);
           for (const nova of novas) {
@@ -383,7 +404,8 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
   };
 
   /**
-   * Valida e salva as alterações de nome, CPF e telefone do perfil do técnico no Firestore.
+   * Valida e salva as alterações de nome e telefone do perfil do técnico no Firestore.
+   * O CPF não pode ser alterado após a criação da conta.
    */
   const saveProfile = async () => {
     if (!profileForm.displayName.trim()) {
@@ -392,7 +414,10 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     }
     setSavingProfile(true);
     try {
-      const savedFields = await updateUserProfile(user.uid, profileForm);
+      const savedFields = await updateUserProfile(user.uid, {
+        displayName: profileForm.displayName,
+        phone: profileForm.phone,
+      });
       setProfile((current) => ({ ...current, ...savedFields, name: savedFields.displayName }));
       setProfileEditorVisible(false);
       mostrarSucesso('Seus dados foram salvos com sucesso.', 'Perfil atualizado');
@@ -788,11 +813,20 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         return eventSortAscending ? comparison : -comparison;
       });
 
-    const monthLabel = visibleAssignments.length
-      ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
-          toDate(visibleAssignments[0].eventDate) || new Date()
-        )
-      : '';
+    // Agrupa os eventos por mês/ano para mostrar o cabeçalho certo em cada mês da lista
+    const eventosAgrupadosPorMes = [];
+    for (const assignment of visibleAssignments) {
+      const dataEvento = toDate(assignment.eventDate);
+      const mesLabel = dataEvento
+        ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(dataEvento)
+        : 'Data a confirmar';
+      const ultimoGrupo = eventosAgrupadosPorMes[eventosAgrupadosPorMes.length - 1];
+      if (ultimoGrupo && ultimoGrupo.mes === mesLabel) {
+        ultimoGrupo.itens.push(assignment);
+      } else {
+        eventosAgrupadosPorMes.push({ mes: mesLabel, itens: [assignment] });
+      }
+    }
 
     return (
       <>
@@ -868,10 +902,14 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
           <ActivityIndicator color={COLORS.buttonGold} style={styles.loader} />
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : visibleAssignments.length ? (
+        ) : eventosAgrupadosPorMes.length ? (
           <>
-            <Text style={styles.eventMonthLabel}>{monthLabel}</Text>
-            {visibleAssignments.map((assignment) => renderEventCard(assignment))}
+            {eventosAgrupadosPorMes.map((grupo) => (
+              <React.Fragment key={grupo.mes}>
+                <Text style={styles.eventMonthLabel}>{grupo.mes}</Text>
+                {grupo.itens.map((assignment) => renderEventCard(assignment))}
+              </React.Fragment>
+            ))}
           </>
         ) : (
           <View style={styles.eventEmptyCard}>
@@ -1138,15 +1176,18 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
               maxLength={100}
               autoCapitalize="words"
             />
-            <Text style={styles.profileFieldLabel}>CPF</Text>
-            <TextInput
-              style={styles.profileFieldInput}
-              value={profileForm.cpf}
-              onChangeText={(cpf) => setProfileForm((current) => ({ ...current, cpf: formatCpf(cpf) }))}
-              placeholder="000.000.000-00"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="numeric"
-            />
+            <Text style={styles.profileFieldLabel}>CPF (não editável)</Text>
+            <View style={styles.profileFieldInputDisabledRow}>
+              <TextInput
+                style={styles.profileFieldInputDisabledText}
+                value={profileForm.cpf || 'Não informado'}
+                editable={false}
+                selectTextOnFocus={false}
+                placeholder="000.000.000-00"
+                placeholderTextColor={COLORS.textMuted}
+              />
+              <Feather name="lock" size={15} color={COLORS.textMuted} />
+            </View>
             <Text style={styles.profileFieldLabel}>Telefone</Text>
             <TextInput
               style={styles.profileFieldInput}
@@ -1159,7 +1200,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
               keyboardType="phone-pad"
             />
             <Text style={styles.profileEmailNote}>
-              O e-mail da conta não pode ser alterado por esta tela.
+              O e-mail e o CPF não podem ser alterados após a criação da conta.
             </Text>
             <View style={styles.profileEditorActions}>
               <TouchableOpacity

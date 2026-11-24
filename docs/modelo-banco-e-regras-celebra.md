@@ -80,9 +80,10 @@ Todas as coleções ficam no **primeiro nível (raiz)** do banco de dados, sem t
 |---|---|:---:|:---:|---|
 | `id_usuario` | texto | Sim | Chave Primária | Identificador único (mesmo UID do Firebase Auth) |
 | `nome_completo` | texto | Sim | - | Nome e sobrenome do usuário |
-| `cpf` | texto | Sim | - | CPF válido, armazenado somente com 11 dígitos |
+| `cpf` | texto | Sim | - | CPF válido, armazenado somente com 11 dígitos (imutável após a criação da conta) |
 | `email` | texto | Sim | - | E-mail autenticado de login |
 | `telefone` | texto | Não | - | Telefone ou WhatsApp com DDD |
+| `notificacoes_eventos` | booleano | Não | - | Preferência do usuário para receber notificações de eventos e equipe (padrão `true`) |
 | `papel` | booleano | Sim | - | `true` para administrador ou `false` para funcionário |
 | `id_empresa` | texto | Não | Chave Estrangeira → `empresas` | Empresa vinculada (nulo enquanto não vinculado) |
 | `ativo` | booleano | Sim | - | `true` (acesso liberado) ou `false` (bloqueado) |

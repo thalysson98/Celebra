@@ -11,6 +11,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
@@ -115,10 +116,29 @@ export async function inicializarNotificacoesDispositivo(idUsuario) {
   }
 }
 
+// Cancela todos os alarmes locais agendados no celular quando o técnico desativa as notificações
+export async function cancelarTodasNotificacoesAgendadas() {
+  if (Platform.OS === 'web') return;
+
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch (erro) {
+    console.error('Erro ao cancelar notificações agendadas:', erro?.message || erro);
+  }
+}
+
 async function enviarPushRemotoParaUsuario(idUsuarioDestino, titulo, mensagem) {
+  // Na versão Web o navegador bloqueia chamadas diretas para a API do Expo Push (CORS)
+  if (Platform.OS === 'web') return;
+
   try {
     const userSnap = await getDoc(doc(bancoDados, 'usuarios', idUsuarioDestino));
-    const pushToken = userSnap.data()?.pushToken;
+    const dadosUsuario = userSnap.data();
+    // Respeita a preferência do técnico caso ele tenha desligado as notificações
+    if (dadosUsuario?.notificacoes_eventos === false) {
+      return;
+    }
+    const pushToken = dadosUsuario?.pushToken;
 
     if (!pushToken) {
       console.log(`Usuário ${idUsuarioDestino} não possui pushToken cadastrado.`);
@@ -391,6 +411,45 @@ export async function marcarTodasNotificacoesComoLidas(listaNotificacoes = []) {
   );
 }
 
+// Marca como lidas as notificações pendentes do evento e cancela os alarmes locais no celular
+export async function marcarNotificacoesEventoComoLidas(idUsuario, idEvento) {
+  if (!idUsuario || !idEvento) return;
+
+  if (Platform.OS !== 'web') {
+    for (const identificador of [
+      `alarme_7d_${idEvento}`,
+      `alarme_3d_${idEvento}`,
+      `alarme_hoje_${idEvento}`,
+    ]) {
+      try {
+        await Notifications.cancelScheduledNotificationAsync(identificador);
+      } catch (erro) {
+        console.error(`Erro ao cancelar ${identificador}:`, erro?.message || erro);
+      }
+    }
+  }
+
+  try {
+    const consulta = query(
+      collection(bancoDados, 'notificacoes'),
+      where('id_usuario', '==', idUsuario)
+    );
+    const snapshot = await getDocs(consulta);
+    const paraAtualizar = snapshot.docs.filter((documento) => {
+      const dados = documento.data();
+      return !dados.lida && dados.id_evento === idEvento;
+    });
+
+    await Promise.all(
+      paraAtualizar.map((documento) =>
+        updateDoc(doc(bancoDados, 'notificacoes', documento.id), { lida: true })
+      )
+    );
+  } catch (erro) {
+    console.error('Erro ao limpar notificações do evento:', erro?.message || erro);
+  }
+}
+
 export async function notificarNovoEventoParaTecnico({
   idUsuario,
   idEvento,
@@ -498,7 +557,15 @@ export async function verificarLembretesProximidadeEvento({
 }) {
   if (!idUsuario || !idEvento || !dataEvento) return;
   const statusLimpo = String(statusConfirmacao || '').toLowerCase();
-  if (statusLimpo.includes('recusad') || statusLimpo.includes('cancelad')) return;
+  // Não gera lembretes para eventos já recusados ou cancelados (em PT ou EN)
+  if (
+    statusLimpo.includes('recusad') ||
+    statusLimpo.includes('cancelad') ||
+    statusLimpo.includes('declined') ||
+    statusLimpo.includes('cancelled')
+  ) {
+    return;
+  }
 
   const diasRestantes = calcularDiasAteEvento(dataEvento);
   if (diasRestantes === null || diasRestantes < 0) return;
@@ -526,6 +593,7 @@ export async function verificarLembretesProximidadeEvento({
     const titulo = diasRestantes === 3
       ? 'Evento em 3 dias!'
       : `Evento muito próximo (${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'})!`;
+    const verboFalta = diasRestantes === 1 ? 'Falta' : 'Faltam';
     await criarNotificacaoUnica(
       `lembrete_3d_${idEvento}_${idUsuario}`,
       {
@@ -533,7 +601,7 @@ export async function verificarLembretesProximidadeEvento({
         idEvento,
         tipo: 'lembrete_3_dias',
         titulo,
-        mensagem: `Faltam ${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'} para o evento "${nomeEvento}" (${dataFormatada}). Confira o horário e local!`,
+        mensagem: `${verboFalta} ${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'} para o evento "${nomeEvento}" (${dataFormatada}). Confira o horário e local!`,
       },
       { dispararBannerLocal: !enviarPushRemoto, enviarPushRemoto }
     );

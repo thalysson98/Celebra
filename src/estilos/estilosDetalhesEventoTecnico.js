@@ -19,7 +19,7 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
   },
 
   // Cabeçalho superior escuro com botão voltar e botão de notificações
-  header: { backgroundColor: '#102B46', paddingHorizontal: 20, paddingTop: 45, paddingBottom: 25 },
+  header: { flexShrink: 0, backgroundColor: '#102B46', paddingHorizontal: 20, paddingTop: 45, paddingBottom: 25 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   headerTitle: { color: CORES.textWhite, fontFamily: FONTES.bold, fontSize: 22 },
@@ -42,10 +42,7 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 60,
-  },
-  scrollContentPending: {
-    paddingBottom: 220,
+    paddingBottom: 40,
   },
 
   // Subtítulo informativo sobre o status da convocação
@@ -193,18 +190,20 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
 
   sectionHint: { fontFamily: FONTES.body, color: CORES.textMuted, fontSize: 13, marginBottom: 12 },
 
-  // Barra inferior fixa de ações para aceitar ou recusar convocação pendente
+  // Barra inferior em fluxo flex para responder convocação pendente sem sobrepor o conteúdo
   bottomActionArea: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    flexShrink: 0,
     backgroundColor: '#FFF',
     paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 25,
+    paddingTop: 14,
+    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
   },
   respondingLoader: { marginBottom: 20 },
   btnAccept: {

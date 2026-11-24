@@ -19,6 +19,7 @@ import {
 import { Card, Button } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { autenticacao } from '../../configuracao/configuracaoFirebase';
 import { CORES, FONTES } from '../../tema/cores';
 import { estilosDetalhesEventoTecnico as styles } from '../../estilos/estilosDetalhesEventoTecnico';
@@ -26,6 +27,7 @@ import {
   respondToAssignment,
   subscribeToTechnicianAssignmentStatus,
 } from '../../servicos/servicoEscala';
+import { marcarNotificacoesEventoComoLidas } from '../../servicos/servicoNotificacoes';
 import { repositorioEventos } from '../../servicos/repositorioEventos';
 import { exportarEventoParaPdf } from '../../servicos/servicoExportacaoEvento';
 import CartaoLocal from '../../componentes/CartaoLocal';
@@ -41,6 +43,10 @@ function converterParaData(valor) {
 // ============================================================================
 
 export default function TelaDetalhesEventoTecnico({ route, navigation }) {
+  // Calcula o espaço seguro da parte inferior do celular para não esconder o fim do convite
+  const insets = useSafeAreaInsets();
+  const espacoInferior = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16);
+
   // Recupera o objeto de convocação (assignment) passado via parâmetros de navegação
   const { assignment } = route.params || {};
 
@@ -158,6 +164,10 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         technicianUid: idUsuario,
         status: status,
       });
+      // Ao recusar o evento, marca como lidas as notificações/lembretes dele e cancela alarmes locais
+      if (status === 'declined' && idUsuario && idEvento) {
+        await marcarNotificacoesEventoComoLidas(idUsuario, idEvento);
+      }
       mostrarSucesso(
         'Sucesso',
         status === 'accepted'
@@ -239,12 +249,21 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   );
 
   // Filtra apenas os profissionais confirmados ou informativos para exibição na equipe
-  const equipe = (eventoDetalhado?.equipe || []).filter(
-    (p) =>
-      p.statusConfirmacao === 'Confirmado' ||
-      p.statusConfirmacao === 'Informativo' ||
-      p.enviarConvite === false
-  );
+  // e garante que o técnico logado ("Você") apareça sempre como primeiro membro da lista
+  const equipe = (eventoDetalhado?.equipe || [])
+    .filter(
+      (p) =>
+        p.statusConfirmacao === 'Confirmado' ||
+        p.statusConfirmacao === 'Informativo' ||
+        p.enviarConvite === false
+    )
+    .sort((a, b) => {
+      const aEhVoce = Boolean(a.idUsuario && a.idUsuario === idUsuario);
+      const bEhVoce = Boolean(b.idUsuario && b.idUsuario === idUsuario);
+      if (aEhVoce && !bEhVoce) return -1;
+      if (!aEhVoce && bEhVoce) return 1;
+      return 0;
+    });
   const quantidadeConvidados = Number(
     eventoDetalhado?.quantidade_convidados ??
     eventoDetalhado?.quantidadeConvidados ??
@@ -294,7 +313,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.notificationBtn}
-            onPress={() => navigation.navigate('Notificacoes')}
+            onPress={() => navigation.navigate('Notificacoes', { idUsuario })}
           >
             <Feather name="bell" size={18} color="#FFFFFF" />
           </TouchableOpacity>
@@ -328,7 +347,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           style={styles.body}
           contentContainerStyle={[
             styles.scrollContent,
-            isPending && styles.scrollContentPending,
+            { paddingBottom: isPending ? 28 : espacoInferior + 32 },
           ]}
           showsVerticalScrollIndicator={Platform.OS === 'web'}
         >
@@ -446,42 +465,39 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           {equipe.length > 0 ? (
             <Card style={styles.card}>
               <Card.Content>
-                {equipe.map((pessoa, index) => (
-                  <View
-                    key={pessoa.id || index}
-                    style={[
-                      styles.personRow,
-                      pessoa.idUsuario &&
-                        pessoa.idUsuario === assignment?.idUsuario &&
-                        styles.personRowSelf,
-                    ]}
-                  >
+                {equipe.map((pessoa, index) => {
+                  const ehVoce = Boolean(pessoa.idUsuario && pessoa.idUsuario === idUsuario);
+                  return (
                     <View
+                      key={pessoa.id || index}
                       style={[
-                        styles.personIcon,
-                        pessoa.idUsuario &&
-                          pessoa.idUsuario === assignment?.idUsuario &&
-                          styles.personIconSelf,
+                        styles.personRow,
+                        ehVoce && styles.personRowSelf,
                       ]}
                     >
-                      <MaterialCommunityIcons
-                        name="account-outline"
-                        size={24}
-                        color={CORES.textNavy}
-                      />
+                      <View
+                        style={[
+                          styles.personIcon,
+                          ehVoce && styles.personIconSelf,
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="account-outline"
+                          size={24}
+                          color={CORES.textNavy}
+                        />
+                      </View>
+                      <View style={styles.personInfo}>
+                        <Text style={styles.personName} numberOfLines={1}>
+                          {ehVoce ? 'Você' : pessoa.nomeProfissional}
+                        </Text>
+                        <Text style={styles.personMeta} numberOfLines={1}>
+                          {pessoa.funcao}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.personInfo}>
-                      <Text style={styles.personName} numberOfLines={1}>
-                        {pessoa.idUsuario && pessoa.idUsuario === assignment?.idUsuario
-                          ? 'Você'
-                          : pessoa.nomeProfissional}
-                      </Text>
-                      <Text style={styles.personMeta} numberOfLines={1}>
-                        {pessoa.funcao}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                  );
+                })}
               </Card.Content>
             </Card>
           ) : (
@@ -509,9 +525,9 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         </ScrollView>
       )}
 
-      {/* BARRA INFERIOR FIXA PARA RESPONDER À CONVOCAÇÃO PENDENTE */}
+      {/* BARRA INFERIOR PARA RESPONDER À CONVOCAÇÃO PENDENTE (EM FLUXO FLEX PARA NÃO ESCONDER O CONTEÚDO) */}
       {isPending && !carregandoDetalhes && (
-        <View style={styles.bottomActionArea}>
+        <View style={[styles.bottomActionArea, { paddingBottom: espacoInferior + 12 }]}>
           {respondendo ? (
             <ActivityIndicator size="large" color="#10B981" style={styles.respondingLoader} />
           ) : (

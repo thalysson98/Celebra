@@ -87,11 +87,12 @@ export default function App() {
     };
   }, []);
 
+  // Só registra o token de notificações se o usuário não tiver desativado as notificações no perfil
   useEffect(() => {
-    if (currentUser?.uid) {
+    if (currentUser?.uid && currentUser?.notificationPreferences?.eventsAndTeam !== false) {
       inicializarNotificacoesDispositivo(currentUser.uid);
     }
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, currentUser?.notificationPreferences?.eventsAndTeam]);
 
   const handleLogout = async () => {
     await desconectarUsuario();
