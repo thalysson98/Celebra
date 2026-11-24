@@ -847,6 +847,7 @@ const salvarEdicao = async () => {
   const locaisOrdenados = [...(evento.locais || [])].sort((a, b) => (a.horaLocal || '').localeCompare(b.horaLocal || ''));
 
   const exportarPdf = async () => {
+    if (exportandoPdf) return;
     setExportandoPdf(true);
     try {
       await exportarEventoParaPdf({
@@ -867,7 +868,10 @@ const salvarEdicao = async () => {
         notas: evento.notasProducao,
       });
     } catch (error) {
-      mostrarErro(error.message || 'Não foi possível exportar o PDF do evento.');
+      console.error('Erro ao exportar PDF do evento:', error);
+      mostrarErro(
+        error?.message || 'Não foi possível exportar o PDF do evento. Tente novamente.'
+      );
     } finally {
       setExportandoPdf(false);
     }

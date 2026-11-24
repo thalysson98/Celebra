@@ -282,6 +282,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   );
 
   const exportarPdf = async () => {
+    if (exportandoPdf) return;
     setExportandoPdf(true);
     try {
       await exportarEventoParaPdf({
@@ -298,7 +299,10 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
         notas,
       });
     } catch (error) {
-      mostrarErro(error.message || 'Não foi possível exportar o PDF do evento.');
+      console.error('Erro ao exportar PDF do evento:', error);
+      mostrarErro(
+        error?.message || 'Não foi possível exportar o PDF do evento. Tente novamente.'
+      );
     } finally {
       setExportandoPdf(false);
     }

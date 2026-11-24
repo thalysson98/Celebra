@@ -83,34 +83,129 @@ const montarHtmlEvento = (evento) => {
     </html>`;
 };
 
-export const exportarEventoParaPdf = async (evento) => {
-  const html = montarHtmlEvento(evento);
+const MENSAGEM_ERRO_EXPORTACAO_PADRAO =
+  'Não foi possível exportar o PDF do evento. Tente novamente.';
 
-  if (Platform.OS !== 'web' && !(await Sharing.isAvailableAsync())) {
-    throw new Error('O compartilhamento de arquivos não está disponível neste dispositivo.');
+const criarErroExportacaoPdf = (mensagem) => {
+  const erro = new Error(mensagem || MENSAGEM_ERRO_EXPORTACAO_PADRAO);
+  erro.exportacaoPdfTratada = true;
+  return erro;
+};
+
+export const exportarEventoParaPdf = async (evento) => {
+  if (!evento || typeof evento !== 'object') {
+    throw criarErroExportacaoPdf(
+      'Não foi possível exportar o PDF porque os dados do evento não estão disponíveis.'
+    );
   }
 
-  const arquivo = await Print.printToFileAsync({
-    html,
-    base64: Platform.OS === 'android',
-  });
-  if (Platform.OS === 'web') return;
+  let html;
+  try {
+    html = montarHtmlEvento(evento);
+  } catch (erro) {
+    console.error('Erro ao montar HTML do PDF do evento:', erro);
+    throw criarErroExportacaoPdf(
+      'Não foi possível preparar os dados do evento para exportação em PDF.'
+    );
+  }
+
+  if (Platform.OS === 'web') {
+    if (typeof window === 'undefined' || typeof window.print !== 'function') {
+      throw criarErroExportacaoPdf('A exportação para PDF não está disponível neste navegador.');
+    }
+
+    try {
+      await Print.printToFileAsync({ html });
+      return;
+    } catch (erro) {
+      console.error('Erro ao exportar PDF na web:', erro);
+      throw criarErroExportacaoPdf(MENSAGEM_ERRO_EXPORTACAO_PADRAO);
+    }
+  }
+
+  let compartilhamentoDisponivel = false;
+  try {
+    compartilhamentoDisponivel = await Sharing.isAvailableAsync();
+  } catch (erro) {
+    console.error('Erro ao verificar disponibilidade de compartilhamento:', erro);
+    throw criarErroExportacaoPdf(
+      'Não foi possível verificar o compartilhamento de arquivos neste dispositivo.'
+    );
+  }
+
+  if (!compartilhamentoDisponivel) {
+    throw criarErroExportacaoPdf(
+      'O compartilhamento de arquivos não está disponível neste dispositivo.'
+    );
+  }
+
+  let arquivo;
+  try {
+    arquivo = await Print.printToFileAsync({
+      html,
+      base64: Platform.OS === 'android',
+    });
+  } catch (erro) {
+    console.error('Erro ao gerar arquivo PDF do evento:', erro);
+    throw criarErroExportacaoPdf('Não foi possível gerar o PDF do evento. Tente novamente.');
+  }
+
+  if (!arquivo || typeof arquivo.uri !== 'string' || !arquivo.uri.trim()) {
+    throw criarErroExportacaoPdf(
+      'A exportação para PDF não funcionou. O arquivo não pôde ser gerado.'
+    );
+  }
+
+  if (typeof arquivo.numberOfPages === 'number' && arquivo.numberOfPages <= 0) {
+    throw criarErroExportacaoPdf(
+      'A exportação para PDF não funcionou. O documento gerado está vazio.'
+    );
+  }
 
   let uriParaCompartilhar = arquivo.uri;
   if (Platform.OS === 'android') {
     if (!arquivo.base64) {
-      throw new Error('Não foi possível preparar o PDF para compartilhamento.');
+      throw criarErroExportacaoPdf('Não foi possível preparar o PDF para compartilhamento.');
     }
 
-    const pdfCompartilhavel = new File(Paths.document, `evento-${Date.now()}.pdf`);
-    pdfCompartilhavel.create();
-    await pdfCompartilhavel.write(arquivo.base64, { encoding: 'base64' });
-    uriParaCompartilhar = pdfCompartilhavel.uri;
+    try {
+      const pdfCompartilhavel = new File(Paths.document, `evento-${Date.now()}.pdf`);
+      pdfCompartilhavel.create({ overwrite: true });
+      await pdfCompartilhavel.write(arquivo.base64, { encoding: 'base64' });
+
+      if (
+        !pdfCompartilhavel.exists ||
+        (typeof pdfCompartilhavel.size === 'number' && pdfCompartilhavel.size <= 0)
+      ) {
+        throw criarErroExportacaoPdf(
+          'Não foi possível salvar o arquivo PDF para compartilhamento.'
+        );
+      }
+
+      uriParaCompartilhar = pdfCompartilhavel.uri;
+    } catch (erro) {
+      if (erro?.exportacaoPdfTratada) throw erro;
+      console.error('Erro ao salvar PDF compartilhável no Android:', erro);
+      throw criarErroExportacaoPdf(
+        'Não foi possível salvar o arquivo PDF para compartilhamento.'
+      );
+    }
   }
 
-  await Sharing.shareAsync(uriParaCompartilhar, {
-    dialogTitle: `Compartilhar evento: ${textoOuFallback(evento.titulo)}`,
-    mimeType: 'application/pdf',
-    UTI: 'com.adobe.pdf',
-  });
+  if (typeof uriParaCompartilhar !== 'string' || !uriParaCompartilhar.trim()) {
+    throw criarErroExportacaoPdf('Não foi possível localizar o arquivo PDF gerado.');
+  }
+
+  try {
+    await Sharing.shareAsync(uriParaCompartilhar, {
+      dialogTitle: `Compartilhar evento: ${textoOuFallback(evento.titulo)}`,
+      mimeType: 'application/pdf',
+      UTI: 'com.adobe.pdf',
+    });
+  } catch (erro) {
+    console.error('Erro ao compartilhar PDF do evento:', erro);
+    throw criarErroExportacaoPdf(
+      'Não foi possível compartilhar o PDF do evento. Tente novamente.'
+    );
+  }
 };
