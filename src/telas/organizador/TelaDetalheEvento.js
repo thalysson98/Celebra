@@ -2,7 +2,8 @@ import { notificarNovoEventoParaTecnico, notificarRemocaoConvocacao } from '../.
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
 import { Button, Card } from 'react-native-paper';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
@@ -435,10 +436,6 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
 
   const salvarEdicaoRapidaParcela = async () => {
     if (!parcelaRapida) return;
-    if (parcelaRapida.vencimento && !dataParcelaValida(parcelaRapida.vencimento)) {
-      mostrarErro('Informe um vencimento válido no formato DD/MM/AAAA.');
-      return;
-    }
     const parcelas = [...(evento.financeiro?.parcelasDetalhadas || [])];
     parcelas[parcelaRapida.index] = {
       ...parcelas[parcelaRapida.index],
@@ -732,7 +729,9 @@ const salvarEdicao = async () => {
        setIdTipoDespesa(item.id || '');
     } else if (tipoSelecao.startsWith('local_')) {
       const index = parseInt(tipoSelecao.split('_')[1], 10);
-      const tiposLocais = await repositorioEventos.obterOpcoesSelect('tiposLocal', usuario?.idEmpresa);
+      const tiposLocais = item.id_tipo_local
+        ? await repositorioEventos.obterOpcoesSelect('tiposLocal', usuario?.idEmpresa)
+        : [];
       const tipoLocal = tiposLocais.find((tipo) => tipo.id === item.id_tipo_local);
       atualizarLocal(index, 'nomeDoLocal', item.nome || '');
       atualizarLocal(index, 'enderecoLocal', item.endereco_completo || '');
@@ -775,14 +774,14 @@ const salvarEdicao = async () => {
 
   const salvarNovoLocalDetalhado = async () => {
     if (!formNovoLocal.nome || !formNovoLocal.rua) { mostrarErro("Preencha o nome e rua do local."); return; }
-    setCarregandoOpcoes(true);
-    try {
-      const enderecoFormatado = `${formNovoLocal.rua}, ${formNovoLocal.numero} - ${formNovoLocal.bairro}, ${formNovoLocal.cidade} - ${formNovoLocal.estado}`;
-      const novo = await repositorioEventos.adicionarNovoItemSelect('locaisSalvos', { nome: formNovoLocal.nome.trim(), endereco_completo: enderecoFormatado, rua: formNovoLocal.rua, bairro: formNovoLocal.bairro, cidade: formNovoLocal.cidade, estado: formNovoLocal.estado }, usuario?.idEmpresa);
-      setModalLocalVisivel(false);
-      setFormNovoLocal({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
-      escolherOpcao(novo);
-    } catch (e) {} finally { setCarregandoOpcoes(false); }
+    const enderecoFormatado = `${formNovoLocal.rua}, ${formNovoLocal.numero} - ${formNovoLocal.bairro}, ${formNovoLocal.cidade} - ${formNovoLocal.estado}`;
+    const novo = {
+      nome: formNovoLocal.nome.trim(),
+      endereco_completo: enderecoFormatado,
+    };
+    setModalLocalVisivel(false);
+    setFormNovoLocal({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
+    await escolherOpcao(novo);
   };
 
   const salvarNovoClienteDetalhado = async () => {
@@ -1105,70 +1104,91 @@ const salvarEdicao = async () => {
           )}
 
           {equipe.length ? (
-            <Card style={styles.card}><Card.Content>
+            <View>
               {secoesEquipe.map((secao) => (
-                <View key={secao.chave}>
-                  <View style={styles.teamStatusSectionHeading}>
-                    <Text style={styles.teamStatusSectionTitle}>{secao.titulo}</Text>
-                    <View style={styles.teamStatusSectionCount}>
+                <Card
+                  key={secao.chave}
+                  style={styles.teamStatusCard}
+                >
+                  <View
+                    style={[
+                      styles.teamStatusCardHeader,
+                      secao.chave === 'confirmado' && styles.teamStatusHeaderConfirmed,
+                      secao.chave === 'recusado' && styles.teamStatusHeaderRejected,
+                      secao.chave === 'pendente' && styles.teamStatusHeaderPending,
+                      secao.chave === 'cancelado' && styles.teamStatusHeaderCancelled,
+                      secao.chave === 'informativo' && styles.teamStatusHeaderInformative,
+                      secao.chave === 'outros' && styles.teamStatusHeaderOther,
+                    ]}
+                  >
+                    <Text style={styles.teamStatusCardTitle}>{secao.titulo}</Text>
+                    <View style={styles.teamStatusCardCount}>
                       <Text style={styles.teamStatusSectionCountText}>{secao.membros.length}</Text>
                     </View>
                   </View>
-                  {secao.membros.map((pessoa, index) => (
-                    <View key={pessoa.id || index} style={styles.personRow}>
-                      <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
-                      <View style={styles.personInfo}>
-                        <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
-                        <Text style={[styles.personMeta, { marginTop: 2, fontSize: 13, color: '#334155' }]} numberOfLines={1}>{pessoa.funcao}</Text>
+                  <Card.Content style={styles.teamStatusCardBody}>
+                    {secao.membros.map((pessoa, index) => (
+                      <View
+                        key={pessoa.id || index}
+                        style={[
+                          styles.personRow,
+                          index === secao.membros.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                      >
+                        <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
+                        <View style={styles.personInfo}>
+                          <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
+                          <Text style={[styles.personMeta, { marginTop: 2, fontSize: 13, color: '#334155' }]} numberOfLines={1}>{pessoa.funcao}</Text>
 
-                        {pessoa.statusConfirmacao !== 'Informativo' && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-                            <Text style={[styles.personMeta, { marginTop: 0, fontSize: 12 }]}>Situação do convite: </Text>
-                            <Text style={[
-                              pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText :
-                                pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
-                                  pessoa.statusConfirmacao === 'Recusado' ? styles.rejectedText :
-                                    styles.pendingText
-                            ]}>
-                              {pessoa.statusConfirmacao}
-                            </Text>
+                          {pessoa.statusConfirmacao !== 'Informativo' && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                              <Text style={[styles.personMeta, { marginTop: 0, fontSize: 12 }]}>Situação do convite: </Text>
+                              <Text style={[
+                                pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText :
+                                  pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
+                                    pessoa.statusConfirmacao === 'Recusado' ? styles.rejectedText :
+                                      styles.pendingText
+                              ]}>
+                                {pessoa.statusConfirmacao}
+                              </Text>
+                            </View>
+                          )}
+                          <Text style={styles.personExpenseTotal}>
+                            Total de despesas: {formatarMonetario((pessoa.despesas || []).reduce((total, despesa) => total + converterValorMonetario(despesa.valor), 0))}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.expenseIconButton}
+                          onPress={() => abrirDespesasProfissional(pessoa)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}
+                        >
+                          <Feather name="dollar-sign" size={18} color="#059669" />
+                        </TouchableOpacity>
+                        {!eventoConcluido && (
+                          <View style={styles.actionIconsRow}>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => { setProfissionalAlvo(pessoa); abrirSelecao('editarProfissional'); }}>
+                              <MaterialCommunityIcons name="pencil-outline" size={20} color={CORES.textNavy} />
+                            </TouchableOpacity>
+                            {pessoa.statusConfirmacao === 'Recusado' && (
+                              <TouchableOpacity style={styles.iconBtn} onPress={() => clickReenviar(pessoa.idConvite)}>
+                                <MaterialCommunityIcons name="refresh" size={20} color={CORES.buttonGold} />
+                              </TouchableOpacity>
+                            )}
+                            {pessoa.statusConfirmacao !== 'Cancelado' && (
+                              <TouchableOpacity style={styles.iconBtnRed} onPress={() => abrirModalExcluir(pessoa)}>
+                                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                              </TouchableOpacity>
+                            )}
                           </View>
                         )}
-                        <Text style={styles.personExpenseTotal}>
-                          Total de despesas: {formatarMonetario((pessoa.despesas || []).reduce((total, despesa) => total + converterValorMonetario(despesa.valor), 0))}
-                        </Text>
                       </View>
-
-                      <TouchableOpacity
-                        style={styles.expenseIconButton}
-                        onPress={() => abrirDespesasProfissional(pessoa)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}
-                      >
-                        <Feather name="dollar-sign" size={18} color="#059669" />
-                      </TouchableOpacity>
-                      {!eventoConcluido && (
-                        <View style={styles.actionIconsRow}>
-                          <TouchableOpacity style={styles.iconBtn} onPress={() => { setProfissionalAlvo(pessoa); abrirSelecao('editarProfissional'); }}>
-                            <MaterialCommunityIcons name="pencil-outline" size={20} color={CORES.textNavy} />
-                          </TouchableOpacity>
-                          {pessoa.statusConfirmacao === 'Recusado' && (
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => clickReenviar(pessoa.idConvite)}>
-                              <MaterialCommunityIcons name="refresh" size={20} color={CORES.buttonGold} />
-                            </TouchableOpacity>
-                          )}
-                          {pessoa.statusConfirmacao !== 'Cancelado' && (
-                            <TouchableOpacity style={styles.iconBtnRed} onPress={() => abrirModalExcluir(pessoa)}>
-                              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
+                    ))}
+                  </Card.Content>
+                </Card>
               ))}
-            </Card.Content></Card>
+            </View>
           ) : <Text style={styles.sectionHint}>Nenhum profissional adicionado.</Text>}
 
           <Card style={styles.card}>
@@ -1516,13 +1536,24 @@ const salvarEdicao = async () => {
                 {parcelaRapida?.status === 'paga' ? 'Paga · toque para marcar pendente' : 'Pendente · toque para marcar paga'}
               </Text>
             </TouchableOpacity>
-            <CampoEdicao
-              label="Vencimento"
-              valor={parcelaRapida?.vencimento || ''}
-              aoMudar={(vencimento) => setParcelaRapida((atual) => ({ ...atual, vencimento: formatarDataParcelaInput(vencimento) }))}
-              placeholder="DD/MM/AAAA"
-              teclado="numeric"
-            />
+            <View style={{ marginBottom: 15 }}>
+              <Text style={styles.editLabel}>Vencimento</Text>
+              <View
+                style={{
+                  minHeight: 46,
+                  justifyContent: 'center',
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: '#D8E2EB',
+                  backgroundColor: '#F1F5F9',
+                }}
+              >
+                <Text style={{ fontFamily: FONTES.medium, color: CORES.textMuted, fontSize: 14 }}>
+                  {parcelaRapida?.vencimento || 'Não informado'}
+                </Text>
+              </View>
+            </View>
             <CampoEdicao label="Observação da parcela" valor={parcelaRapida?.observacao || ''} aoMudar={(observacao) => setParcelaRapida((atual) => ({ ...atual, observacao }))} placeholder="Ex.: Pagamento recebido via Pix" multiline />
             <View style={styles.quickModalActions}>
               <Button mode="outlined" onPress={() => setParcelaRapida(null)} textColor={CORES.textNavy} disabled={salvandoAcaoRapida}>Cancelar</Button>

@@ -26,7 +26,7 @@ import {
   View,
 } from 'react-native';
 import { Card, Button } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
 import { COLORS, CORES, FONTES } from '../../tema/cores';
 import { subscribeToTechnicianAssignments } from '../../servicos/servicoEscala';
 import { requestPasswordReset } from '../../servicos/servicoAutenticacao';

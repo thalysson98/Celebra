@@ -1,7 +1,8 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Keyboard, Modal, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Button, Card } from 'react-native-paper';
 

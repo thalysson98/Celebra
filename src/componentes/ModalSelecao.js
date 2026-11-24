@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Feather from '@expo/vector-icons/Feather';
 import { CORES, FONTES } from '../tema/cores';
 import SeparadorCampoIcone from '../compartilhado/SeparadorCampoIcone';
 

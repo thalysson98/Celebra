@@ -1,7 +1,7 @@
 // src/componentes/Cabecalho.js
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
 import { CORES, FONTES } from '../tema/cores';
 
 export default function Cabecalho({ 

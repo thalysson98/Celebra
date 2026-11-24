@@ -2,7 +2,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Keyboard, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Feather from '@expo/vector-icons/Feather';
 import { CORES, FONTES } from '../../tema/cores';
 import { styles } from '../../estilos/estilosCriarEventoOrganizador';
 import { estilosAdministrandoOrganizador as stylesGestao } from '../../estilos/estilosAdministrandoOrganizador';
@@ -361,7 +362,9 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       atualizar('qtdParcelas', item.id);
     } else if (tipoSelecao.startsWith('local_')) {
       const index = parseInt(tipoSelecao.split('_')[1], 10);
-      const tiposLocais = await repositorioEventos.obterOpcoesSelect('tiposLocal', usuario?.idEmpresa);
+      const tiposLocais = item.id_tipo_local
+        ? await repositorioEventos.obterOpcoesSelect('tiposLocal', usuario?.idEmpresa)
+        : [];
       const tipoLocal = tiposLocais.find((tipo) => tipo.id === item.id_tipo_local);
       atualizarLocal(index, 'nomeDoLocal', item.nome || '');
       atualizarLocal(index, 'enderecoLocal', item.endereco_completo || '');
@@ -433,26 +436,15 @@ export default function TelaCriarEvento({ navigation, usuario }) {
       mostrarErro("Preencha pelo menos o nome e a rua do local.");
       return;
     }
-    setCarregandoOpcoes(true);
-    try {
-      const enderecoFormatado = `${formNovoLocal.rua}, ${formNovoLocal.numero} - ${formNovoLocal.bairro}, ${formNovoLocal.cidade} - ${formNovoLocal.estado}`;
-      const novo = await repositorioEventos.adicionarNovoItemSelect('locaisSalvos', { 
-         nome: formNovoLocal.nome.trim(), 
-         endereco_completo: enderecoFormatado,
-        rua: formNovoLocal.rua,
-        bairro: formNovoLocal.bairro,
-        cidade: formNovoLocal.cidade,
-        estado: formNovoLocal.estado
-      }, usuario?.idEmpresa);
-      
-      setModalLocalVisivel(false);
-      setFormNovoLocal({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
-      escolherOpcao(novo);
-    } catch (e) {
-      console.log(e);
-    } finally {
-      setCarregandoOpcoes(false);
-    }
+    const enderecoFormatado = `${formNovoLocal.rua}, ${formNovoLocal.numero} - ${formNovoLocal.bairro}, ${formNovoLocal.cidade} - ${formNovoLocal.estado}`;
+    const novo = {
+      nome: formNovoLocal.nome.trim(),
+      endereco_completo: enderecoFormatado,
+    };
+
+    setModalLocalVisivel(false);
+    setFormNovoLocal({ nome: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
+    await escolherOpcao(novo);
   };
 
   const salvarNovoClienteDetalhado = async () => {

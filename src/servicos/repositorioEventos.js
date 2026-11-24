@@ -91,7 +91,7 @@ async function buscarOuCriarCadastro(colecao, campoId, empresaId, nome, camposAd
   return referencia.id;
 }
 
-async function buscarCadastroVinculadoOuCriar(colecao, campoId, empresaId, nome, idVinculado) {
+async function buscarCadastroVinculadoOuCriar(colecao, campoId, empresaId, nome, idVinculado, camposAdicionais = {}) {
   if (idVinculado) {
     const snapshot = await getDoc(doc(bancoDados, colecao, idVinculado));
     if (snapshot.exists()) {
@@ -106,7 +106,7 @@ async function buscarCadastroVinculadoOuCriar(colecao, campoId, empresaId, nome,
       }
     }
   }
-  return buscarOuCriarCadastro(colecao, campoId, empresaId, nome);
+  return buscarOuCriarCadastro(colecao, campoId, empresaId, nome, camposAdicionais);
 }
 
 function paraDataJavaScript(valor) {
@@ -419,7 +419,11 @@ export const repositorioEventos = {
     if (dadosNovoEvento.locaisArray) {
         for (const loc of dadosNovoEvento.locaisArray) {
             const idTipoLocal = await buscarOuCriarCadastro('tipos_local', 'id_tipo_local', empresaId, loc.tipoLocal);
-            const idL = await buscarOuCriarCadastro('locais', 'id_local', empresaId, loc.nomeDoLocal);
+            const idL = await buscarOuCriarCadastro('locais', 'id_local', empresaId, loc.nomeDoLocal, {
+                id_tipo_local: idTipoLocal,
+                endereco_completo: loc.enderecoLocal || '',
+                nome_tipo_local: loc.tipoLocal || '',
+            });
             
             await updateDoc(doc(bancoDados, 'locais', idL), {
                 id_tipo_local: idTipoLocal, 
@@ -554,7 +558,12 @@ export const repositorioEventos = {
               'id_local',
               empresaId,
               loc.nomeDoLocal,
-              localVinculado?.id_local
+              localVinculado?.id_local,
+              {
+                id_tipo_local: idTipoLocal,
+                endereco_completo: loc.enderecoLocal || '',
+                nome_tipo_local: loc.tipoLocal || '',
+              }
             );
             
             await updateDoc(doc(bancoDados, 'locais', idL), {

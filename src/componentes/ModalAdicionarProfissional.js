@@ -3,8 +3,8 @@ import { verificarIndisponibilidadeTecnicoNaData } from '../servicos/servicoIndi
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { CORES } from '../tema/cores';
 import { repositorioEventos } from '../servicos/repositorioEventos';
 import { listarTecnicosDaEmpresa } from '../servicos/servicoEscala';

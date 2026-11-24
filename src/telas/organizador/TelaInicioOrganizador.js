@@ -11,7 +11,8 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Card } from 'react-native-paper';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, FONTES } from '../../tema/cores';
 import { repositorioEventos } from '../../servicos/repositorioEventos';

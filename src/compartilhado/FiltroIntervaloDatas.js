@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Button } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
 import { CORES, FONTES } from '../tema/cores';
 
 const DateTimePickerNativo = Platform.OS === 'web'

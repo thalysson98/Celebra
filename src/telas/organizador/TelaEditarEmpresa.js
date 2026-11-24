@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
 import { obterDadosEmpresa, atualizarDadosEmpresa } from '../../servicos/servicoEmpresa';
 import { estilosEditarEmpresa as styles } from '../../estilos/estilosEditarEmpresa';
 import { CORES } from '../../tema/cores';

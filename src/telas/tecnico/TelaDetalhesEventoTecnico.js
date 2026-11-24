@@ -17,7 +17,8 @@ import {
   Modal,
 } from 'react-native';
 import { Card, Button } from 'react-native-paper';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { autenticacao } from '../../configuracao/configuracaoFirebase';
