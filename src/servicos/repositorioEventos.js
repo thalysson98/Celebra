@@ -3,6 +3,11 @@ import { arrayUnion, collection, doc, getDoc, getDocs, query, runTransaction, se
 import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
 import { enviarConvitesEvento } from './servicoEscala';
 import { verificarLembretesProximidadeEvento } from './servicoNotificacoes';
+import {
+  criarDataBrasilia,
+  formatarDataBrasilia,
+  formatarHoraBrasilia,
+} from '../compartilhado/dataHoraBrasilia';
 
 const COLECOES_ADMINISTRACAO = {
   tiposEvento: 'tipos_evento',
@@ -43,18 +48,9 @@ function normalizarTexto(valor) {
 
 function converterDataEvento(data, hora) {
   const texto = String(data || '').trim();
-  const dataBrasileira = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const textoData = dataBrasileira ? `${dataBrasileira[3]}-${dataBrasileira[2]}-${dataBrasileira[1]}` : texto;
   const horario = String(hora || '00:00').trim();
 
-  if (!/^\d{1,2}:\d{2}$/.test(horario)) throw new Error('Informe o horário no formato HH:MM.');
-  const [horas = '00', minutos = '00'] = horario.split(':');
-  const resultado = new Date(`${textoData}T${horas.padStart(2, '0')}:${minutos.padStart(2, '0')}:00`);
-
-  if (!texto || Number.isNaN(resultado.getTime())) {
-    throw new Error('Informe uma data válida para o evento (DD/MM/AAAA).');
-  }
-  return Timestamp.fromDate(resultado);
+  return Timestamp.fromDate(criarDataBrasilia(texto, horario));
 }
 
 async function buscarOuCriarCadastro(colecao, campoId, empresaId, nome, camposAdicionais = {}) {
@@ -132,12 +128,7 @@ function mapearEvento(snapshot, relacionados = {}) {
   const nomeEquipa = membros.length ? 'Equipe confirmada' : 'Equipe pendente';
   let dataFormatada = '';
 
-  if (dataInicio) {
-    const dia = String(dataInicio.getDate()).padStart(2, '0');
-    const mes = String(dataInicio.getMonth() + 1).padStart(2, '0');
-    const ano = dataInicio.getFullYear();
-    dataFormatada = `${dia}/${mes}/${ano}`;
-  }
+  if (dataInicio) dataFormatada = formatarDataBrasilia(dataInicio);
 
   const locaisDetalhados = Array.isArray(evento.locais_detalhados) && evento.locais_detalhados.length
     ? evento.locais_detalhados
@@ -149,11 +140,8 @@ function mapearEvento(snapshot, relacionados = {}) {
     tipoLocal: l.tipoLocal || l.nome_tipo_local || l.tipo || ''
   }));
   const horaInicio =
-    evento.hora_inicio ||
-    evento.horaInicio ||
-    (dataInicio
-      ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(dataInicio)
-      : '');
+    formatarHoraBrasilia(evento.hora_inicio || evento.horaInicio) ||
+    formatarHoraBrasilia(dataInicio);
 
   return {
     id: snapshot.id,
@@ -445,7 +433,12 @@ export const repositorioEventos = {
 
     const referencia = doc(collection(bancoDados, 'eventos'));
     const dadosEvento = {
-      id_evento: referencia.id, id_empresa: empresaId, titulo, id_tipo_evento: idTipoEvento, id_cliente: idCliente,
+      id_evento: referencia.id,
+      id_empresa: empresaId,
+      id_usuario_organizador: autenticacao.currentUser?.uid || null,
+      titulo,
+      id_tipo_evento: idTipoEvento,
+      id_cliente: idCliente,
       id_local: locaisDetalhados[0]?.id_local || '',
       id_locais: locaisDetalhados.map((l) => l.id_local).filter(Boolean),
       nome_tipo_evento: dadosNovoEvento.tipoEvento,

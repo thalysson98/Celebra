@@ -5,16 +5,17 @@ import { Card } from 'react-native-paper';
 import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { CORES, FONTES } from '../tema/cores';
+import { formatarHoraBrasilia } from '../compartilhado/dataHoraBrasilia';
 
 export default function CartaoLocal({ local }) {
-  const horaLocal =
+  const horaLocalInformada =
     local.horaLocal ||
     local.hora_local ||
     local.horarioLocal ||
     local.horario_local ||
     local.horario ||
-    local.hora ||
-    'Horário a confirmar';
+    local.hora;
+  const horaLocal = formatarHoraBrasilia(horaLocalInformada) || 'Horário a confirmar';
   const address = local.enderecoLocal || local.endereco || local.endereco_completo || local.nomeDoLocal;
 
   return (

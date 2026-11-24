@@ -24,7 +24,39 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "feather",
+                "fontDefinitions": [
+                  {
+                    "path": "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf",
+                    "weight": 400
+                  }
+                ]
+              },
+              {
+                "fontFamily": "material-community",
+                "fontDefinitions": [
+                  {
+                    "path": "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf",
+                    "weight": 400
+                  }
+                ]
+              }
+            ]
+          },
+          "ios": {
+            "fonts": [
+              "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf",
+              "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"
+            ]
+          }
+        }
+      ],
       "expo-status-bar"
     ],
     "extra": {

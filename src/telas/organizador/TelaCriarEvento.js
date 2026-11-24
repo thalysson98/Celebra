@@ -12,6 +12,13 @@ import ModalAdicionarProfissional from '../../componentes/ModalAdicionarProfissi
 import ModalSelecao from '../../componentes/ModalSelecao';
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
 import { ESTADOS_BRASIL } from '../../compartilhado/estadosBrasil';
+import {
+  FUSO_HORARIO_BRASILIA,
+  criarDataBrasilia,
+  formatarDataBrasilia,
+  formatarDataIsoBrasilia,
+  formatarHoraBrasilia,
+} from '../../compartilhado/dataHoraBrasilia';
 
 const SECOES = ['Geral', 'Equipe', 'Financeiro'];
 
@@ -99,12 +106,11 @@ function formatarData(data) {
 }
 
 function dataParaPicker(valor, modo) {
-  if (modo === 'date' && valor) return new Date(`${valor}T12:00:00`);
-  if (modo === 'time' && valor) {
-    const [horas, minutos] = valor.split(':').map(Number);
-    const data = new Date();
-    data.setHours(horas || 0, minutos || 0, 0, 0);
-    return data;
+  if (modo === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(valor || '')) {
+    return criarDataBrasilia(valor, '12:00');
+  }
+  if (modo === 'time' && /^\d{1,2}:\d{2}$/.test(valor || '')) {
+    return criarDataBrasilia('2026-01-15', valor);
   }
   return new Date();
 }
@@ -116,7 +122,7 @@ function SeletorDataHora({ modo, valor, aoMudar, formatoBrasileiro = false }) {
     : valor;
   const texto = modo === 'date'
     ? (formatoBrasileiro ? valor : formatarData(valor))
-    : valor;
+    : formatarHoraBrasilia(valor);
   const icone = modo === 'date' ? 'calendar-month-outline' : 'clock-outline';
 
   if (Platform.OS === 'web') {
@@ -126,7 +132,9 @@ function SeletorDataHora({ modo, valor, aoMudar, formatoBrasileiro = false }) {
         <SeparadorCampoIcone />
         {React.createElement('input', {
           type: modo,
-          value: valorPicker,
+          value: modo === 'time' ? formatarHoraBrasilia(valor) : valorPicker,
+          lang: 'pt-BR',
+          step: 60,
           onChange: (evento) => {
             const data = evento.target.value;
             aoMudar(formatoBrasileiro && data ? data.split('-').reverse().join('/') : data);
@@ -150,17 +158,23 @@ function SeletorDataHora({ modo, valor, aoMudar, formatoBrasileiro = false }) {
       </TouchableOpacity>
       {visivel && DateTimePickerNativo && (
         <DateTimePickerNativo
-          value={dataParaPicker(valorPicker, modo)} mode={modo} display="default"
+          value={dataParaPicker(valorPicker, modo)}
+          mode={modo}
+          display={Platform.OS === 'ios' && modo === 'time' ? 'spinner' : 'default'}
+          timeZoneName={FUSO_HORARIO_BRASILIA}
+          is24Hour={Platform.OS === 'android' ? true : undefined}
+          locale={Platform.OS === 'ios' ? 'pt-BR' : undefined}
           onChange={(evento, selecionada) => {
             setVisivel(false);
             if (!selecionada || evento.type === 'dismissed') return;
             if (modo === 'date') {
-              const ano = selecionada.getFullYear();
-              const mes = String(selecionada.getMonth() + 1).padStart(2, '0');
-              const dia = String(selecionada.getDate()).padStart(2, '0');
-              aoMudar(formatoBrasileiro ? `${dia}/${mes}/${ano}` : `${ano}-${mes}-${dia}`);
+              aoMudar(
+                formatoBrasileiro
+                  ? formatarDataBrasilia(selecionada)
+                  : formatarDataIsoBrasilia(selecionada)
+              );
             } else {
-              aoMudar(`${String(selecionada.getHours()).padStart(2, '0')}:${String(selecionada.getMinutes()).padStart(2, '0')}`);
+              aoMudar(formatarHoraBrasilia(selecionada));
             }
           }}
         />

@@ -24,6 +24,12 @@ import {
   OPCOES_QTD_PARCELAS,
 } from './TelaCriarEvento';
 import SeparadorCampoIcone from '../../compartilhado/SeparadorCampoIcone';
+import {
+  FUSO_HORARIO_BRASILIA,
+  criarDataBrasilia,
+  formatarDataBrasilia,
+  formatarHoraBrasilia,
+} from '../../compartilhado/dataHoraBrasilia';
 
 const ABAS = ['Geral', 'Equipe', 'Financeiro'];
 
@@ -74,6 +80,7 @@ function CampoDataHora({ modo, valor, aoMudar }) {
   const [pickerVisivel, setPickerVisivel] = useState(false);
   let stringFormatada = valor;
   if(modo === 'date' && valor && valor.includes('-')) { stringFormatada = valor.split('-').reverse().join('/'); }
+  if (modo === 'time') stringFormatada = formatarHoraBrasilia(valor);
   
   if (Platform.OS === 'web') {
     return (
@@ -82,7 +89,9 @@ function CampoDataHora({ modo, valor, aoMudar }) {
         <SeparadorCampoIcone />
         {React.createElement('input', {
           type: modo,
-          value: modo === 'date' && valor && valor.includes('/') ? valor.split('/').reverse().join('-') : valor,
+          value: modo === 'date' && valor && valor.includes('/') ? valor.split('/').reverse().join('-') : modo === 'time' ? formatarHoraBrasilia(valor) : valor,
+          lang: 'pt-BR',
+          step: 60,
           onChange: (evento) => {
             const data = evento.target.value;
             aoMudar(modo === 'date' && data ? data.split('-').reverse().join('/') : data);
@@ -94,11 +103,10 @@ function CampoDataHora({ modo, valor, aoMudar }) {
   }
   
   let dataPicker = new Date();
-  if (modo === 'date' && valor) {
-    if(valor.includes('/')){ const [d, m, y] = valor.split('/'); dataPicker = new Date(`${y}-${m}-${d}T12:00:00`);
-    } else { dataPicker = new Date(`${valor}T12:00:00`); }
-  } else if (modo === 'time' && valor) {
-    const [h, m] = String(valor || '16:00').split(':').map(Number); dataPicker.setHours(h || 0, m || 0, 0, 0); 
+  if (modo === 'date' && /^(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4})$/.test(valor || '')) {
+    dataPicker = criarDataBrasilia(valor, '12:00');
+  } else if (modo === 'time' && /^\d{1,2}:\d{2}$/.test(valor || '')) {
+    dataPicker = criarDataBrasilia('2026-01-15', valor);
   }
 
   return (
@@ -108,7 +116,7 @@ function CampoDataHora({ modo, valor, aoMudar }) {
         <SeparadorCampoIcone />
         <Text style={{ flex: 1, fontFamily: FONTES.body, color: CORES.textNavy, fontSize: 14, textAlign: 'left' }}>{stringFormatada || (modo === 'date' ? 'DD/MM/AAAA' : '16:00')}</Text>
       </TouchableOpacity>
-      {pickerVisivel && DateTimePickerNativo && <DateTimePickerNativo value={dataPicker} mode={modo} display="default" onChange={(e, s) => { setPickerVisivel(false); if (!s || e.type === 'dismissed') return; if (modo === 'date') aoMudar(`${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}/${s.getFullYear()}`); else aoMudar(`${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}`); }} />}
+      {pickerVisivel && DateTimePickerNativo && <DateTimePickerNativo value={dataPicker} mode={modo} display={Platform.OS === 'ios' && modo === 'time' ? 'spinner' : 'default'} timeZoneName={FUSO_HORARIO_BRASILIA} is24Hour={Platform.OS === 'android' ? true : undefined} locale={Platform.OS === 'ios' ? 'pt-BR' : undefined} onChange={(e, s) => { setPickerVisivel(false); if (!s || e.type === 'dismissed') return; if (modo === 'date') aoMudar(formatarDataBrasilia(s)); else aoMudar(formatarHoraBrasilia(s)); }} />}
     </>
   );
 }
@@ -164,10 +172,11 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   const [abaAtiva, setAbaAtiva] = useState(
     route.params?.abaInicial === 'Financeiro'
       ? 'Financeiro'
-      : route.params?.erroConvites
+      : route.params?.abaInicial === 'Equipe' || route.params?.erroConvites
         ? 'Equipe'
         : 'Geral'
   );
+  const [secoesEquipeRecolhidas, setSecoesEquipeRecolhidas] = useState({});
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
   
@@ -213,8 +222,9 @@ export default function TelaDetalheEvento({ route, navigation, usuario }) {
   });
 
   useEffect(() => {
-    if (route.params?.abaInicial !== 'Financeiro') return;
-    setAbaAtiva('Financeiro');
+    const abaInicial = route.params?.abaInicial;
+    if (!['Equipe', 'Financeiro'].includes(abaInicial)) return;
+    setAbaAtiva(abaInicial);
     setEditando(null);
     navigation.setParams({ abaInicial: undefined });
   }, [navigation, route.params?.abaInicial]);
@@ -1105,89 +1115,105 @@ const salvarEdicao = async () => {
 
           {equipe.length ? (
             <View>
-              {secoesEquipe.map((secao) => (
-                <Card
-                  key={secao.chave}
-                  style={styles.teamStatusCard}
-                >
-                  <View
-                    style={[
-                      styles.teamStatusCardHeader,
-                      secao.chave === 'confirmado' && styles.teamStatusHeaderConfirmed,
-                      secao.chave === 'recusado' && styles.teamStatusHeaderRejected,
-                      secao.chave === 'pendente' && styles.teamStatusHeaderPending,
-                      secao.chave === 'cancelado' && styles.teamStatusHeaderCancelled,
-                      secao.chave === 'informativo' && styles.teamStatusHeaderInformative,
-                      secao.chave === 'outros' && styles.teamStatusHeaderOther,
-                    ]}
-                  >
-                    <Text style={styles.teamStatusCardTitle}>{secao.titulo}</Text>
-                    <View style={styles.teamStatusCardCount}>
-                      <Text style={styles.teamStatusSectionCountText}>{secao.membros.length}</Text>
-                    </View>
-                  </View>
-                  <Card.Content style={styles.teamStatusCardBody}>
-                    {secao.membros.map((pessoa, index) => (
-                      <View
-                        key={pessoa.id || index}
-                        style={[
-                          styles.personRow,
-                          index === secao.membros.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                      >
-                        <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
-                        <View style={styles.personInfo}>
-                          <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
-                          <Text style={[styles.personMeta, { marginTop: 2, fontSize: 13, color: '#334155' }]} numberOfLines={1}>{pessoa.funcao}</Text>
+              {secoesEquipe.map((secao) => {
+                const recolhida = Boolean(secoesEquipeRecolhidas[secao.chave]);
+                return (
+                  <Card key={secao.chave} style={styles.teamStatusCard}>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={`${secao.titulo}, ${recolhida ? 'expandir' : 'recolher'}`}
+                      accessibilityState={{ expanded: !recolhida }}
+                      onPress={() => setSecoesEquipeRecolhidas((atuais) => ({
+                        ...atuais,
+                        [secao.chave]: !atuais[secao.chave],
+                      }))}
+                      style={[
+                        styles.teamStatusCardHeader,
+                        secao.chave === 'confirmado' && styles.teamStatusHeaderConfirmed,
+                        secao.chave === 'recusado' && styles.teamStatusHeaderRejected,
+                        secao.chave === 'pendente' && styles.teamStatusHeaderPending,
+                        secao.chave === 'cancelado' && styles.teamStatusHeaderCancelled,
+                        secao.chave === 'informativo' && styles.teamStatusHeaderInformative,
+                        secao.chave === 'outros' && styles.teamStatusHeaderOther,
+                      ]}
+                    >
+                      <Text style={styles.teamStatusCardTitle}>{secao.titulo}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={styles.teamStatusCardCount}>
+                          <Text style={styles.teamStatusSectionCountText}>{secao.membros.length}</Text>
+                        </View>
+                        <Feather
+                          name={recolhida ? 'chevron-down' : 'chevron-up'}
+                          size={20}
+                          color={CORES.textNavy}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                    {!recolhida && (
+                      <Card.Content style={styles.teamStatusCardBody}>
+                        {secao.membros.map((pessoa, index) => (
+                          <View
+                            key={pessoa.id || index}
+                            style={[
+                              styles.personRow,
+                              index === secao.membros.length - 1 && { borderBottomWidth: 0 },
+                            ]}
+                          >
+                            <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={24} color={CORES.textNavy} /></View>
+                            <View style={styles.personInfo}>
+                              <Text style={{ fontFamily: FONTES.bold, color: CORES.textNavy, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{pessoa.nomeProfissional}</Text>
+                              <Text style={[styles.personMeta, { marginTop: 2, fontSize: 13, color: '#334155' }]} numberOfLines={1}>{pessoa.funcao}</Text>
 
-                          {pessoa.statusConfirmacao !== 'Informativo' && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-                              <Text style={[styles.personMeta, { marginTop: 0, fontSize: 12 }]}>Situação do convite: </Text>
-                              <Text style={[
-                                pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText :
-                                  pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
-                                    pessoa.statusConfirmacao === 'Recusado' ? styles.rejectedText :
-                                      styles.pendingText
-                              ]}>
-                                {pessoa.statusConfirmacao}
+                              {pessoa.statusConfirmacao !== 'Informativo' && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                                  <Text style={[styles.personMeta, { marginTop: 0, fontSize: 12 }]}>Situação do convite: </Text>
+                                  <Text style={[
+                                    pessoa.statusConfirmacao === 'Confirmado' ? styles.confirmedText :
+                                      pessoa.statusConfirmacao === 'Cancelado' ? { color: '#EF4444', fontWeight: 'bold' } :
+                                        pessoa.statusConfirmacao === 'Recusado' ? styles.rejectedText :
+                                          styles.pendingText
+                                  ]}>
+                                    {pessoa.statusConfirmacao}
+                                  </Text>
+                                </View>
+                              )}
+                              <Text style={styles.personExpenseTotal}>
+                                Total de despesas: {formatarMonetario((pessoa.despesas || []).reduce((total, despesa) => total + converterValorMonetario(despesa.valor), 0))}
                               </Text>
                             </View>
-                          )}
-                          <Text style={styles.personExpenseTotal}>
-                            Total de despesas: {formatarMonetario((pessoa.despesas || []).reduce((total, despesa) => total + converterValorMonetario(despesa.valor), 0))}
-                          </Text>
-                        </View>
 
-                        <TouchableOpacity
-                          style={styles.expenseIconButton}
-                          onPress={() => abrirDespesasProfissional(pessoa)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}
-                        >
-                          <Feather name="dollar-sign" size={18} color="#059669" />
-                        </TouchableOpacity>
-                        {!eventoConcluido && (
-                          <View style={styles.actionIconsRow}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => { setProfissionalAlvo(pessoa); abrirSelecao('editarProfissional'); }}>
-                              <MaterialCommunityIcons name="pencil-outline" size={20} color={CORES.textNavy} />
+                            <TouchableOpacity
+                              style={styles.expenseIconButton}
+                              onPress={() => abrirDespesasProfissional(pessoa)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Gerenciar despesas de ${pessoa.nomeProfissional}`}
+                            >
+                              <Feather name="dollar-sign" size={18} color="#059669" />
                             </TouchableOpacity>
-                            {pessoa.statusConfirmacao === 'Recusado' && (
-                              <TouchableOpacity style={styles.iconBtn} onPress={() => clickReenviar(pessoa.idConvite)}>
-                                <MaterialCommunityIcons name="refresh" size={20} color={CORES.buttonGold} />
-                              </TouchableOpacity>
-                            )}
-                            {pessoa.statusConfirmacao !== 'Cancelado' && (
-                              <TouchableOpacity style={styles.iconBtnRed} onPress={() => abrirModalExcluir(pessoa)}>
-                                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-                              </TouchableOpacity>
+                            {!eventoConcluido && (
+                              <View style={styles.actionIconsRow}>
+                                <TouchableOpacity style={styles.iconBtn} onPress={() => { setProfissionalAlvo(pessoa); abrirSelecao('editarProfissional'); }}>
+                                  <MaterialCommunityIcons name="pencil-outline" size={20} color={CORES.textNavy} />
+                                </TouchableOpacity>
+                                {pessoa.statusConfirmacao === 'Recusado' && (
+                                  <TouchableOpacity style={styles.iconBtn} onPress={() => clickReenviar(pessoa.idConvite)}>
+                                    <MaterialCommunityIcons name="refresh" size={20} color={CORES.buttonGold} />
+                                  </TouchableOpacity>
+                                )}
+                                {pessoa.statusConfirmacao !== 'Cancelado' && (
+                                  <TouchableOpacity style={styles.iconBtnRed} onPress={() => abrirModalExcluir(pessoa)}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
                             )}
                           </View>
-                        )}
-                      </View>
-                    ))}
-                  </Card.Content>
-                </Card>
-              ))}
+                        ))}
+                      </Card.Content>
+                    )}
+                  </Card>
+                );
+              })}
             </View>
           ) : <Text style={styles.sectionHint}>Nenhum profissional adicionado.</Text>}
 

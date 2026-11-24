@@ -18,6 +18,23 @@ const ENDERECO_VAZIO = {
   rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
 };
 
+function Campo({ label, value, onChangeText, placeholder = '', teclado = 'default' }) {
+  return (
+    <View style={styles.grupo}>
+      <Text style={styles.rotulo}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder || label}
+        placeholderTextColor={CORES.textSubtle}
+        keyboardType={teclado}
+        autoCapitalize={teclado === 'email-address' ? 'none' : 'sentences'}
+        style={styles.campo}
+      />
+    </View>
+  );
+}
+
 export default function TelaEditarEmpresa({ navigation, usuario, setCurrentUser }) {
   const [dados, setDados] = useState({
     nome_fantasia: '', razao_social: '', cnpj: '', email: '', telefone: '', endereco: ENDERECO_VAZIO,
@@ -69,21 +86,6 @@ export default function TelaEditarEmpresa({ navigation, usuario, setCurrentUser 
     }
   };
 
-  const Campo = ({ label, campo, placeholder = '', endereco = false, teclado = 'default' }) => (
-    <View style={styles.grupo}>
-      <Text style={styles.rotulo}>{label}</Text>
-      <TextInput
-        value={endereco ? dados.endereco[campo] : dados[campo]}
-        onChangeText={(valor) => (endereco ? atualizarEndereco(campo, valor) : atualizarCampo(campo, valor))}
-        placeholder={placeholder || label}
-        placeholderTextColor={CORES.textSubtle}
-        keyboardType={teclado}
-        autoCapitalize={teclado === 'email-address' ? 'none' : 'sentences'}
-        style={styles.campo}
-      />
-    </View>
-  );
-
   return (
     <KeyboardAvoidingView style={styles.tela} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.cabecalho}>
@@ -102,26 +104,26 @@ export default function TelaEditarEmpresa({ navigation, usuario, setCurrentUser 
         <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
           <View style={styles.cartao}>
             <Text style={styles.tituloSecao}>Dados da empresa</Text>
-            <Campo label="Nome fantasia *" campo="nome_fantasia" />
-            <Campo label="Razão social" campo="razao_social" />
-            <Campo label="CNPJ" campo="cnpj" teclado="numeric" />
-            <Campo label="E-mail comercial" campo="email" teclado="email-address" />
-            <Campo label="Telefone comercial" campo="telefone" teclado="phone-pad" />
+            <Campo label="Nome fantasia *" value={dados.nome_fantasia} onChangeText={(valor) => atualizarCampo('nome_fantasia', valor)} />
+            <Campo label="Razão social" value={dados.razao_social} onChangeText={(valor) => atualizarCampo('razao_social', valor)} />
+            <Campo label="CNPJ" value={dados.cnpj} onChangeText={(valor) => atualizarCampo('cnpj', valor)} teclado="numeric" />
+            <Campo label="E-mail comercial" value={dados.email} onChangeText={(valor) => atualizarCampo('email', valor)} teclado="email-address" />
+            <Campo label="Telefone comercial" value={dados.telefone} onChangeText={(valor) => atualizarCampo('telefone', valor)} teclado="phone-pad" />
           </View>
 
           <View style={styles.cartao}>
             <Text style={styles.tituloSecao}>Endereço</Text>
-            <Campo label="Rua" campo="rua" endereco />
+            <Campo label="Rua" value={dados.endereco.rua} onChangeText={(valor) => atualizarEndereco('rua', valor)} />
             <View style={styles.linha}>
-              <View style={styles.flex}><Campo label="Número" campo="numero" endereco /></View>
-              <View style={styles.flex}><Campo label="Complemento" campo="complemento" endereco /></View>
+              <View style={styles.flex}><Campo label="Número" value={dados.endereco.numero} onChangeText={(valor) => atualizarEndereco('numero', valor)} /></View>
+              <View style={styles.flex}><Campo label="Complemento" value={dados.endereco.complemento} onChangeText={(valor) => atualizarEndereco('complemento', valor)} /></View>
             </View>
-            <Campo label="Bairro" campo="bairro" endereco />
+            <Campo label="Bairro" value={dados.endereco.bairro} onChangeText={(valor) => atualizarEndereco('bairro', valor)} />
             <View style={styles.linha}>
-              <View style={styles.flex}><Campo label="Cidade" campo="cidade" endereco /></View>
-              <View style={styles.flex}><Campo label="Estado" campo="estado" endereco /></View>
+              <View style={styles.flex}><Campo label="Cidade" value={dados.endereco.cidade} onChangeText={(valor) => atualizarEndereco('cidade', valor)} /></View>
+              <View style={styles.flex}><Campo label="Estado" value={dados.endereco.estado} onChangeText={(valor) => atualizarEndereco('estado', valor)} /></View>
             </View>
-            <Campo label="CEP" campo="cep" endereco teclado="numeric" />
+            <Campo label="CEP" value={dados.endereco.cep} onChangeText={(valor) => atualizarEndereco('cep', valor)} teclado="numeric" />
           </View>
 
           {!!mensagemErro && <Text accessibilityRole="alert" style={styles.erro}>{mensagemErro}</Text>}

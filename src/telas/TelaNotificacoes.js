@@ -1,7 +1,7 @@
 // ============================================================================
 // src/telas/TelaNotificacoes.js
 // Tela responsável por listar, filtrar, alternar status (lida/não lida)
-// e redirecionar o técnico diretamente para a tela do evento da notificação.
+// e redirecionar o usuário para a tela relacionada à notificação.
 // ============================================================================
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -15,10 +15,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { autenticacao } from '../configuracao/configuracaoFirebase';
 import { CORES, FONTES } from '../tema/cores';
+import {
+  formatarDataBrasilia,
+  formatarHoraBrasilia,
+} from '../compartilhado/dataHoraBrasilia';
 import { subscribeToTechnicianAssignments } from '../servicos/servicoEscala';
 import {
   assinarNotificacoesUsuario,
@@ -47,20 +51,10 @@ function formatarDataHoraNotificacao(timestamp) {
   const data = converterParaData(timestamp);
   if (!data) return 'Agora mesmo';
 
-  const hoje = new Date();
-  const ehHoje =
-    data.getDate() === hoje.getDate() &&
-    data.getMonth() === hoje.getMonth() &&
-    data.getFullYear() === hoje.getFullYear();
-
-  const hora = String(data.getHours()).padStart(2, '0');
-  const min = String(data.getMinutes()).padStart(2, '0');
-
-  if (ehHoje) return `Hoje, ${hora}:${min}`;
-
-  const dia = String(data.getDate()).padStart(2, '0');
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  return `${dia}/${mes}/${data.getFullYear()}, ${hora}:${min}`;
+  const dataFormatada = formatarDataBrasilia(data);
+  const horaFormatada = formatarHoraBrasilia(data);
+  if (dataFormatada === formatarDataBrasilia(new Date())) return `Hoje, ${horaFormatada}`;
+  return `${dataFormatada}, ${horaFormatada}`;
 }
 
 // ============================================================================
@@ -85,6 +79,8 @@ export default function TelaNotificacoes({ navigation, route }) {
   const [carregandoConvocacoes, setCarregandoConvocacoes] = useState(
     assignmentsIniciais.length === 0
   );
+
+  useEffect(() => navigation.addListener('focus', () => setAbrindoNotificacaoId(null)), [navigation]);
 
   // Mantém a lista de convocações atualizada em tempo real para abrir o evento correto ao clicar
   useEffect(() => {
@@ -200,11 +196,29 @@ export default function TelaNotificacoes({ navigation, route }) {
   const aoClicarEmNotificacao = async (notificacao) => {
     if (abrindoNotificacaoId) return;
 
+    const inicioCarregamento = Date.now();
+    let navegouParaEvento = false;
     setAbrindoNotificacaoId(notificacao.id);
     try {
       // Se ainda não estiver lida, atualiza para lida (true) no banco
       if (!notificacao.lida) {
         await marcarNotificacaoComoLida(notificacao.id);
+      }
+
+      if (notificacao.tipo === 'convocacao_recusada' && notificacao.id_evento) {
+        const tempoRestante = 220 - (Date.now() - inicioCarregamento);
+        if (tempoRestante > 0) {
+          await new Promise((resolve) => setTimeout(resolve, tempoRestante));
+        }
+        navigation.navigate('AbasPrincipais', {
+          screen: 'Eventos',
+          params: {
+            screen: 'DetalheEvento',
+            params: { idEvento: notificacao.id_evento, abaInicial: 'Equipe' },
+          },
+        });
+        navegouParaEvento = true;
+        return;
       }
 
       // Localiza os dados do evento para abrir a tela de detalhes
@@ -223,9 +237,14 @@ export default function TelaNotificacoes({ navigation, route }) {
         };
 
         // Navega diretamente para a tela de detalhes do evento do técnico
+        const tempoRestante = 220 - (Date.now() - inicioCarregamento);
+        if (tempoRestante > 0) {
+          await new Promise((resolve) => setTimeout(resolve, tempoRestante));
+        }
         navigation.navigate('TechnicianEventDetails', {
           assignment: assignmentSerializado,
         });
+        navegouParaEvento = true;
       } else {
         // Convites recusados, cancelados ou removidos nunca devem abrir detalhes
         setAvisoIndisponivelVisivel(true);
@@ -233,7 +252,7 @@ export default function TelaNotificacoes({ navigation, route }) {
     } catch (erro) {
       console.log('Erro ao processar clique na notificação:', erro);
     } finally {
-      setAbrindoNotificacaoId(null);
+      if (!navegouParaEvento) setAbrindoNotificacaoId(null);
     }
   };
 
@@ -400,14 +419,21 @@ export default function TelaNotificacoes({ navigation, route }) {
       </ScrollView>
 
       {/* OVERLAY DE LOADING AO ABRIR UMA NOTIFICAÇÃO DE EVENTO */}
-      {Boolean(abrindoNotificacaoId) && (
+      <Modal
+        visible={Boolean(abrindoNotificacaoId)}
+        transparent
+        animationType="fade"
+        statusBarTranslucent={Platform.OS === 'android'}
+        presentationStyle="overFullScreen"
+        onRequestClose={() => {}}
+      >
         <View style={estilos.overlayCarregandoEvento}>
           <View style={estilos.cardCarregandoEvento}>
             <ActivityIndicator size="large" color={CORES.buttonGold} />
-            <Text style={estilos.textoCarregandoEvento}>Abrindo evento...</Text>
+            <Text style={estilos.textoCarregandoEvento}>Indo para o evento...</Text>
           </View>
         </View>
-      )}
+      </Modal>
 
       {/* MODAL DE AVISO PARA EVENTO INDISPONÍVEL */}
       <Modal
@@ -601,7 +627,7 @@ const estilos = StyleSheet.create({
   },
   // Estilos do overlay de loading ao abrir evento e do modal de aviso de indisponibilidade
   overlayCarregandoEvento: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: 'rgba(16, 43, 70, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',

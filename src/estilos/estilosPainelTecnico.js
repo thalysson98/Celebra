@@ -391,7 +391,7 @@ export const estilosPainelTecnico = StyleSheet.create({
     color: CORES.buttonGold,
     fontSize: 14,
   },
-  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   summaryNumber: { color: CORES.textNavy, fontFamily: FONTES.bold, fontSize: 32, marginTop: 8 },
   sectionHeading: {
     flexDirection: 'row',
@@ -792,7 +792,7 @@ export const estilosPainelTecnico = StyleSheet.create({
 
   // Estilos complementares extraídos da TelaPainelTecnico (Agenda, Perfil, Abas e Modais de Feedback)
   agendaSectionContainer: {
-    marginTop: 24,
+    marginTop: 12,
   },
   agendaDayEventsContainer: {
     marginTop: 16,

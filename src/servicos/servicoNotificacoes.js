@@ -20,6 +20,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { bancoDados } from '../configuracao/configuracaoFirebase';
+import { formatarDataBrasilia } from '../compartilhado/dataHoraBrasilia';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -58,6 +59,86 @@ export async function notificarRemocaoConvocacao({
     },
     { dispararBannerLocal: false, enviarPushRemoto: true }
   );
+}
+
+export async function notificarRecusaConvocacaoParaOrganizador({
+  idEmpresa,
+  idUsuarioOrganizador,
+  idUsuarioTecnico,
+  idEvento,
+  nomeEvento,
+  dataEvento,
+  nomeTecnico,
+  funcao,
+}) {
+  if (!idUsuarioTecnico || !idEvento) {
+    console.error('[notificacoes][recusa] dados obrigatórios ausentes', {
+      temTecnico: Boolean(idUsuarioTecnico),
+      temEvento: Boolean(idEvento),
+    });
+    return false;
+  }
+
+  try {
+    let idDestinatario = idUsuarioOrganizador || null;
+    let origemDestinatario = idDestinatario ? 'convite/evento' : null;
+
+    console.log('[notificacoes][recusa] buscando destinatário', {
+      idEvento,
+      idEmpresa: idEmpresa || null,
+      destinoInformado: Boolean(idDestinatario),
+    });
+
+    if (!idDestinatario && idEmpresa) {
+      const empresaSnap = await getDoc(doc(bancoDados, 'empresas', idEmpresa));
+      idDestinatario = empresaSnap.exists() ? empresaSnap.data().id_dono || null : null;
+      if (idDestinatario) origemDestinatario = 'empresas.id_dono';
+      console.log('[notificacoes][recusa] fallback da empresa consultado', {
+        empresaEncontrada: empresaSnap.exists(),
+        destinoEncontrado: Boolean(idDestinatario),
+      });
+    }
+
+    if (!idDestinatario) {
+      console.error('[notificacoes][recusa] nenhum organizador foi localizado', {
+        idEvento,
+        idEmpresa: idEmpresa || null,
+      });
+      return false;
+    }
+
+    const dataFormatada = formatarDataNotificacao(dataEvento);
+    const idNotificacao = `convocacao_recusada_${idEvento}_${idUsuarioTecnico}_${Date.now()}`;
+    console.log('[notificacoes][recusa] gravando no Firestore', {
+      idNotificacao,
+      idEvento,
+      origemDestinatario,
+      destinatarioUid: idDestinatario,
+    });
+
+    const criada = await criarNotificacaoUnica(
+      idNotificacao,
+      {
+        idUsuario: idDestinatario,
+        idEvento,
+        tipo: 'convocacao_recusada',
+        titulo: 'Convocação recusada',
+        mensagem: `${nomeTecnico || 'Um profissional'} recusou o convite${funcao ? ` para atuar como ${funcao}` : ''} no evento "${nomeEvento || 'Evento'}" (${dataFormatada}).`,
+      }
+    );
+    console.log('[notificacoes][recusa] gravação concluída', {
+      idNotificacao,
+      criadaNoFirestore: criada,
+    });
+    return criada;
+  } catch (erro) {
+    console.error('[notificacoes][recusa] erro no envio', {
+      idEvento,
+      codigo: erro?.code || null,
+      mensagem: erro?.message || String(erro),
+    });
+    return false;
+  }
 }
 
 export async function inicializarNotificacoesDispositivo(idUsuario) {
@@ -130,6 +211,7 @@ export async function cancelarTodasNotificacoesAgendadas() {
 async function enviarPushRemotoParaUsuario(idUsuarioDestino, titulo, mensagem) {
   // Na versão Web o navegador bloqueia chamadas diretas para a API do Expo Push (CORS)
   if (Platform.OS === 'web') return;
+  if (Platform.OS === 'android' && isRunningInExpoGo()) return;
 
   try {
     const userSnap = await getDoc(doc(bancoDados, 'usuarios', idUsuarioDestino));
@@ -229,16 +311,7 @@ export function converterParaDataLocal(valorData) {
 
 export function formatarDataNotificacao(valorData) {
   if (!valorData) return '';
-  if (typeof valorData === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(valorData.trim())) {
-    return valorData.trim();
-  }
-
-  const data = converterParaDataLocal(valorData);
-  if (!data) return String(valorData);
-
-  const dia = String(data.getDate()).padStart(2, '0');
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  return `${dia}/${mes}/${data.getFullYear()}`;
+  return formatarDataBrasilia(valorData) || String(valorData);
 }
 
 export function calcularDiasAteEvento(dataEvento) {
@@ -333,7 +406,10 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
 
     if (snapshot.exists()) return false;
   } catch (erro) {
-    console.error('Erro ao gravar notificação no Firestore:', erro?.message || erro);
+    console.error('Erro ao gravar notificação no Firestore:', {
+      codigo: erro?.code || null,
+      mensagem: erro?.message || String(erro),
+    });
     return false;
   }
 
@@ -369,6 +445,14 @@ export const assinarNotificacoesUsuario = (uid, onSucesso, onErro) => {
             : new Date(b.criado_em || b.data || 0).getTime();
           return dataB - dataA;
         });
+        const quantidadeRecusas = lista.filter(
+          (item) => item.tipo === 'convocacao_recusada'
+        ).length;
+        if (quantidadeRecusas > 0) {
+          console.log('[notificacoes][listener] recusas recebidas', {
+            quantidade: quantidadeRecusas,
+          });
+        }
         if (onSucesso) onSucesso(lista);
       },
       (erro) => {

@@ -15,6 +15,8 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { autenticacao } from './src/configuracao/configuracaoFirebase';
 import { CORES, FONTES } from './src/tema/cores';
@@ -38,6 +40,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ready, setReady] = useState(false);
   const [fontesCarregadas, erroFontes] = useFonts({
+    ...Feather.font,
+    ...MaterialCommunityIcons.font,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

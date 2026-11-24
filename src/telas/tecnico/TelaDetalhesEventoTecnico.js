@@ -25,6 +25,10 @@ import { autenticacao } from '../../configuracao/configuracaoFirebase';
 import { CORES, FONTES } from '../../tema/cores';
 import { estilosDetalhesEventoTecnico as styles } from '../../estilos/estilosDetalhesEventoTecnico';
 import {
+  formatarDataBrasilia,
+  formatarHoraBrasilia,
+} from '../../compartilhado/dataHoraBrasilia';
+import {
   respondToAssignment,
   subscribeToTechnicianAssignmentStatus,
 } from '../../servicos/servicoEscala';
@@ -46,7 +50,7 @@ function converterParaData(valor) {
 export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   // Calcula o espaço seguro da parte inferior do celular para não esconder o fim do convite
   const insets = useSafeAreaInsets();
-  const espacoInferior = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16);
+  const espacoInferior = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 32);
 
   // Recupera o objeto de convocação (assignment) passado via parâmetros de navegação
   const { assignment } = route.params || {};
@@ -160,11 +164,20 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   const responderConvite = async (status) => {
     setRespondendo(true);
     try {
+      if (status === 'declined') {
+        console.log('[convocacao][recusa][tela] botão acionado', {
+          idConvite,
+          tecnicoIdentificado: Boolean(idUsuario),
+        });
+      }
       await respondToAssignment({
         assignmentId: idConvite,
         technicianUid: idUsuario,
         status: status,
       });
+      if (status === 'declined') {
+        console.log('[convocacao][recusa][tela] serviço concluído', { idConvite });
+      }
       // Ao recusar o evento, marca como lidas as notificações/lembretes dele e cancela alarmes locais
       if (status === 'declined' && idUsuario && idEvento) {
         await marcarNotificacoesEventoComoLidas(idUsuario, idEvento);
@@ -176,6 +189,12 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
           : 'Convocação recusada.'
       );
     } catch (e) {
+      if (status === 'declined') {
+        console.error('[convocacao][recusa][tela] falha ao responder', {
+          idConvite,
+          mensagem: e?.message || String(e),
+        });
+      }
       mostrarErro(e.message || 'Não foi possível processar sua resposta.');
       setRespondendo(false);
     }
@@ -203,30 +222,17 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
   if (eventoDetalhado?.dataInicio) {
     dataFormatada = eventoDetalhado.dataInicio;
   } else if (dataInicioEvento) {
-    dataFormatada = `${String(dataInicioEvento.getDate()).padStart(2, '0')}/${String(dataInicioEvento.getMonth() + 1).padStart(2, '0')}/${dataInicioEvento.getFullYear()}`;
+    dataFormatada = formatarDataBrasilia(dataInicioEvento);
   }
 
   // Formata o horário de início do evento no padrão HH:MMh
-  let horaFormatada = 'Horário a confirmar';
-  if (eventoDetalhado?.hora_inicio || eventoDetalhado?.horaInicioLocal) {
-    horaFormatada = eventoDetalhado.hora_inicio || eventoDetalhado.horaInicioLocal;
-  } else if (dataInicioEventoAtual) {
-    horaFormatada = new Intl.DateTimeFormat('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'UTC',
-    }).format(dataInicioEventoAtual);
-  } else if (assignment?.eventTime) {
-    horaFormatada = assignment.eventTime;
-  } else if (dataInicioEvento) {
-    horaFormatada = new Intl.DateTimeFormat('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'UTC',
-    }).format(dataInicioEvento);
-  } else if (eventoDetalhado?.horaInicio) {
-    horaFormatada = eventoDetalhado.horaInicio;
-  }
+  const horaFonte =
+    eventoDetalhado?.hora_inicio ||
+    eventoDetalhado?.horaInicioLocal ||
+    eventoDetalhado?.horaInicio ||
+    assignment?.eventTime ||
+    dataInicioEvento;
+  const horaFormatada = formatarHoraBrasilia(horaFonte) || 'Horário a confirmar';
 
   const notas =
     eventoDetalhado?.notasProducao ||
@@ -528,7 +534,7 @@ export default function TelaDetalhesEventoTecnico({ route, navigation }) {
 
       {/* BARRA INFERIOR PARA RESPONDER À CONVOCAÇÃO PENDENTE (EM FLUXO FLEX PARA NÃO ESCONDER O CONTEÚDO) */}
       {isPending && !carregandoDetalhes && (
-        <View style={[styles.bottomActionArea, { paddingBottom: espacoInferior + 12 }]}>
+        <View style={[styles.bottomActionArea, { paddingBottom: espacoInferior + 16 }]}>
           {respondendo ? (
             <ActivityIndicator size="large" color="#10B981" style={styles.respondingLoader} />
           ) : (

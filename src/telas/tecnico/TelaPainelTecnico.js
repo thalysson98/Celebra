@@ -816,15 +816,19 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
     // Agrupa os eventos por mês/ano para mostrar o cabeçalho certo em cada mês da lista
     const eventosAgrupadosPorMes = [];
     for (const assignment of visibleAssignments) {
-      const dataEvento = toDate(assignment.eventDate);
-      const mesLabel = dataEvento
-        ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(dataEvento)
+      const chaveData = obterChaveDataLocal(assignment.eventDate);
+      const chaveMes = chaveData ? chaveData.slice(0, 7) : 'sem-data';
+      const [ano, mes] = chaveData ? chaveData.split('-').map(Number) : [];
+      const mesLabel = chaveData
+        ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+            new Date(ano, mes - 1, 1)
+          )
         : 'Data a confirmar';
       const ultimoGrupo = eventosAgrupadosPorMes[eventosAgrupadosPorMes.length - 1];
-      if (ultimoGrupo && ultimoGrupo.mes === mesLabel) {
+      if (ultimoGrupo && ultimoGrupo.chave === chaveMes) {
         ultimoGrupo.itens.push(assignment);
       } else {
-        eventosAgrupadosPorMes.push({ mes: mesLabel, itens: [assignment] });
+        eventosAgrupadosPorMes.push({ chave: chaveMes, mes: mesLabel, itens: [assignment] });
       }
     }
 
@@ -905,7 +909,7 @@ export default function TelaPainelTecnico({ navigation, route, user, onLogout })
         ) : eventosAgrupadosPorMes.length ? (
           <>
             {eventosAgrupadosPorMes.map((grupo) => (
-              <React.Fragment key={grupo.mes}>
+              <React.Fragment key={grupo.chave}>
                 <Text style={styles.eventMonthLabel}>{grupo.mes}</Text>
                 {grupo.itens.map((assignment) => renderEventCard(assignment))}
               </React.Fragment>

@@ -1,11 +1,16 @@
 
 import { arrayUnion, arrayRemove, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, writeBatch, updateDoc } from 'firebase/firestore';
-import { bancoDados } from '../configuracao/configuracaoFirebase';
+import { autenticacao, bancoDados } from '../configuracao/configuracaoFirebase';
 import { normalizarParaChaveData, verificarIndisponibilidadeTecnicoNaData } from './servicoIndisponibilidade';
 import {
   notificarNovoEventoParaTecnico,
   notificarConviteReenviadoParaTecnico,
+  notificarRecusaConvocacaoParaOrganizador,
 } from './servicoNotificacoes';
+import {
+  formatarDataBrasilia,
+  formatarHoraBrasilia,
+} from '../compartilhado/dataHoraBrasilia';
 
 function valorData(valor) {
   if (!valor) return Number.MAX_SAFE_INTEGER;
@@ -61,6 +66,8 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
   if (!docEvento.exists()) throw new Error('Evento não encontrado; não foi possível enviar os convites.');
   const dadosEvento = docEvento.data();
   const tituloEvento = dadosEvento.titulo || 'Novo Evento';
+  const idUsuarioOrganizador =
+    dadosEvento.id_usuario_organizador || autenticacao.currentUser?.uid || null;
 
   for (const profissional of convidados) {
     const idUsuario = profissional.idUsuario || profissional.id;
@@ -79,13 +86,7 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
     }
   }
   
-  let dataFormatada = '';
-  if (dadosEvento.data_inicio) {
-    const d = typeof dadosEvento.data_inicio.toDate === 'function' 
-      ? dadosEvento.data_inicio.toDate() 
-      : new Date(dadosEvento.data_inicio);
-    dataFormatada = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-  }
+  const dataFormatada = formatarDataBrasilia(dadosEvento.data_inicio);
 
   const convitesSnap = await getDocs(
     query(
@@ -115,6 +116,7 @@ export async function enviarConvitesEvento({ idEvento, idEmpresa, profissionais 
       id_empresa: idEmpresa,
       id_evento: idEvento,
       id_usuario: idUsuario,
+      id_usuario_organizador: idUsuarioOrganizador,
       id_tipo_profissional: profissional.idTipoProfissional,
       nome_profissional: profissional.nomeProfissional || '',
       nome_tipo_profissional: profissional.funcao || '',
@@ -176,9 +178,19 @@ export async function reenviarConvite(idConvite) {
     );
   }
 
+  const idUsuarioOrganizador =
+    dadosConvite.id_usuario_organizador ||
+    eventoSnap.data().id_usuario_organizador ||
+    autenticacao.currentUser?.uid ||
+    null;
+  const dadosAtualizacao = {
+    situacao: 'pendente',
+    enviado_em: serverTimestamp(),
+    ...(idUsuarioOrganizador ? { id_usuario_organizador: idUsuarioOrganizador } : {}),
+  };
   let reenvioRealizado = false;
   try {
-    await updateDoc(ref, { situacao: 'pendente', enviado_em: serverTimestamp() });
+    await updateDoc(ref, dadosAtualizacao);
     reenvioRealizado = true;
   } catch {
     const snap = await getDoc(ref);
@@ -186,7 +198,7 @@ export async function reenviarConvite(idConvite) {
       const dados = snap.data();
       await deleteDoc(ref);
       const { respondido_em, ...resto } = dados;
-      await setDoc(ref, { ...resto, situacao: 'pendente', enviado_em: serverTimestamp() });
+      await setDoc(ref, { ...resto, ...dadosAtualizacao });
       reenvioRealizado = true;
     }
   }
@@ -262,13 +274,9 @@ async function mapearConvite(snapshot) {
     id: snapshot.id, idEvento: convite.id_evento, idUsuario: convite.id_usuario, idEmpresa: convite.id_empresa,
     status, eventTitle: evento.titulo || 'Evento sem título', eventDate: evento.data_inicio || null,
     eventAddress: local?.endereco_completo || '', eventTypeName: tipoEvento?.nome || '',
-    eventTime: evento.hora_inicio || evento.horaInicio || (dataInicio
-      ? new Intl.DateTimeFormat('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'UTC',
-        }).format(dataInicio)
-      : ''),
+    eventTime:
+      formatarHoraBrasilia(evento.hora_inicio || evento.horaInicio) ||
+      formatarHoraBrasilia(dataInicio),
     guestCount: Number(
       evento.quantidade_convidados ??
       evento.quantidadeConvidados ??
@@ -314,34 +322,81 @@ export async function respondToAssignment({ assignmentId, technicianUid, status 
   const situacao = { accepted: 'aceito', declined: 'recusado' }[status];
   const refConvite = doc(bancoDados, 'convites', assignmentId);
 
-  await runTransaction(bancoDados, async (t) => {
-    const snap = await t.get(refConvite);
-    if (!snap.exists()) throw new Error('Este convite não existe mais.');
-    const convite = snap.data();
-    if (convite.id_usuario !== technicianUid) throw new Error('Este convite não pertence a este profissional.');
-    if (convite.situacao === 'cancelado') throw new Error('Este convite foi cancelado pelo organizador.');
+  if (status === 'declined') {
+    console.log('[convocacao][recusa] resposta acionada', {
+      assignmentId,
+      tecnicoIdentificado: Boolean(technicianUid),
+    });
+  }
+  if (!situacao) throw new Error('Resposta da convocação inválida.');
 
-    let refEvento;
-    if (situacao === 'aceito') {
-      refEvento = doc(bancoDados, 'eventos', convite.id_evento);
+  let dadosNotificacao;
+  try {
+    dadosNotificacao = await runTransaction(bancoDados, async (t) => {
+      const snap = await t.get(refConvite);
+      if (!snap.exists()) throw new Error('Este convite não existe mais.');
+      const convite = snap.data();
+      if (convite.id_usuario !== technicianUid) throw new Error('Este convite não pertence a este profissional.');
+      if (convite.situacao === 'cancelado') throw new Error('Este convite foi cancelado pelo organizador.');
+
+      const refEvento = doc(bancoDados, 'eventos', convite.id_evento);
       const eventoSnap = await t.get(refEvento);
       if (!eventoSnap.exists()) throw new Error('O evento deste convite não foi encontrado.');
+      const evento = eventoSnap.data();
 
-      const chaveData = normalizarParaChaveData(eventoSnap.data().data_inicio);
-      if (!chaveData) throw new Error('Não foi possível verificar a disponibilidade para a data do evento.');
-      const refIndisponibilidade = doc(bancoDados, 'indisponibilidade', `${technicianUid}_${chaveData}`);
-      const indisponibilidadeSnap = await t.get(refIndisponibilidade);
-      if (indisponibilidadeSnap.exists()) {
-        const dataFormatada = chaveData.split('-').reverse().join('/');
-        throw new Error(`Você marcou indisponibilidade em ${dataFormatada} e não pode aceitar este convite.`);
+      if (situacao === 'aceito') {
+        const chaveData = normalizarParaChaveData(evento.data_inicio);
+        if (!chaveData) throw new Error('Não foi possível verificar a disponibilidade para a data do evento.');
+        const refIndisponibilidade = doc(bancoDados, 'indisponibilidade', `${technicianUid}_${chaveData}`);
+        const indisponibilidadeSnap = await t.get(refIndisponibilidade);
+        if (indisponibilidadeSnap.exists()) {
+          const dataFormatada = chaveData.split('-').reverse().join('/');
+          throw new Error(`Você marcou indisponibilidade em ${dataFormatada} e não pode aceitar este convite.`);
+        }
       }
-    }
 
-    t.update(refConvite, { situacao, respondido_em: serverTimestamp() });
-    if (situacao === 'aceito') {
-      t.update(refEvento, { membros_escalados: arrayUnion(technicianUid) });
+      t.update(refConvite, { situacao, respondido_em: serverTimestamp() });
+      if (situacao === 'aceito') {
+        t.update(refEvento, { membros_escalados: arrayUnion(technicianUid) });
+      }
+
+      return {
+        idEmpresa: convite.id_empresa || evento.id_empresa,
+        idUsuarioOrganizador:
+          convite.id_usuario_organizador || evento.id_usuario_organizador || null,
+        idEvento: convite.id_evento,
+        nomeEvento: evento.titulo || 'Evento',
+        dataEvento: evento.data_inicio,
+        nomeTecnico: convite.nome_profissional || 'Profissional',
+        funcao: convite.nome_tipo_profissional || 'profissional',
+      };
+    });
+  } catch (erro) {
+    if (situacao === 'recusado') {
+      console.error('[convocacao][recusa] falha ao salvar resposta', {
+        assignmentId,
+        codigo: erro?.code || null,
+        mensagem: erro?.message || String(erro),
+      });
     }
-  });
+    throw erro;
+  }
+
+  if (situacao === 'recusado') {
+    console.log('[convocacao][recusa] resposta salva; notificando organizador', {
+      idEvento: dadosNotificacao.idEvento,
+      idEmpresa: dadosNotificacao.idEmpresa,
+      destinoInformado: Boolean(dadosNotificacao.idUsuarioOrganizador),
+    });
+    const notificacaoCriada = await notificarRecusaConvocacaoParaOrganizador({
+      ...dadosNotificacao,
+      idUsuarioTecnico: technicianUid,
+    });
+    console.log('[convocacao][recusa] resultado da notificação', {
+      idEvento: dadosNotificacao.idEvento,
+      criadaNoFirestore: notificacaoCriada,
+    });
+  }
 }
 
 

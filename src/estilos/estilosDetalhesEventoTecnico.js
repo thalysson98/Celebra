@@ -19,7 +19,7 @@ export const estilosDetalhesEventoTecnico = StyleSheet.create({
   },
 
   // Cabeçalho superior escuro com botão voltar e botão de notificações
-  header: { flexShrink: 0, backgroundColor: '#102B46', paddingHorizontal: 20, paddingTop: 45, paddingBottom: 25 },
+  header: { flexShrink: 0, backgroundColor: CORES.bgHeaderDark, paddingHorizontal: 20, paddingTop: 45, paddingBottom: 25 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   headerTitle: { color: CORES.textWhite, fontFamily: FONTES.bold, fontSize: 22 },

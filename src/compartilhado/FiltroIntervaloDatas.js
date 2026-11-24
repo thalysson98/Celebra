@@ -10,6 +10,12 @@ import {
 import { Button } from 'react-native-paper';
 import Feather from '@expo/vector-icons/Feather';
 import { CORES, FONTES } from '../tema/cores';
+import {
+  FUSO_HORARIO_BRASILIA,
+  criarDataBrasilia,
+  formatarDataBrasilia,
+  formatarDataIsoBrasilia,
+} from './dataHoraBrasilia';
 
 const DateTimePickerNativo = Platform.OS === 'web'
   ? null
@@ -23,20 +29,10 @@ function dataDoValor(valor) {
   }
   if (valor instanceof Date) return Number.isNaN(valor.getTime()) ? null : valor;
   if (typeof valor === 'string') {
-    const dataBrasileira = valor.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    const dataIso = valor.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-    const partes = dataBrasileira
-      ? [dataBrasileira[3], dataBrasileira[2], dataBrasileira[1]]
-      : dataIso
-        ? [dataIso[1], dataIso[2], dataIso[3]]
-        : null;
-    if (partes) {
-      const [ano, mes, dia] = partes.map(Number);
-      const data = new Date(ano, mes - 1, dia);
-      if (data.getFullYear() === ano && data.getMonth() === mes - 1 && data.getDate() === dia) {
-        return data;
-      }
-      return null;
+    const texto = valor.trim();
+    const chaveData = formatarDataIsoBrasilia(texto);
+    if (chaveData) {
+      return criarDataBrasilia(chaveData, '12:00');
     }
   }
 
@@ -45,10 +41,7 @@ function dataDoValor(valor) {
 }
 
 function chaveData(data) {
-  const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  const dia = String(data.getDate()).padStart(2, '0');
-  return `${ano}-${mes}-${dia}`;
+  return formatarDataIsoBrasilia(data);
 }
 
 export function obterChaveDataLocal(valor) {
@@ -57,8 +50,7 @@ export function obterChaveDataLocal(valor) {
 }
 
 function formatarData(valor) {
-  const data = dataDoValor(valor);
-  return data ? new Intl.DateTimeFormat('pt-BR').format(data) : '';
+  return formatarDataBrasilia(valor);
 }
 
 export default function FiltroIntervaloDatas({
@@ -247,9 +239,14 @@ export default function FiltroIntervaloDatas({
 
             {campoAtivo && DateTimePickerNativo && (
               <DateTimePickerNativo
-                value={dataDoValor(valorAtivo) || new Date()}
+                value={
+                  dataDoValor(valorAtivo) ||
+                  criarDataBrasilia(formatarDataIsoBrasilia(new Date()), '12:00')
+                }
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                timeZoneName={FUSO_HORARIO_BRASILIA}
+                locale={Platform.OS === 'ios' ? 'pt-BR' : undefined}
                 onChange={(evento, dataSelecionada) => {
                   if (evento.type === 'dismissed') {
                     setCampoAtivo(null);
