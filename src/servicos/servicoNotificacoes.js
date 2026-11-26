@@ -2,6 +2,7 @@
 // src/servicos/servicoNotificacoes.js
 // ATENÇÃO: Este código deve ficar APENAS em src/servicos/servicoNotificacoes.js
 // ============================================================================
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -35,6 +36,127 @@ if (Platform.OS !== 'web') {
 
 const bannersLocaisDisparados = new Set();
 const notificacoesCriadasSessao = new Set();
+const CHAVE_BANNERS_DISPARADOS_PREFIXO = '@celebra:banners_disparados:';
+
+async function carregarBannersDisparadosUsuario(idUsuario) {
+  if (!idUsuario) return new Set();
+  try {
+    const bruto = await AsyncStorage.getItem(`${CHAVE_BANNERS_DISPARADOS_PREFIXO}${idUsuario}`);
+    if (!bruto) return new Set();
+    const lista = JSON.parse(bruto);
+    return new Set(Array.isArray(lista) ? lista : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function salvarBannersDisparadosUsuario(idUsuario, conjuntoIds) {
+  if (!idUsuario || !conjuntoIds) return;
+  try {
+    const listaLimitada = Array.from(conjuntoIds).slice(-250);
+    await AsyncStorage.setItem(
+      `${CHAVE_BANNERS_DISPARADOS_PREFIXO}${idUsuario}`,
+      JSON.stringify(listaLimitada)
+    );
+  } catch {
+    // Falha de armazenamento local não interrompe o fluxo de notificações
+  }
+}
+
+export function gerarIdNotificacaoRecusa({ idEvento, idUsuarioTecnico, enviadoEm }) {
+  let sufixoCiclo = 'padrao';
+  if (enviadoEm) {
+    if (typeof enviadoEm.seconds === 'number') {
+      sufixoCiclo = String(enviadoEm.seconds);
+    } else if (typeof enviadoEm.toMillis === 'function') {
+      sufixoCiclo = String(Math.floor(enviadoEm.toMillis() / 1000));
+    } else if (typeof enviadoEm === 'number' || typeof enviadoEm === 'string') {
+      const data = new Date(enviadoEm);
+      if (!Number.isNaN(data.getTime())) {
+        sufixoCiclo = String(Math.floor(data.getTime() / 1000));
+      }
+    }
+  }
+  return `convocacao_recusada_${idEvento}_${idUsuarioTecnico}_${sufixoCiclo}`;
+}
+
+export async function processarBannersNotificacoesUsuario(
+  idUsuario,
+  listaNotificacoes = [],
+  notificacoesAnterioresRef,
+  habilitado = true
+) {
+  if (!idUsuario || !Array.isArray(listaNotificacoes)) return;
+
+  const primeiraCarga = notificacoesAnterioresRef.current === null;
+  const idsAnteriores = new Set(
+    (notificacoesAnterioresRef.current || []).map((item) => item.id)
+  );
+  notificacoesAnterioresRef.current = listaNotificacoes;
+
+  if (!habilitado || Platform.OS === 'web') return;
+
+  const jaDisparadosPersistidos = await carregarBannersDisparadosUsuario(idUsuario);
+  let alterouPersistidos = false;
+
+  for (const notif of listaNotificacoes) {
+    if (!notif?.id) continue;
+
+    if (notif.lida) {
+      if (!jaDisparadosPersistidos.has(notif.id)) {
+        jaDisparadosPersistidos.add(notif.id);
+        alterouPersistidos = true;
+      }
+      continue;
+    }
+
+    const jaDisparouAntes =
+      jaDisparadosPersistidos.has(notif.id) || bannersLocaisDisparados.has(notif.id);
+
+    if (bannersLocaisDisparados.has(notif.id) && !jaDisparadosPersistidos.has(notif.id)) {
+      jaDisparadosPersistidos.add(notif.id);
+      alterouPersistidos = true;
+    }
+
+    if (primeiraCarga) {
+      // Na abertura da sessão, dispara na barra de notificações as recusas de convocação
+      // (ou cancelamentos) não lidas que ainda não foram exibidas na barra deste aparelho
+      if (
+        !jaDisparouAntes &&
+        (notif.tipo === 'convocacao_recusada' || notif.tipo === 'evento_cancelado')
+      ) {
+        const disparou = await dispararNotificacaoBarraCelular(
+          notif.titulo,
+          notif.mensagem,
+          notif.id,
+          { idEvento: notif.id_evento || notif.idEvento || null, tipo: notif.tipo }
+        );
+        if (disparou) {
+          jaDisparadosPersistidos.add(notif.id);
+          alterouPersistidos = true;
+        }
+      } else if (!jaDisparouAntes && notif.tipo !== 'convocacao_recusada') {
+        jaDisparadosPersistidos.add(notif.id);
+        alterouPersistidos = true;
+      }
+    } else if (!idsAnteriores.has(notif.id) && !jaDisparouAntes) {
+      const disparou = await dispararNotificacaoBarraCelular(
+        notif.titulo,
+        notif.mensagem,
+        notif.id,
+        { idEvento: notif.id_evento || notif.idEvento || null, tipo: notif.tipo }
+      );
+      if (disparou) {
+        jaDisparadosPersistidos.add(notif.id);
+        alterouPersistidos = true;
+      }
+    }
+  }
+
+  if (alterouPersistidos) {
+    await salvarBannersDisparadosUsuario(idUsuario, jaDisparadosPersistidos);
+  }
+}
 
 export async function notificarRemocaoConvocacao({
   idUsuario,
@@ -70,6 +192,7 @@ export async function notificarRecusaConvocacaoParaOrganizador({
   dataEvento,
   nomeTecnico,
   funcao,
+  enviadoEm,
 }) {
   if (!idUsuarioTecnico || !idEvento) {
     console.error('[notificacoes][recusa] dados obrigatórios ausentes', {
@@ -83,24 +206,68 @@ export async function notificarRecusaConvocacaoParaOrganizador({
     let idDestinatario = idUsuarioOrganizador || null;
     let origemDestinatario = idDestinatario ? 'convite/evento' : null;
 
-    console.log('[notificacoes][recusa] buscando destinatário', {
-      idEvento,
-      idEmpresa: idEmpresa || null,
-      destinoInformado: Boolean(idDestinatario),
-    });
+    if (!idDestinatario && idEmpresa) {
+      try {
+        const empresaSnap = await getDoc(doc(bancoDados, 'empresas', idEmpresa));
+        if (empresaSnap.exists()) {
+          const dadosEmpresa = empresaSnap.data() || {};
+          idDestinatario =
+            dadosEmpresa.id_dono ||
+            dadosEmpresa.id_usuario_organizador ||
+            dadosEmpresa.id_organizador ||
+            dadosEmpresa.id_usuario ||
+            dadosEmpresa.uid_dono ||
+            null;
+          if (idDestinatario) origemDestinatario = 'empresas';
+        }
+      } catch {
+        // Prossegue para os demais fallbacks
+      }
+    }
 
     if (!idDestinatario && idEmpresa) {
-      const empresaSnap = await getDoc(doc(bancoDados, 'empresas', idEmpresa));
-      idDestinatario = empresaSnap.exists() ? empresaSnap.data().id_dono || null : null;
-      if (idDestinatario) origemDestinatario = 'empresas.id_dono';
-      console.log('[notificacoes][recusa] fallback da empresa consultado', {
-        empresaEncontrada: empresaSnap.exists(),
-        destinoEncontrado: Boolean(idDestinatario),
-      });
+      try {
+        const membrosSnap = await getDocs(
+          query(collection(bancoDados, 'membros'), where('id_empresa', '==', idEmpresa))
+        );
+        const docOrganizador = membrosSnap.docs.find((documento) => {
+          const dados = documento.data() || {};
+          return (
+            (dados.tipo_acesso && dados.tipo_acesso !== 'funcionario') ||
+            dados.papel === true
+          );
+        });
+        if (docOrganizador) {
+          idDestinatario = docOrganizador.data().id_usuario || null;
+          if (idDestinatario) origemDestinatario = 'membros';
+        }
+      } catch {
+        // Prossegue para o próximo fallback
+      }
+    }
+
+    if (!idDestinatario && idEmpresa) {
+      try {
+        const usuariosSnap = await getDocs(
+          query(
+            collection(bancoDados, 'usuarios'),
+            where('id_empresa', '==', idEmpresa),
+            where('papel', '==', true)
+          )
+        );
+        if (!usuariosSnap.empty) {
+          const docOrg = usuariosSnap.docs[0];
+          idDestinatario = docOrg.data()?.id_usuario || docOrg.id;
+          if (idDestinatario) origemDestinatario = 'usuarios.papel';
+        }
+      } catch {
+        // Se as regras atuais do Firestore restringirem a consulta de usuarios pelo técnico,
+        // o monitoramento em tempo real do organizador criará a notificação automaticamente.
+      }
     }
 
     if (!idDestinatario) {
-      console.error('[notificacoes][recusa] nenhum organizador foi localizado', {
+      console.log('[notificacoes][recusa] destinatário será resolvido pelo listener do organizador', {
         idEvento,
         idEmpresa: idEmpresa || null,
       });
@@ -108,12 +275,10 @@ export async function notificarRecusaConvocacaoParaOrganizador({
     }
 
     const dataFormatada = formatarDataNotificacao(dataEvento);
-    const idNotificacao = `convocacao_recusada_${idEvento}_${idUsuarioTecnico}_${Date.now()}`;
-    console.log('[notificacoes][recusa] gravando no Firestore', {
-      idNotificacao,
+    const idNotificacao = gerarIdNotificacaoRecusa({
       idEvento,
-      origemDestinatario,
-      destinatarioUid: idDestinatario,
+      idUsuarioTecnico,
+      enviadoEm,
     });
 
     const criada = await criarNotificacaoUnica(
@@ -124,10 +289,12 @@ export async function notificarRecusaConvocacaoParaOrganizador({
         tipo: 'convocacao_recusada',
         titulo: 'Convocação recusada',
         mensagem: `${nomeTecnico || 'Um profissional'} recusou o convite${funcao ? ` para atuar como ${funcao}` : ''} no evento "${nomeEvento || 'Evento'}" (${dataFormatada}).`,
-      }
+      },
+      { dispararBannerLocal: false, enviarPushRemoto: true }
     );
     console.log('[notificacoes][recusa] gravação concluída', {
       idNotificacao,
+      origemDestinatario,
       criadaNoFirestore: criada,
     });
     return criada;
@@ -141,11 +308,130 @@ export async function notificarRecusaConvocacaoParaOrganizador({
   }
 }
 
+export function assinarMonitoramentoRecusasOrganizador({ idEmpresa, idUsuarioOrganizador }) {
+  if (!idEmpresa || !idUsuarioOrganizador) return () => {};
+
+  const situacoesAnteriores = new Map();
+  let cargaInicialConcluida = false;
+
+  try {
+    const consulta = query(
+      collection(bancoDados, 'convites'),
+      where('id_empresa', '==', idEmpresa)
+    );
+
+    return onSnapshot(
+      consulta,
+      async (snapshot) => {
+        for (const docSnap of snapshot.docs) {
+          const convite = docSnap.data() || {};
+          const idConvite = docSnap.id;
+          const situacaoAtual = String(convite.situacao || '').toLowerCase();
+          const situacaoAnterior = situacoesAnteriores.get(idConvite);
+          situacoesAnteriores.set(idConvite, situacaoAtual);
+
+          // Garante que todos os convites da empresa tenham o id_usuario_organizador vinculado
+          if (!convite.id_usuario_organizador) {
+            updateDoc(doc(bancoDados, 'convites', idConvite), {
+              id_usuario_organizador: idUsuarioOrganizador,
+            }).catch(() => {});
+          }
+
+          const ehRecusado = situacaoAtual === 'recusado' || situacaoAtual === 'declined';
+          if (!ehRecusado || !convite.id_evento || !convite.id_usuario) continue;
+
+          const mudouParaRecusadoAgora =
+            cargaInicialConcluida &&
+            situacaoAnterior !== 'recusado' &&
+            situacaoAnterior !== 'declined';
+
+          const idNotificacao = gerarIdNotificacaoRecusa({
+            idEvento: convite.id_evento,
+            idUsuarioTecnico: convite.id_usuario,
+            enviadoEm: convite.enviado_em,
+          });
+
+          try {
+            const notifRef = doc(bancoDados, 'notificacoes', idNotificacao);
+            const notifSnap = await getDoc(notifRef);
+            if (notifSnap.exists()) continue;
+
+            // Na carga inicial, verifica se a recusa é recente (últimas 48h) para não recriar histórico antigo
+            if (!mudouParaRecusadoAgora) {
+              const respondidoMs =
+                typeof convite.respondido_em?.toDate === 'function'
+                  ? convite.respondido_em.toDate().getTime()
+                  : convite.respondido_em
+                    ? new Date(convite.respondido_em).getTime()
+                    : Date.now();
+              const limiteRecenteMs = 48 * 60 * 60 * 1000;
+              if (
+                !Number.isNaN(respondidoMs) &&
+                Date.now() - respondidoMs > limiteRecenteMs
+              ) {
+                continue;
+              }
+            }
+
+            let nomeEvento = 'Evento';
+            let dataFormatada = '';
+            try {
+              const eventoSnap = await getDoc(doc(bancoDados, 'eventos', convite.id_evento));
+              if (eventoSnap.exists()) {
+                const dadosEvento = eventoSnap.data() || {};
+                nomeEvento = dadosEvento.titulo || 'Evento';
+                dataFormatada = formatarDataNotificacao(dadosEvento.data_inicio);
+                if (!dadosEvento.id_usuario_organizador) {
+                  updateDoc(doc(bancoDados, 'eventos', convite.id_evento), {
+                    id_usuario_organizador: idUsuarioOrganizador,
+                  }).catch(() => {});
+                }
+              }
+            } catch {
+              // Se não puder ler os detalhes extras do evento, usa o título padrão
+            }
+
+            const nomeTecnico = convite.nome_profissional || 'Um profissional';
+            const funcao = convite.nome_tipo_profissional || '';
+            const sufixoData = dataFormatada ? ` (${dataFormatada})` : '';
+
+            await criarNotificacaoUnica(
+              idNotificacao,
+              {
+                idUsuario: idUsuarioOrganizador,
+                idEvento: convite.id_evento,
+                tipo: 'convocacao_recusada',
+                titulo: 'Convocação recusada',
+                mensagem: `${nomeTecnico} recusou o convite${funcao ? ` para atuar como ${funcao}` : ''} no evento "${nomeEvento}"${sufixoData}.`,
+              },
+              { dispararBannerLocal: true, enviarPushRemoto: false }
+            );
+          } catch (erroRecusa) {
+            console.log(
+              '[notificacoes][monitor-organizador] erro ao sincronizar recusa:',
+              erroRecusa?.message || erroRecusa
+            );
+          }
+        }
+        cargaInicialConcluida = true;
+      },
+      (erro) => {
+        console.log(
+          '[notificacoes][monitor-organizador] erro na assinatura de convites:',
+          erro?.message || erro
+        );
+      }
+    );
+  } catch {
+    return () => {};
+  }
+}
+
 export async function inicializarNotificacoesDispositivo(idUsuario) {
   if (Platform.OS === 'web') return null;
 
   try {
-    if (Platform.OS === 'android' && !isRunningInExpoGo()) {
+    if (Platform.OS === 'android') {
       try {
         await Notifications.setNotificationChannelAsync('default', {
           name: 'Avisos de Eventos',
@@ -247,26 +533,66 @@ async function enviarPushRemotoParaUsuario(idUsuarioDestino, titulo, mensagem) {
       throw new Error(`Expo Push respondeu com status ${resposta.status}.`);
     }
   } catch (erro) {
-    console.error('Erro ao enviar push remoto:', erro?.message || erro);
+    console.log('Aviso ao enviar push remoto:', erro?.message || erro);
   }
 }
 
-export async function dispararNotificacaoBarraCelular(titulo, mensagem, idNotificacao = null) {
-  if (Platform.OS === 'web') return;
+export async function dispararNotificacaoBarraCelular(
+  titulo,
+  mensagem,
+  idNotificacao = null,
+  dadosExtras = {}
+) {
+  if (Platform.OS === 'web') return false;
 
   try {
     if (idNotificacao) {
-      if (bannersLocaisDisparados.has(idNotificacao)) return;
+      if (bannersLocaisDisparados.has(idNotificacao)) return false;
       bannersLocaisDisparados.add(idNotificacao);
     }
 
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Avisos de Eventos',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          sound: 'default',
+        });
+      } catch {
+        // Canal já configurado
+      }
+    }
+
+    const { status: statusAtual } = await Notifications.getPermissionsAsync();
+    let statusFinal = statusAtual;
+    if (statusAtual !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      statusFinal = status;
+    }
+
+    if (statusFinal !== 'granted') {
+      if (idNotificacao) bannersLocaisDisparados.delete(idNotificacao);
+      return false;
+    }
+
     await Notifications.scheduleNotificationAsync({
-      content: { title: titulo, body: mensagem, sound: true },
+      content: {
+        title: titulo,
+        body: mensagem,
+        sound: true,
+        data: { idNotificacao, ...dadosExtras },
+        ...(Platform.OS === 'android'
+          ? { priority: Notifications.AndroidNotificationPriority.MAX }
+          : {}),
+      },
       trigger: null,
     });
+    return true;
   } catch (erro) {
     if (idNotificacao) bannersLocaisDisparados.delete(idNotificacao);
     console.error('Erro na notificação local:', erro?.message || erro);
+    return false;
   }
 }
 
@@ -388,9 +714,19 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
 
   try {
     const referencia = doc(bancoDados, 'notificacoes', idNotificacao);
-    const snapshot = await getDoc(referencia);
+    let jaExistia = false;
+    try {
+      const snapshot = await getDoc(referencia);
+      jaExistia = snapshot.exists();
+    } catch (erroLeitura) {
+      if (erroLeitura?.code === 'permission-denied') {
+        jaExistia = true;
+      } else {
+        throw erroLeitura;
+      }
+    }
 
-    if (!snapshot.exists()) {
+    if (!jaExistia) {
       await setDoc(referencia, {
         id: idNotificacao,
         id_usuario: dados.idUsuario,
@@ -404,7 +740,7 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
     }
     notificacoesCriadasSessao.add(idNotificacao);
 
-    if (snapshot.exists()) return false;
+    if (jaExistia) return false;
   } catch (erro) {
     console.error('Erro ao gravar notificação no Firestore:', {
       codigo: erro?.code || null,
@@ -414,7 +750,17 @@ async function criarNotificacaoUnica(idNotificacao, dados, opcoes = {}) {
   }
 
   if (opcoes.dispararBannerLocal) {
-    await dispararNotificacaoBarraCelular(dados.titulo, dados.mensagem, idNotificacao);
+    const disparou = await dispararNotificacaoBarraCelular(
+      dados.titulo,
+      dados.mensagem,
+      idNotificacao,
+      { idEvento: dados.idEvento || null, tipo: dados.tipo }
+    );
+    if (disparou && dados.idUsuario) {
+      const jaDisparados = await carregarBannersDisparadosUsuario(dados.idUsuario);
+      jaDisparados.add(idNotificacao);
+      await salvarBannersDisparadosUsuario(dados.idUsuario, jaDisparados);
+    }
   }
   if (opcoes.enviarPushRemoto) {
     await enviarPushRemotoParaUsuario(dados.idUsuario, dados.titulo, dados.mensagem);

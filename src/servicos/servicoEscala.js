@@ -363,12 +363,17 @@ export async function respondToAssignment({ assignmentId, technicianUid, status 
       return {
         idEmpresa: convite.id_empresa || evento.id_empresa,
         idUsuarioOrganizador:
-          convite.id_usuario_organizador || evento.id_usuario_organizador || null,
+          convite.id_usuario_organizador ||
+          evento.id_usuario_organizador ||
+          evento.id_organizador ||
+          evento.criado_por ||
+          null,
         idEvento: convite.id_evento,
         nomeEvento: evento.titulo || 'Evento',
         dataEvento: evento.data_inicio,
         nomeTecnico: convite.nome_profissional || 'Profissional',
         funcao: convite.nome_tipo_profissional || 'profissional',
+        enviadoEm: convite.enviado_em || null,
       };
     });
   } catch (erro) {

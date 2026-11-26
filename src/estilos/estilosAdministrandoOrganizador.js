@@ -8,6 +8,8 @@ export const estilosAdministrandoOrganizador = StyleSheet.create({
   title: { fontFamily: FONTES.semibold, fontSize: 24, fontWeight: '600', color: CORES.textWhite },
   subtitle: { fontFamily: FONTES.body, fontSize: 13, color: CORES.headerSubtitle, marginTop: 4 },
   notificationButton: { width: 42, height: 42, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  notificationBadge: { position: 'absolute', top: -3, right: -3, backgroundColor: '#EF4444', minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 1.5, borderColor: CORES.bgHeaderDark },
+  notificationBadgeText: { color: '#FFFFFF', fontSize: 10, fontFamily: FONTES.bold },
   tabs: { flexGrow: 0, maxHeight: 52, backgroundColor: CORES.bgHeaderDark },
   tabsContent: { paddingHorizontal: 14, gap: 8 },
   tab: { paddingHorizontal: 8, height: 48, justifyContent: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },

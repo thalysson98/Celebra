@@ -105,7 +105,7 @@ const CampoModal = ({ label, icone, editable = true, style, containerStyle, onFo
   );
 };
 
-export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
+export default function TelaAdministrandoOrganizador({ usuario, navigation, totalNaoLidas = 0 }) {
   const [categoriaAtiva, setCategoriaAtiva] = useState(CATEGORIAS[0]);
   const [itens, setItens] = useState([]);
   const [inativos, setInativos] = useState([]);
@@ -321,8 +321,20 @@ export default function TelaAdministrandoOrganizador({ usuario, navigation }) {
           <Text style={styles.title}>Minha empresa</Text>
           <Text style={styles.subtitle}>Administrando seu negócio</Text>
         </View>
-        <TouchableOpacity style={styles.notificationButton} onPress={() => navigation?.navigate('Notificacoes')}>
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={() => navigation?.navigate('Notificacoes')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir notificações"
+        >
           <Feather name="bell" size={19} color={CORES.textWhite} />
+          {totalNaoLidas > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {totalNaoLidas > 99 ? '99+' : totalNaoLidas}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 

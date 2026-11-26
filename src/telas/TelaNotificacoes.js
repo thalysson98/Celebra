@@ -361,7 +361,13 @@ export default function TelaNotificacoes({ navigation, route }) {
                 <View style={estilos.cardLinhaSuperior}>
                   <View style={estilos.iconeCirculo}>
                     <Feather
-                      name={item.tipo === 'evento_cancelado' ? 'x-circle' : item.tipo === 'convocacao_removida' ? 'user-x' : 'bell'}
+                      name={
+                        item.tipo === 'evento_cancelado'
+                          ? 'x-circle'
+                          : item.tipo === 'convocacao_removida' || item.tipo === 'convocacao_recusada'
+                            ? 'user-x'
+                            : 'bell'
+                      }
                       size={20}
                       color={CORES.textNavy}
                     />

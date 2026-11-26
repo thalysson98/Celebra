@@ -89,9 +89,8 @@ service cloud.firestore {
         && request.resource.data.cpf.matches('^[0-9]{11}$');
       allow read: if autenticado() && (
         request.auth.uid == userId
-        || (resource.data.papel == false
-          && resource.data.ativo == true
-          && organizadorDaEmpresa(resource.data.id_empresa))
+        || (resource.data.ativo == true
+          && membroDaEmpresa(resource.data.id_empresa))
       );
       allow update: if autenticado() && request.auth.uid == userId
         && (

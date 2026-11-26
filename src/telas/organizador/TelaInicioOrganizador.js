@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,7 +34,7 @@ const formatarMonetario = (num) => {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export default function TelaInicioOrganizador({ navigation, usuario }) {
+export default function TelaInicioOrganizador({ navigation, usuario, totalNaoLidas = 0 }) {
   const [eventos, setEventos] = useState([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
@@ -54,6 +54,12 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
       carregarDadosDashboard();
     }, [])
   );
+
+  useEffect(() => {
+    if (totalNaoLidas > 0) {
+      carregarDadosDashboard(false);
+    }
+  }, [totalNaoLidas]);
 
   const carregarDadosDashboard = async (mostrarCarregamento = true) => {
     if (mostrarCarregamento) setCarregandoDados(true);
@@ -405,8 +411,21 @@ export default function TelaInicioOrganizador({ navigation, usuario }) {
           >
             <Feather name={valoresVisiveis ? 'eye' : 'eye-off'} size={20} color={COLORS.textWhite} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.bellButton} onPress={() => navigation.navigate('Notificacoes')} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => navigation.navigate('Notificacoes')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir notificações"
+          >
             <Feather name="bell" size={20} color={COLORS.textWhite} />
+            {totalNaoLidas > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {totalNaoLidas > 99 ? '99+' : totalNaoLidas}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -953,6 +972,8 @@ const styles = StyleSheet.create({
   headerGreeting: { fontSize: 26, fontWeight: '700', color: COLORS.textWhite, fontFamily: FONTS.heading },
   headerCompany: { fontFamily: FONTES.body, fontSize: 14, color: COLORS.headerSubtitle, marginTop: 4 },
   bellButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
+  notificationBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: '#EF4444', minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 1.5, borderColor: COLORS.bgHeaderDark },
+  notificationBadgeText: { color: '#FFFFFF', fontSize: 10, fontFamily: FONTES.bold },
   sheet: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   sheetContent: { paddingHorizontal: 16, paddingTop: 20 },
   loadingContainer: { flex: 1, backgroundColor: COLORS.sheetBg, borderTopLeftRadius: 28, borderTopRightRadius: 28, alignItems: 'center', justifyContent: 'center', gap: 12 },

@@ -577,6 +577,8 @@ export const repositorioEventos = {
         }
     }
 
+    const idOrganizadorAtual =
+      eventoAtual.id_usuario_organizador || autenticacao.currentUser?.uid || null;
     await updateDoc(referencia, {
       titulo, id_tipo_evento: idTipoEvento, nome_tipo_evento: dadosAtualizados.tipoEvento, id_cliente: idCliente,
        locais_detalhados: locaisDetalhados,
@@ -585,6 +587,7 @@ export const repositorioEventos = {
        quantidade_convidados: Number(dadosAtualizados.numConvidados) || 0,
       observacoes: String(dadosAtualizados.notasProducao || '').trim(),
       financeiro: dadosAtualizados.financeiro || {},
+      ...(idOrganizadorAtual ? { id_usuario_organizador: idOrganizadorAtual } : {}),
     });
 
     const eventoAtualizado = await repositorioEventos.obterEvento(idEvento);
